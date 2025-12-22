@@ -10,29 +10,34 @@ def fetch_etf_prices():
         print(f"Downloading {ticker}…")
         df = yf.download(
             ticker,
-            period="max",      
-            interval="1d",      
-            auto_adjust=True   
+            period="max",
+            interval="1d",
+            auto_adjust=True,
+            progress=False
         )
-        
+
         df = df.reset_index()
+
+        # Handle MultiIndex columns
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = [c[0] for c in df.columns]
+
+        df.columns = [c.lower().replace(" ", "_") for c in df.columns]
+
+        if "adj_close" in df.columns:
+            df["close"] = df["adj_close"]
+        elif "close" in df.columns:
+            df["close"] = df["close"]
+        else:
+            raise RuntimeError(f"No close column for {ticker}")
+
+        df = df[["date", "close"]]
         df["ticker"] = ticker
-        
-        df.rename(columns={
-            "Date": "date",
-            "Close": "close",
-            "Open": "open",
-            "High": "high",
-            "Low": "low",
-            "Volume": "volume"
-        }, inplace=True)
 
         frames.append(df)
 
     all_df = pd.concat(frames, ignore_index=True)
-    all_df.sort_values(["ticker", "date"], inplace=True)
-
-    os.makedirs(RAW_DIR, exist_ok=True)
+    all_df.sort_values(["date", "ticker"], inplace=True)
     all_df.to_csv(ETF_PRICE_CSV, index=False)
 
     return all_df

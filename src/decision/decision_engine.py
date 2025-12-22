@@ -4,7 +4,13 @@ import pandas as pd
 TARGET_TICKERS = ["TLT", "AGG", "SHY"]
 
 def _latest_row(df: pd.DataFrame, ticker: str) -> pd.Series:
-    return df[df["ticker"] == ticker].sort_values("date").iloc[-1]
+    rows = df[df["ticker"] == ticker].sort_values("date")
+
+    if rows.empty:
+        return None
+
+    return rows.iloc[-1]
+
 
 def decide_allocation(price_signals: pd.DataFrame,
                       macro_signals: pd.DataFrame) -> dict:
@@ -14,6 +20,9 @@ def decide_allocation(price_signals: pd.DataFrame,
     latest_tlt = _latest_row(price_signals, "TLT")
     latest_agg = _latest_row(price_signals, "AGG")
     latest_shy = _latest_row(price_signals, "SHY")
+
+    #if any(x is None for x in (latest_tlt, latest_agg, latest_shy)):
+    #    return None
 
     #Macro regimes
     disinflation = (
@@ -54,7 +63,7 @@ def decide_allocation(price_signals: pd.DataFrame,
     else:
         # Neutral inflation regime
         if agg_pos:
-            chosen = "AGG"
+            chosen = "AGG" 
             reason = "Neutral inflation + AGG momentum"
         else:
             chosen = "SHY"

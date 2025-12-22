@@ -41,7 +41,7 @@ def compute_price_signals(etf_df: pd.DataFrame) -> pd.DataFrame:
 
         close = g["close"].astype(float)
 
-        g["ret_lookback"] = close.pct_change(LOOKBACK_DAYS)
+        g["ret_lookback"] = close.pct_change(LOOKBACK_DAYS,fill_method=None)
         g["ma_short"] = close.rolling(LOOKBACK_DAYS).mean()
         g["ma_long"] = close.rolling(LOOKBACK_DAYS * 3).mean()
         g["trend_up"] = g["ma_short"] > g["ma_long"]
