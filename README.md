@@ -1,4 +1,5 @@
 # Project Overview
+## V 1.0.0
 
 This project implements a systematic, rule-based trading strategy designed to rotate between three U.S. Treasury–focused bond ETFs:
 
@@ -205,3 +206,10 @@ But Version 1 succeeds with simplicity + strong reasoning.
                  └──────────────────────────────────────┘
                                    Feedback loop
 ```
+## V 1.1.0
+# Additions:
+
+- Isolated Backtesting pipeline (separated process to live decision making)
+- Backtest Analytics (nav, drawdown, exposure)
+- Email integration to notify daily trade decision
+- Reshaped ETF price data at ingestion to enforce deterministic backtesting
