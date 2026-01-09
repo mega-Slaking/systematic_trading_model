@@ -1,0 +1,8 @@
+date,chosen_asset,rule_id,disinflation,curve_inverted,growth_slowing,labor_weakening,tlt_pos,agg_pos
+2025-12-24 00:00:00+00:00,AGG,NEU_AGG_001,False,False,False,False,False,True
+2025-12-27 00:00:00+00:00,AGG,NEU_AGG_001,False,False,False,False,False,True
+2025-12-27 00:00:00+00:00,AGG,NEU_AGG_001,False,False,False,False,False,True
+2026-01-07 00:00:00+00:00,AGG,DIS_INV_AGG_001,True,False,False,False,False,True
+2026-01-07 00:00:00+00:00,AGG,DIS_INV_AGG_001,True,False,False,False,False,True
+2026-01-07 00:00:00+00:00,AGG,DIS_INV_AGG_001,True,False,False,False,False,True
+2026-01-08 00:00:00+00:00,AGG,DIS_INV_AGG_001,True,False,False,False,False,True

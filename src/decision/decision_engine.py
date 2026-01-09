@@ -48,30 +48,38 @@ def decide_allocation(price_signals: pd.DataFrame,
     if inflation_rising:
         chosen = "SHY"
         reason = "Inflation rising → avoid duration"
+        rule_id = "INF_SHY_001"
 
     elif disinflation:
         if macro_supports_duration and tlt_pos:
             chosen = "TLT"
             reason = "Strong disinflation + macro confirmation + TLT momentum"
+            rule_id = "DIS_INV_TLT_001"
         elif agg_pos:
             chosen = "AGG"
             reason = "Disinflation but weak confirmation → AGG"
+            rule_id = "DIS_INV_AGG_001"
         else:
             chosen = "AGG"
             reason = "Disinflation but no positive momentum"
+            rule_id = "DIS_INV_AGG_002"
+
 
     else:
         # Neutral inflation regime
         if agg_pos:
             chosen = "AGG" 
             reason = "Neutral inflation + AGG momentum"
+            rule_id = "NEU_AGG_001"
         else:
             chosen = "SHY"
             reason = "Neutral inflation + no positive momentum"
+            rule_id = "NEU_SHY_001"
 
     return {
         "date": datetime.utcnow().isoformat(),
         "chosen": chosen,
+        "rule_id": rule_id,
         "reason": reason,
         "tlt_ret": float(latest_tlt["ret_lookback"]),
         "agg_ret": float(latest_agg["ret_lookback"]),

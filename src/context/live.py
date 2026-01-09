@@ -11,6 +11,8 @@ class LiveContext:
 
     def __init__(self):
         self.current_date = pd.Timestamp.utcnow().normalize()
+        self.decision_trace = [] 
+        self.regime_trace = []
 
     def fetch_etf_prices(self):
         return fetch_etf_prices()
@@ -23,7 +25,7 @@ class LiveContext:
         return PriceNormalizer.normalize_selected_price(df, selected)
 
     def persist(self, *args):
-        save_run(*args)
+        save_run(*args,decision_trace=self.decision_trace, regime_trace=self.regime_trace)
 
     def notify(self, decision, price_signals, macro_signals):
         send_notification(decision, price_signals, macro_signals)
