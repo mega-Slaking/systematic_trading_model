@@ -1,9 +1,10 @@
 from src.signals_price.price_signal_engine import compute_price_signals
 from src.signals_macro.macro_signal_engine import compute_macro_signals
 from src.decision.decision_engine import decide_allocation
+from src.decision.decision_trace import record_decision
+from src.decision.regime_trace import record_regime
 import pandas as pd
 
-#backtest run
 def run_engine(context):
     assert isinstance(context.current_date, pd.Timestamp), context.current_date
     etf_df = context.fetch_etf_prices()
@@ -19,6 +20,8 @@ def run_engine(context):
         return
     
     decision = decide_allocation(price_signals, macro_signals)
+    record_decision(context, decision, price_signals, macro_signals)
+    record_regime(context, macro_signals)
 
     context.persist(etf_df, macro_df, price_signals, macro_signals, decision)
     context.notify(decision, price_signals, macro_signals)

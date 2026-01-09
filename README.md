@@ -1,5 +1,5 @@
 # Project Overview
-## V 1.0.0
+## V 1.1.0
 
 This project implements a systematic, rule-based trading strategy designed to rotate between three U.S. Treasury–focused bond ETFs:
 
@@ -206,10 +206,76 @@ But Version 1 succeeds with simplicity + strong reasoning.
                  └──────────────────────────────────────┘
                                    Feedback loop
 ```
-## V 1.1.0
-# Additions:
 
+# Expected Timeline:
+### V 1.x.x - Measurement and Execution Realism
+#### V 1.2.0
+- Full Analytics Dashboard (streamlit for early stage, React once full product is complete)
+- NAV, returns, drawdowns, exposure history
+- Decision logs and regime annotations
+- Foundation for performance attribution
+#### V 1.3.0
+- Transaction cost modeling
+- Slippage assumptions
+- Explicit trade logs
+- Cash-aware accounting reflected in analytics
+#### V 1.4.0
+- Transition from single-asset switching to multi-position holding
+- Explicit tracking of cash and multiple assets
+- Portfolio marked-to-market by individual holdings
+- Rebalancing via position deltas rather than full liquidation
+### V 2.x.x - Exposure Control
+#### V 2.4.0
+- Partial allocation of capital (Long only)
+- Capital can be split across multiple bond ETFs
+- Weights-based decisions (instead of binary asset selection)
+- Cash treated as a first-class allocation
+- Exposure history and contribution analytics
+#### V 2.5.0
+- Position sizing logic
+- Separation of signal direction from exposure magnitude
+- Volatility-aware sizing
+- Conviction-based scaling
+- Maximum position caps
+#### V 2.6.0
+- Hard portfolio constraints (max drawdown, exposure caps, volatility limits)
+- Risk overrides and forced de-risking
+- Risk events annotated in analytics
+### V 3.x.x - Long-Short Capability
+#### V 3.6.0
+- Support for negative weights and short positions
+- Net vs gross exposure tracking
+- Margin-aware accounting
+- Short exposure limits and forced liquidation rules
+#### V 3.7.0
+- Borrow / financing cost modeling
+- Time-dependent short carry
+- Short-side performance attribution
+### V 4.x.x - Learning and Adaptation
+#### V 4.7.0
+- Feature engineering from price, macro, regime, and risk data
+- Walk-forward validated ML models
+- ML used as an allocator / confidence modulator, not a price predictor
+- ML outputs feed into sizing and allocation layers (never execution)
+
+# Additions:
+## V 1.1.0
 - Isolated Backtesting pipeline (separated process to live decision making)
 - Backtest Analytics (nav, drawdown, exposure)
 - Email integration to notify daily trade decision
 - Reshaped ETF price data at ingestion to enforce deterministic backtesting
+## V 1.2.0
+- Added visualization functions for regime analysis
+Added Buy & Hold comparisons for TLT, AGG, SHY
+Added regime plotting (inflation, growth, labour, curve state, macro supports duration)
+
+- Added decision_trace and regime_trace lists to track decisions and regimes during backtest and live
+
+- Added rule_id field to decision output for better traceability
+Assigned specific rule IDs to each decision pathway (e.g., "INF_SHY_001", "DIS_INV_TLT_001")
+
+- Converted all plots to return figure objects (easier composition)
+Added build_buy_and_hold_nav() for benchmark comparisons
+Added 5 new regime visualization functions with color coding
+
+- Added Streamlit dashboard application with multi page views for analytics

@@ -48,6 +48,7 @@ def run_backtest(etf_history, macro_history, portfolio):
 
         context.portfolio.mark_to_market(prices_today)
         context.portfolio.rebalance(decision, prices_today)
+        #context.results["decision_trace"] = context.decision_trace
 
     print("SUMMARY executed=", executed, "skip_decision=", skip_decision, "skip_prices=", skip_prices)
-    return context.results
+    return context

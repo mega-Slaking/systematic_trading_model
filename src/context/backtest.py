@@ -7,6 +7,8 @@ class BacktestContext:
         self.macro_history = macro_history
         self.portfolio = portfolio
         self.current_date = None
+        self.decision_trace = []
+        self.regime_trace = []
         self.results = []
 
     def set_date(self, date):

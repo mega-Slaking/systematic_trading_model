@@ -23,5 +23,14 @@ def compute_macro_signals(macro_df: pd.DataFrame) -> pd.DataFrame:
     # Yield curve
     df["curve_inverted"] = df["yield_curve"] < 0
 
+    #New labels for regime tracing - for the sake of analytics
+    df["inflation_regime"] = "NEU"
+    df.loc[df["cpi_direction_down"] & df["cpi_accel_down"], "inflation_regime"] = "DIS"
+    df.loc[~df["cpi_direction_down"], "inflation_regime"] = "INF"
+
+    df["growth_regime"] = df["growth_slowing"].map({True: "SLOW", False: "OK"})
+    df["labour_regime"] = df["labor_weakening"].map({True: "WEAK", False: "OK"})
+    df["curve_state"] = df["curve_inverted"].map({True: "INV", False: "NORM"})
+
 
     return df

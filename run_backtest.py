@@ -7,9 +7,6 @@ import pandas as pd
 
 def main():
     print("Running backtest. Please be patient...")
-    #etf_history = fetch_etf_prices()
-    #macro_history = fetch_macro_data()
-    #debug for now to see where non determinism comes from
     etf_history = pd.read_csv(
         "data/raw/etf_prices.csv",
         parse_dates=["date"]
@@ -18,7 +15,7 @@ def main():
     macro_history = pd.read_csv(
         "data/raw/macro_cpi.csv",
         parse_dates=["date"]
-    )
+    ) #backtests should use static data - pulling again is non deterministic due to adjustments
 
     etf_history = etf_history.dropna(subset=["date"])
     macro_history = macro_history.dropna(subset=["date"])
@@ -41,9 +38,17 @@ def main():
 
     portfolio = Portfolio(initial_capital=1_000_000)
 
-    results = run_backtest(etf_history, macro_history, portfolio)
+    context = run_backtest(etf_history, macro_history, portfolio)
 
-    save_backtest_results(results)
+    save_backtest_results(context.results)
+    pd.DataFrame(context.decision_trace).to_csv(
+        "output/backtests/decision_trace.csv",
+        index=False
+    )
+    pd.DataFrame(context.regime_trace).to_csv(
+        "output/backtests/regime_trace.csv",
+        index=False
+    )
     print("Backtest complete.")
 
 
