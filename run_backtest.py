@@ -40,7 +40,7 @@ def main():
 
     context = run_backtest(etf_history, macro_history, portfolio)
 
-    save_backtest_results(context.results)
+    save_backtest_results(context.daily_metrics)
     pd.DataFrame(context.decision_trace).to_csv(
         "output/backtests/decision_trace.csv",
         index=False

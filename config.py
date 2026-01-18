@@ -24,3 +24,16 @@ ETF_PRICE_CSV = f"{RAW_DIR}/etf_prices.csv"
 MACRO_CPI_CSV = f"{RAW_DIR}/macro_cpi.csv"
 
 LOOKBACK_DAYS = 30
+SLIPPAGE_BPS = {
+    "SHY": 1.0,
+    "AGG": 2.0,
+    "TLT": 3.0,
+}
+
+FEE_BPS = {
+    "SHY": 1.0,
+    "AGG": 2.0,
+    "TLT": 3.0,
+}
+MIN_TRADE_NOTIONAL = 10.0 #this changes relative to your capital - probably shouldnt hardcode; consideration for later
+#NORMASL/STRRESS MODE

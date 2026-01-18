@@ -10,6 +10,8 @@ class BacktestContext:
         self.decision_trace = []
         self.regime_trace = []
         self.results = []
+        self.daily_metrics = [] 
+        self.trade_log = []  
 
     def set_date(self, date):
         self.current_date = pd.Timestamp(date)
@@ -20,7 +22,7 @@ class BacktestContext:
     def fetch_macro_data(self):
         return self.macro_history[self.macro_history["date"] <= self.current_date]
     
-    def get_prices_today(self) -> dict[str, float]:
+    def get_prices_today(self) -> dict[str, float] | None:
         etf_df = self.fetch_etf_prices()
         return PriceNormalizer.normalize_prices(etf_df)
 
