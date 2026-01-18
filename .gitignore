@@ -35,8 +35,9 @@ htmlcov/
 *.log
 output/logs/*.log
 
-# Data (optional - uncomment if you want to ignore)
-# data/raw/
+# Data for working environment clenliness - should refactor to sqlite
+data/
+output/
 # data/processed/
 
 # OS

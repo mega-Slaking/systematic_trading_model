@@ -279,3 +279,21 @@ Added build_buy_and_hold_nav() for benchmark comparisons
 Added 5 new regime visualization functions with color coding
 
 - Added Streamlit dashboard application with multi page views for analytics
+
+## V 1.3.0
+- Added explicit execution and transaction cost modeling, with fee cost, slippage cost, and total transaction cost tracked per day
+
+- Introduced Trade objects to represent individual BUY / SELL executions, with per-trade execution properties (price, notional, costs, reason) persisted for analytics
+
+- Implemented realistic rebalance execution pipeline
+
+- Trades now update portfolio cash and holdings using executed prices and fees
+
+- Rebalance logic produces auditable SELL → BUY trade sequences on asset switches
+
+- Daily NAV is now derived from post-trade cash and holdings
+
+- Cumulative transaction cost impact visible across full backtest horizon
+
+- Introduced accounting and valuation layers to separate execution, valuation, and accounting concerns, execution: generates trades with prices and costs,
+valuation: marks portfolio to market at mid prices, accounting: aggregates daily performance and trading activity
