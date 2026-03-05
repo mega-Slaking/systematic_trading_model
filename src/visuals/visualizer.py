@@ -22,7 +22,7 @@ def generate_daily_report(
             macro_col="cpi_yoy",
             macro_label="CPI YoY"
         )
-        fig.savefig(f"{output_dir}/{ticker.lower()}_vs_cpi.png")
+        #fig.savefig(f"{output_dir}/{ticker.lower()}_vs_cpi.png")
         plt.close(fig)
 
     for ticker in ["TLT", "AGG", "SHY"]:
@@ -33,9 +33,9 @@ def generate_daily_report(
             macro_col="pmi",
             macro_label="PMI"
         )
-        fig.savefig(f"{output_dir}/{ticker.lower()}_vs_pmi.png")
+        #fig.savefig(f"{output_dir}/{ticker.lower()}_vs_pmi.png")
         plt.close(fig)
 
     fig = plot_yield_curve(macro_df)
-    fig.savefig(f"{output_dir}/yield_curve.png")
+    #fig.savefig(f"{output_dir}/yield_curve.png")
     plt.close(fig)
