@@ -2,6 +2,8 @@ import yfinance as yf
 import pandas as pd
 from config import TICKERS, ETF_PRICE_CSV,RAW_DIR
 import os
+import sqlite3
+from src.storage.db_writer import insert_etf_prices
 
 def fetch_etf_prices():
     frames = []
@@ -39,5 +41,12 @@ def fetch_etf_prices():
     all_df = pd.concat(frames, ignore_index=True)
     all_df.sort_values(["date", "ticker"], inplace=True)
     all_df.to_csv(ETF_PRICE_CSV, index=False)
+    conn = sqlite3.connect("data/database.db")
+    try:
+        rows = all_df.to_dict(orient="records")
+        insert_etf_prices(conn, rows)
+        conn.commit()
+    finally:
+        conn.close()
 
     return all_df
