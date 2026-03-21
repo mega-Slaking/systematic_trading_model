@@ -6,7 +6,7 @@ import matplotlib.dates as mdates
 OUTPUT_DIR = Path("output/reports")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-def load_results(path):
+def load_results(path): #This will need refactor
     df = pd.read_csv(path)
     df["date"] = pd.to_datetime(df["date"])
     return df

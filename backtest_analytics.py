@@ -11,6 +11,7 @@ from src.visuals.backtest_analysis import (
     plot_curve_state,
     plot_macro_supports_duration
 )
+from src.storage.db_reader import get_backtest_regime_trace
 
 strategy = load_results("output/backtests/backtest_results.csv")
 etf_prices = load_results("data/raw/etf_prices.csv")
@@ -30,7 +31,7 @@ plot_drawdown(tlt_nav, "tlt")
 plot_drawdown(agg_nav, "agg")
 plot_drawdown(shy_nav, "shy")
 plot_exposure(strategy, "relaxed")
-regimes = pd.read_csv("output/backtests/regime_trace.csv", parse_dates=["date"])
+regimes = get_backtest_regime_trace()
 regimes = regimes.sort_values("date")
 plot_inflation_regime(regimes, "backtest")
 plot_growth_regime(regimes, "backtest")

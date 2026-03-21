@@ -297,3 +297,11 @@ Added 5 new regime visualization functions with color coding
 
 - Introduced accounting and valuation layers to separate execution, valuation, and accounting concerns, execution: generates trades with prices and costs,
 valuation: marks portfolio to market at mid prices, accounting: aggregates daily performance and trading activity
+
+## V 1.4.0
+
+- Introduced multiposition portfolio with weights and constraints
+
+## V 1.4.1
+
+- SQL refactor for data storage and reading

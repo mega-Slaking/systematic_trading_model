@@ -1,7 +1,9 @@
+import sqlite3
 import requests
 import pandas as pd
 import os
 from config import FRED_API_KEY, MACRO_CPI_CSV, RAW_DIR
+from src.storage.db_writer import insert_macro_cpi
 
 
 #helper
@@ -93,6 +95,14 @@ def fetch_macro_data():
     macro["curve_inverted"] = macro["yield_curve"] < 0
 
     macro.to_csv(MACRO_CPI_CSV, index=False)
+    conn = sqlite3.connect("data/database.db")
+    try:
+        rows = macro.to_dict(orient="records")
+        insert_macro_cpi(conn, rows)
+        conn.commit()
+    finally:
+        conn.close()
+
 
     print("Macro data fetched successfully.")
     return macro

@@ -53,9 +53,6 @@ def run_backtest(etf_history, macro_history, portfolio):
             continue
 
         executed += 1
-        # if executed <= 5:
-        #     print("EXECUTE", context.current_date, "chosen:", decision.get("chosen"), "prices:", prices_today)
-
         #Value before trading
         snap_pre = value_portfolio(
             date=as_of,
@@ -65,7 +62,6 @@ def run_backtest(etf_history, macro_history, portfolio):
         )
 
         #Trade
-        #trades = context.portfolio.rebalance(decision, prices_today, context.current_date)
         trades = context.portfolio.rebalance_v2(decision, prices_today, context.current_date)
 
         #Value after trading
@@ -128,8 +124,10 @@ def run_backtest(etf_history, macro_history, portfolio):
     print("Total costs paid:", sum(r["total_cost"] for r in context.daily_metrics))
     trade_days = sum(1 for r in context.daily_metrics if r["gross_trade_notional"] > 0)
     print("Trade days:", trade_days)
-    print("Average cost per trade day:", 
-        sum(r["total_cost"] for r in context.daily_metrics) / trade_days)
+    total_cost = sum(r["total_cost"] for r in context.daily_metrics)
+    avg_cost_per_trade_day = total_cost / trade_days if trade_days > 0 else 0.0
+    print("Total costs paid:", total_cost)
+    print("Average cost per trade day:", avg_cost_per_trade_day)
     print("results rows:", len(context.results))
     print("daily_metrics rows:", len(context.daily_metrics))
     print("trade_log rows:", len(context.trade_log))

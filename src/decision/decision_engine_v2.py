@@ -77,7 +77,7 @@ def decide_allocation_v2(
     elif disinflation:
         if macro_supports_duration and tlt_pos:
             # Strong risk-off / duration regime: overweight TLT but not 100%
-            raw_weights = {"TLT": 0.70, "AGG": 0.20, "SHY": 0.10}
+            raw_weights = {"TLT": 0.80, "AGG": 0.20, "SHY": 0.00}
             reason = "Strong disinflation + macro confirmation + TLT momentum → overweight TLT"
             rule_id = "DIS_WGT_TLT_001"
 

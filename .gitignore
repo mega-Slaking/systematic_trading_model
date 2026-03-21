@@ -39,6 +39,7 @@ output/logs/*.log
 data/
 output/
 # data/processed/
+*.csv
 
 # OS
 .DS_Store
