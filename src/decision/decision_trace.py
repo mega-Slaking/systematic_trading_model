@@ -1,17 +1,26 @@
+UNIVERSE = ["TLT", "AGG", "SHY"]
+
 def record_decision(context, decision, price_signals, macro_signals):
-    context.decision_trace.append({
+    weights = dict(decision.get("weights") or {})
+    chosen = decision.get("chosen")
+
+    if chosen and not weights:
+        weights = {chosen: 1.0}
+
+    trace = {
         "date": context.current_date,
-        "chosen_asset": decision["chosen"],
-        "rule_id": decision["rule_id"],
-        #"reason": decision.get("reason"),
+        "rule_id": decision.get("rule_id"),
 
-        # macro state
-        "disinflation": decision["macro"]["disinflation"],
-        "curve_inverted": decision["macro"]["curve_inverted"],
-        "growth_slowing": decision["macro"]["growth_slowing"],
-        "labor_weakening": decision["macro"]["labor_weakening"],
+        "disinflation": decision.get("macro", {}).get("disinflation"),
+        "curve_inverted": decision.get("macro", {}).get("curve_inverted"),
+        "growth_slowing": decision.get("macro", {}).get("growth_slowing"),
+        "labor_weakening": decision.get("macro", {}).get("labor_weakening"),
 
-        # price state
-        "tlt_pos": decision["tlt_ret"] > 0,
-        "agg_pos": decision["agg_ret"] > 0
-    })
+        "chosen_asset": max(weights, key=weights.get) if weights else None,
+    }
+
+    # fixed columns, always present
+    for tkr in UNIVERSE:
+        trace[f"w_{tkr}"] = float(weights.get(tkr, 0.0))
+
+    context.decision_trace.append(trace)

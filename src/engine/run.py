@@ -1,6 +1,7 @@
 from src.signals_price.price_signal_engine import compute_price_signals
 from src.signals_macro.macro_signal_engine import compute_macro_signals
 from src.decision.decision_engine import decide_allocation
+from src.decision.decision_engine_v2 import decide_allocation_v2
 from src.decision.decision_trace import record_decision
 from src.decision.regime_trace import record_regime
 import pandas as pd
@@ -19,7 +20,7 @@ def run_engine(context):
     if price_signals.empty or macro_signals.empty:
         return
     
-    decision = decide_allocation(price_signals, macro_signals)
+    decision = decide_allocation_v2(price_signals, macro_signals) #replaced w v2 - no backwards compatibility
     record_decision(context, decision, price_signals, macro_signals)
     record_regime(context, macro_signals)
 

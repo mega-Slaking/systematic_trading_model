@@ -6,6 +6,19 @@ from src.utils.ensure_long import ensure_long
 from src.accounting.valuation import value_portfolio
 from src.accounting.metrics import compute_day_metrics
 
+def _weights_from_holdings(holdings: dict[str, float], prices: dict[str, float], nav: float) -> dict[str, float]:
+    nav = float(nav)
+    if nav == 0.0:
+        return {}
+
+    w: dict[str, float] = {}
+    for a, u in holdings.items():
+        if u == 0:
+            continue
+        px = float(prices[a])
+        w[a] = (float(u) * px) / nav
+
+    return w
 
 def run_backtest(etf_history, macro_history, portfolio):
     etf_history = ensure_long(etf_history)
@@ -40,27 +53,26 @@ def run_backtest(etf_history, macro_history, portfolio):
             continue
 
         executed += 1
-        if executed <= 5:
-            print("EXECUTE", context.current_date, "chosen:", decision.get("chosen"), "prices:", prices_today)
+        # if executed <= 5:
+        #     print("EXECUTE", context.current_date, "chosen:", decision.get("chosen"), "prices:", prices_today)
 
         #Value before trading
         snap_pre = value_portfolio(
             date=as_of,
             cash=context.portfolio.cash,
-            current_asset=context.portfolio.current_asset,
-            units=context.portfolio.units,
+            holdings=context.portfolio.holdings,
             prices=prices_today,
         )
 
         #Trade
-        trades = context.portfolio.rebalance(decision, prices_today, context.current_date)
+        #trades = context.portfolio.rebalance(decision, prices_today, context.current_date)
+        trades = context.portfolio.rebalance_v2(decision, prices_today, context.current_date)
 
         #Value after trading
         snap_post = value_portfolio(
             date=as_of,
             cash=context.portfolio.cash,
-            current_asset=context.portfolio.current_asset,
-            units=context.portfolio.units,
+            holdings=context.portfolio.holdings,
             prices=prices_today,
         )
 
@@ -70,6 +82,12 @@ def run_backtest(etf_history, macro_history, portfolio):
             nav=snap_post.nav,
             nav_prev=nav_prev,
             trades=trades,
+        )
+
+        weights_post = _weights_from_holdings(
+            context.portfolio.holdings,
+            prices_today,
+            snap_post.nav
         )
 
         context.daily_metrics.append({
@@ -82,7 +100,10 @@ def run_backtest(etf_history, macro_history, portfolio):
         "slippage_cost": day.slippage_cost,
         "total_cost": day.total_cost,
         "gross_trade_notional": day.gross_trade_notional,
-        "asset": snap_post.current_asset,
+        "weights": dict(weights_post),
+        "n_positions": len(weights_post),
+        "top_asset": max(weights_post, key=weights_post.get) if weights_post else None,
+        "top_weight": max(weights_post.values()) if weights_post else 0.0,
     })
 
         for t in trades:
