@@ -5,6 +5,7 @@ import pandas as pd
 from src.visuals.backtest_analysis import (plot_inflation_regime,plot_growth_regime,
                                            plot_labour_regime,plot_curve_state,plot_macro_supports_duration)
 st.header("Macro Indicator Dashboard")
+st.header("This is marked to be scrapped too - more insightful dashboard for when system is better developed")
 st.write("note: these plots plan to be updated to be more visually intuitive")
 col1, col2 = st.columns(2)
 REPO_ROOT = Path(__file__).resolve().parents[2]

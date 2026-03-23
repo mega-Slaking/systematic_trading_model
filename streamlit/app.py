@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
+import sqlite3
 import sys
 from pathlib import Path
-from src.visuals.backtest_analysis import (load_results, plot_nav,plot_drawdown,
-                                           plot_exposure,build_buy_and_hold_nav)
+from src.visuals.backtest_analysis import (plot_nav, plot_drawdown,
+                                          plot_exposure, build_buy_and_hold_nav)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
@@ -15,25 +16,28 @@ st.set_page_config(
 st.title("Systematic Trading Dashboard")
 st.caption("Backtest & Live Analytics")
 
-BACKTEST_DIR = REPO_ROOT / "output" / "backtests"
+DB_PATH = REPO_ROOT / "data" / "database.db"
 
-RESULTS_PATH = BACKTEST_DIR / "backtest_results.csv"
-DECISION_TRACE_PATH = BACKTEST_DIR / "decision_trace.csv"
-REGIME_TRACE_PATH = BACKTEST_DIR / "regime_trace.csv"
+if not DB_PATH.exists():
+    st.error("No database found at data/database.db. Run the backtest/persistence pipeline first.")
+    st.stop()
+
+def _connect_db() -> sqlite3.Connection:
+    return sqlite3.connect(DB_PATH)
 
 @st.cache_data
-def load_csv(path: Path) -> pd.DataFrame:
-    df = pd.read_csv(path)
+def load_table(table_name: str, order_by: str = "date") -> pd.DataFrame:
+    query = f"SELECT * FROM {table_name} ORDER BY {order_by}"
+    with _connect_db() as conn:
+        df = pd.read_sql(query, conn, parse_dates=["date"])
+
     if "date" in df.columns:
         df["date"] = pd.to_datetime(df["date"])
         df.sort_values("date", inplace=True)
+
     return df
 
-if not RESULTS_PATH.exists():
-    st.error("No backtest results found. Run a backtest first.")
-    st.stop()
-
-results = load_csv(RESULTS_PATH)
+results = load_table("backtest_results")
 
 st.subheader("Overview")
 
@@ -55,8 +59,8 @@ with col2:
 
 st.divider()
 st.subheader("NAV comparison")
-strategy = load_results("output/backtests/backtest_results.csv")
-etf_prices = load_results("data/raw/etf_prices.csv")
+strategy = load_table("backtest_results")
+etf_prices = load_table("etf_prices")
 tlt_nav = build_buy_and_hold_nav(etf_prices, "TLT")
 agg_nav = build_buy_and_hold_nav(etf_prices, "AGG")
 shy_nav = build_buy_and_hold_nav(etf_prices, "SHY")
@@ -85,6 +89,7 @@ with col2:
     st.write('SHY Drawdown')
     st.pyplot(fig_dd_shy, use_container_width=True)
 
-fig_exposure = plot_exposure(strategy, "Buy and Hold")
-st.subheader("Assest Exposure")
-st.pyplot(fig_exposure, use_container_width=True)
+# fig_exposure = plot_exposure(strategy, "Buy and Hold")
+# st.subheader("Assest Exposure")
+# st.pyplot(fig_exposure, use_container_width=True)
+st.write("Net exposure plot, Gross exposure plot, weighting plots and attributions")

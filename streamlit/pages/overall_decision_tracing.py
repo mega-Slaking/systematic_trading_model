@@ -2,9 +2,10 @@ import streamlit as st
 import sys
 from pathlib import Path
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 st.header("Decision Analytics Dashboard")
+st.header("I Might scrap this whole page and just rewrite after shorting implementation")
 col1, col2 = st.columns(2)
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
@@ -58,7 +59,7 @@ ASSET_COLORS = {
 ASSET_ORDER = ["SHY", "AGG", "TLT"]
 
 def plot_decision_timeline(decisions):
-    fig, ax = plt.subplots(figsize=(12, 2.5))
+    fig = go.Figure()
 
     for i in range(len(decisions) - 1):
         y0 = int(decisions.iloc[i]["asset_code"])
@@ -67,42 +68,49 @@ def plot_decision_timeline(decisions):
         x1 = decisions.iloc[i + 1]["date"]
 
         #Horizontal segment
-        ax.plot(
-            [x0, x1],
-            [y0, y0],
-            color=ASSET_COLORS[y0],
-            linewidth=2.5,
-            solid_capstyle="butt",
-            zorder=3
-        )
+        fig.add_trace(go.Scatter(
+            x=[x0, x1],
+            y=[y0, y0],
+            mode='lines',
+            line=dict(color=ASSET_COLORS[y0], width=2.5),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
 
         # vertical transition connector
         if y1 != y0:
-            ax.plot(
-                [x1, x1],
-                [y0, y1],
-                color=ASSET_COLORS[y1],
-                linewidth=2.5,
-                solid_capstyle="butt",
-                zorder=3
-            )
-            #ax.scatter([x1], [y1], s=10, zorder=4)
+            fig.add_trace(go.Scatter(
+                x=[x1, x1],
+                y=[y0, y1],
+                mode='lines',
+                line=dict(color=ASSET_COLORS[y1], width=2.5),
+                showlegend=False,
+                hoverinfo='skip'
+            ))
 
     # transitions (orange)
     rule_change = decisions["rule_id"] != decisions["rule_id"].shift(1)
     for d in decisions.loc[rule_change, "date"]:
-        ax.axvline(d, color="orange", alpha=0.25, linewidth=0.8, linestyle='--', zorder=0)
+        fig.add_vline(x=d, line_dash="dash", line_width=0.8, line_color="orange", opacity=0.25)
 
-    ax.set_yticks([asset_map[a] for a in ASSET_ORDER])
-    ax.set_yticklabels(ASSET_ORDER)
-    ax.set_title("Decision Timeline")
-    ax.grid(True, axis="x")
+    fig.update_layout(
+        title="Decision Timeline",
+        xaxis_title="Date",
+        yaxis_title="Asset",
+        hovermode='x unified',
+        template='plotly_white',
+        height=250,
+        width=1000,
+        yaxis=dict(tickvals=[asset_map[a] for a in ASSET_ORDER], ticktext=ASSET_ORDER)
+    )
+
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
 
     return fig
 st.subheader("Decision Timeline")
 
 fig = plot_decision_timeline(timeline)
-st.pyplot(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True)
 st.title("")
 
 ############################################
@@ -186,23 +194,41 @@ col_left, col_right = st.columns(2)
 
 with col_left:
     st.subheader("Switches per year")
-    fig, ax = plt.subplots(figsize=(10, 3))
-    ax.plot(switches_per_year["year"], switches_per_year["num_switches"])
-    ax.set_xlabel("Year")
-    ax.set_ylabel("Switches")
-    ax.grid(True)
-    st.pyplot(fig, use_container_width=True)
-    plt.close(fig)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=switches_per_year["year"],
+        y=switches_per_year["num_switches"],
+        mode='lines',
+        fill='tozeroy'
+    ))
+    fig.update_layout(
+        xaxis_title="Year",
+        yaxis_title="Switches",
+        template='plotly_white',
+        height=300,
+        width=450,
+        hovermode='x unified'
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 with col_right:
     st.subheader("Holding period distribution")
-    fig, ax = plt.subplots(figsize=(10, 3))
-    ax.hist(holding_periods, bins=40)
-    ax.set_xlabel("Days held (contiguous)")
-    ax.set_ylabel("Count")
-    ax.grid(True, axis="y")
-    st.pyplot(fig, use_container_width=True)
-    plt.close(fig)
+    fig = go.Figure()
+    fig.add_trace(go.Histogram(
+        x=holding_periods,
+        nbinsx=40,
+        name="Holding Period"
+    ))
+    fig.update_layout(
+        xaxis_title="Days held (contiguous)",
+        yaxis_title="Count",
+        template='plotly_white',
+        height=300,
+        width=450,
+        hovermode='x unified'
+    )
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+    st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
