@@ -38,8 +38,11 @@ output/logs/*.log
 # Data for working environment clenliness - should refactor to sqlite
 data/
 output/
-# data/processed/
+data/processed/
 *.csv
+*.png
+*.jpg
+*.jpeg
 
 # OS
 .DS_Store

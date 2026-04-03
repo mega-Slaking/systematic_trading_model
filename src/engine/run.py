@@ -1,7 +1,7 @@
+from src.decision.models import Decision
 from src.signals_price.price_signal_engine import compute_price_signals
 from src.signals_macro.macro_signal_engine import compute_macro_signals
-from src.decision.decision_engine import decide_allocation
-from src.decision.decision_engine_v2 import decide_allocation_v2
+from src.engine.decision_orchestration import orchestrate_decision_pipeline
 from src.decision.decision_trace import record_decision
 from src.decision.regime_trace import record_regime
 import pandas as pd
@@ -20,11 +20,16 @@ def run_engine(context):
     if price_signals.empty or macro_signals.empty:
         return
     
-    decision = decide_allocation_v2(price_signals, macro_signals) #replaced w v2 - no backwards compatibility
-    record_decision(context, decision, price_signals, macro_signals)
+    #decision = decide_allocation_v2(price_signals, macro_signals) #replaced w v2 - no backwards compatibility
+    decision = orchestrate_decision_pipeline(
+        decision=Decision(date=context.current_date.isoformat()),
+        price_signals=price_signals,
+        macro_signals=macro_signals
+    )
+    record_decision(context, decision, price_signals, macro_signals) #refactored
     record_regime(context, macro_signals)
 
-    context.persist(etf_df, macro_df, price_signals, macro_signals, decision)
-    context.notify(decision, price_signals, macro_signals)
-    context.visualize(etf_df, macro_df, price_signals, macro_signals, decision)
+    context.persist(etf_df, macro_df, price_signals, macro_signals, decision) #
+    context.notify(decision, price_signals, macro_signals) #
+    context.visualize(etf_df, macro_df, price_signals, macro_signals, decision) #
     return decision

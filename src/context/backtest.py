@@ -41,8 +41,23 @@ class BacktestContext:
             out[asset] = (float(units) * px) / nav
         return out
 
+    @staticmethod
+    def resolve_target_weights(decision) -> dict[str, float]:
+        if decision.final_weights is not None:
+            return dict(decision.final_weights)
+
+        if decision.sized_weights is not None:
+            return dict(decision.sized_weights)
+
+        if decision.base_weights is not None:
+            return dict(decision.base_weights)
+
+        return {}
+    #this staticmethod defines a hierarchy of what weight to use; discontinue usage once proper scaling is imnplemented
+
     def persist(self, etf_df, macro_df, price_signals, macro_signals, decision):
         prices_today = PriceNormalizer.normalize_prices(self.fetch_etf_prices())
+
         snap = value_portfolio(
             date=str(self.current_date),
             cash=self.portfolio.cash,
@@ -52,18 +67,29 @@ class BacktestContext:
 
         row = {
             "date": self.current_date,
-            "nav": snap.nav,
+            "nav": float(snap.nav),
+            "rule_id": decision.rule_id,
+            "reason": decision.reason,
+            "regime": decision.regime,
+            "gross_exposure": decision.gross_exposure,
+            "net_exposure": decision.net_exposure,
         }
 
-        # record target weights if present (decision intent)
-        if "weights" in decision:
-            for tkr, w in decision["weights"].items():
-                row[f"tw_{tkr}"] = float(w)
-        elif "chosen" in decision:
-            row[f"tw_{decision['chosen']}"] = 1.0
+        macro = decision.macro_state or {}
+        row["disinflation"] = macro.get("disinflation")
+        row["curve_inverted"] = macro.get("curve_inverted")
+        row["growth_slowing"] = macro.get("growth_slowing")
+        row["labor_weakening"] = macro.get("labor_weakening")
 
-        # record realized weights (actual portfolio state)
-        rw = BacktestContext.weights_from_holdings(self.portfolio.holdings, prices_today, snap.nav)
+        target_weights = BacktestContext.resolve_target_weights(decision)
+        for tkr, w in target_weights.items():
+            row[f"tw_{tkr}"] = float(w)
+
+        rw = BacktestContext.weights_from_holdings(
+            self.portfolio.holdings,
+            prices_today,
+            snap.nav,
+        )
         for tkr, w in rw.items():
             row[f"rw_{tkr}"] = float(w)
 

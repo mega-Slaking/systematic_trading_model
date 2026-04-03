@@ -50,41 +50,19 @@ class Portfolio:
         if abs(self.cash) < 1e-6:
             self.cash = 0.0
 
-
-    def rebalance(self, decision, prices,date ):
-        target = decision["chosen"]
-
-        if self.current_asset == target:
-            return []
-
-        costs = ExecutionCosts(
-            fee_bps=FEE_BPS,
-            slippage_bps=SLIPPAGE_BPS,
-            min_trade_notional=MIN_TRADE_NOTIONAL
-        )
-
-        trades = generate_single_asset_rebalance_trades(
-            date=str(date),
-            current_asset=self.current_asset,
-            current_units=self.units,
-            cash_available=self.cash,
-            target_asset=target,
-            prices=prices,
-            costs=costs,
-            reason="decision switch"
-        )
-
-        self.apply_trades(trades)
-        return trades
     
-    #Version 2 rebalance
+    #Version 2 rebalance refactor to read property
     def rebalance_v2(self, decision, prices, date):
-
-        raw_weights = decision["weights"]
+        raw_weights = (
+            decision.final_weights
+            or decision.sized_weights
+            or decision.base_weights
+            or {}
+        )
 
         weights = normalize_weights(
             clip_weights(raw_weights)
-        )
+        ) #this could be redundant later
 
         costs = ExecutionCosts(
             fee_bps=FEE_BPS,
@@ -99,7 +77,7 @@ class Portfolio:
             target_weights=weights,
             prices=prices,
             costs=costs,
-            reason="decision weights",
+            reason=decision.reason or "decision weights",
             drift_tol=DRIFT_TOL,
         )
 
