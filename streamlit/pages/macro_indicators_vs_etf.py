@@ -3,21 +3,22 @@ import sys
 from pathlib import Path
 import pandas as pd
 from src.visuals.plots import plot_etf_vs_macro, plot_yield_curve
+from src.storage.db_reader import get_etf_history, get_macro_history
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 BASE_DIR = Path(__file__).resolve().parents[2]
 st.title("ETFs vs Macro Indicators ")
 @st.cache_data
-def load_csv(path: Path) -> pd.DataFrame:
-    df = pd.read_csv(path)
-    if "date" in df.columns:
-        df["date"] = pd.to_datetime(df["date"])
-        df.sort_values("date", inplace=True)
-    return df
+def load_etf_data() -> pd.DataFrame:
+    return get_etf_history()
 
-etf_df = load_csv(BASE_DIR / "data" / "raw" / "etf_prices.csv")
-macro_df = load_csv(BASE_DIR / "data" / "raw" / "macro_cpi.csv")
+@st.cache_data
+def load_macro_data() -> pd.DataFrame:
+    return get_macro_history()
+
+etf_df = load_etf_data()
+macro_df = load_macro_data()
 
 col1, col2 = st.columns(2)
 with col1:

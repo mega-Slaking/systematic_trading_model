@@ -305,3 +305,15 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 ## V 1.4.1
 
 - SQL refactor for data storage and reading
+
+## V 1.4.2
+
+- Migrated decision output from ad-hoc dictionaries to strongly-typed `Decision` dataclass
+
+- Created modular 4-stage decision pipeline: regime evaluation → base weight allocation → position sizing → constraint application
+
+- New engines: `regime_engine.py` (macro regime classification), `base_allocator_engine.py` (allocation logic from v2), `position_sizer_engine.py` (volatility/conviction scaling), `constraint_engine.py` (hard constraints)
+
+- Introduced `decision_orchestration.py` to coordinate pipeline stages with signal data and configuration
+
+- Refactored consuming modules to use Decision properties instead of dict access: `run.py`, `portfolio.py`, `notifier.py`, `backtest.py`, `decision_trace.py`, `persister.py`

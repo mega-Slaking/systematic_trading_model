@@ -36,3 +36,12 @@ date,chosen_asset,rule_id,disinflation,curve_inverted,growth_slowing,labor_weake
 2026-03-21 00:00:00+00:00,INF_WGT_001,False,False,False,True,SHY,0.0,0.15,0.85
 2026-03-21 00:00:00+00:00,INF_WGT_001,False,False,False,True,SHY,0.0,0.15,0.85
 2026-03-21 00:00:00+00:00,INF_WGT_001,False,False,False,True,SHY,0.0,0.15,0.85
+2026-03-23 00:00:00+00:00,INF_WGT_001,False,False,False,True,SHY,0.0,0.15,0.85
+2026-03-23 00:00:00+00:00,INF_WGT_001,False,False,False,True,SHY,0.0,0.15,0.85
+2026-03-23 00:00:00+00:00,INF_WGT_001,False,False,False,True,SHY,0.0,0.15,0.85
+2026-03-23 00:00:00+00:00,INF_WGT_001,False,False,False,True,SHY,0.0,0.15,0.85
+2026-03-26 00:00:00+00:00,INF_WGT_001,False,False,True,True,SHY,0.0,0.15,0.85
+2026-03-27 00:00:00+00:00,INF_WGT_001,False,False,True,True,SHY,0.0,0.15,0.85
+2026-03-28 00:00:00+00:00,INF_WGT_001,False,False,True,True,SHY,0.0,0.15,0.85
+2026-03-30 00:00:00+00:00,INF_WGT_001,False,False,True,True,SHY,0.0,0.15,0.85
+2026-04-01 00:00:00+00:00,DATA_FALLBACK_SHY_001,,,,,SHY,0.0,0.0,1.0

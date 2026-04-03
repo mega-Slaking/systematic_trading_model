@@ -5,6 +5,7 @@ def plot_etf_vs_macro(etf_df, macro_df, ticker, macro_col, macro_label):
     fig, ax1 = plt.subplots()
 
     etf = etf_df[etf_df["ticker"] == ticker].sort_values("date")
+
     ax1.plot(etf["date"], etf["close"], label=f"{ticker} Price")
     ax1.set_ylabel(f"{ticker} Price")
 

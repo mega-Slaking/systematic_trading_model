@@ -19,7 +19,7 @@ def insert_decision_trace(conn: sqlite3.Connection, rows: list[dict]) -> None:
     payload = [
         (
             _sql_date(r.get("date")),
-            r.get("disinflation") or r.get("disnflation"),
+            r.get("disinflation"),
             r.get("curve_inverted"),
             r.get("growth_slowing"),
             r.get("labour_weakening"),
@@ -155,7 +155,7 @@ def insert_backtest_decision_trace(conn: sqlite3.Connection, rows: list[dict]) -
     payload = [
         (
             _sql_date(r.get("date")),
-            r.get("disinflation") or r.get("disnflation"),
+            r.get("disinflation"),
             r.get("curve_inverted"),
             r.get("growth_slowing"),
             r.get("labor_weakening"),

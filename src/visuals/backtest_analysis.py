@@ -16,7 +16,6 @@ def plot_nav(dfs, labels, name=None):
 
     for df, label in zip(dfs, labels):
         ax.plot(df["date"], df["nav"], label=label)
-
     ax.legend()
     ax.set_title("NAV Comparison")
     ax.grid(True)
@@ -91,7 +90,7 @@ def plot_inflation_regime(regime_df: pd.DataFrame, name: str | None = None):
 
     fig, ax = plt.subplots(figsize=(12, 2.5))
 
-    # draw segments + transitions
+    # Draw segments + transitions
     for i in range(len(df) - 1):
         y0 = df.iloc[i]["code"]
         y1 = df.iloc[i + 1]["code"]
@@ -176,8 +175,10 @@ def plot_growth_regime(regime_df: pd.DataFrame, name: str | None = None):
 
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+
     if name:
         fig.savefig(OUTPUT_DIR / f"{name}_growth_regime.png")
+
     return fig
 
 
@@ -198,8 +199,10 @@ def plot_labour_regime(regime_df: pd.DataFrame, name: str | None = None):
 
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+
     if name:
         fig.savefig(OUTPUT_DIR / f"{name}_labour_regime.png")
+
     return fig
 
 
@@ -220,8 +223,10 @@ def plot_curve_state(regime_df: pd.DataFrame, name: str | None = None):
 
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+
     if name:
         fig.savefig(OUTPUT_DIR / f"{name}_curve_state.png")
+
     return fig
 
 
@@ -242,6 +247,8 @@ def plot_macro_supports_duration(regime_df: pd.DataFrame, name: str | None = Non
 
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+
     if name:
         fig.savefig(OUTPUT_DIR / f"{name}_macro_supports_duration.png")
+
     return fig

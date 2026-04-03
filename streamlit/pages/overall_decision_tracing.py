@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 st.header("Decision Analytics Dashboard")
+st.header("I Might scrap this whole page and just rewrite after shorting implementation")
 col1, col2 = st.columns(2)
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
@@ -86,7 +87,6 @@ def plot_decision_timeline(decisions):
                 solid_capstyle="butt",
                 zorder=3
             )
-            #ax.scatter([x1], [y1], s=10, zorder=4)
 
     # transitions (orange)
     rule_change = decisions["rule_id"] != decisions["rule_id"].shift(1)
