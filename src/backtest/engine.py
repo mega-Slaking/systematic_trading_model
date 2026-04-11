@@ -20,7 +20,7 @@ def _weights_from_holdings(holdings: dict[str, float], prices: dict[str, float],
 
     return w
 
-def run_backtest(etf_history, macro_history, portfolio):
+def run_backtest(etf_history, macro_history, portfolio,scenario):
     etf_history = ensure_long(etf_history)
     context = BacktestContext(etf_history, macro_history, portfolio)
 
@@ -36,7 +36,7 @@ def run_backtest(etf_history, macro_history, portfolio):
         context.set_date(pd.Timestamp(date))
         as_of = str(context.current_date)
 
-        decision = run_engine(context)
+        decision = run_engine(context, scenario=scenario)
         if decision is None:
             skip_decision += 1
             if skip_decision <= 5:

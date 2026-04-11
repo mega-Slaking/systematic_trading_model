@@ -94,7 +94,6 @@ def fetch_macro_data():
     #Yield curve inversion
     macro["curve_inverted"] = macro["yield_curve"] < 0
 
-    macro.to_csv(MACRO_CPI_CSV, index=False)
     conn = sqlite3.connect("data/database.db")
     try:
         rows = macro.to_dict(orient="records")

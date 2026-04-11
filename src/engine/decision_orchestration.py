@@ -10,7 +10,7 @@ def orchestrate_decision_pipeline(
     decision: Decision,
     price_signals,
     macro_signals,
-    vols=None,
+    vol_estimate=None,
     sizing_config: PositionSizingConfig | None = None,
     constraints: WeightConstraints | None = None,
 ) -> Decision:
@@ -21,7 +21,7 @@ def orchestrate_decision_pipeline(
     decision = allocate_base_weights(decision)
     #Base Allocation
 
-    decision = size_positions(decision, vols=vols, config=sizing_config)
+    decision = size_positions(decision, vol_estimate=vol_estimate, config=sizing_config)
     #Position Sizing
 
     decision = apply_final_constraints(decision, constraints=constraints)

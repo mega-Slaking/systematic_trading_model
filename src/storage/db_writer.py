@@ -123,6 +123,7 @@ def insert_backtest_results(conn: sqlite3.Connection, rows: list[dict]) -> None:
     payload = [
         (
             _sql_date(r.get("date")),
+            r.get("scenario_id"),
             r.get("nav_pre"),
             r.get("nav"),
             r.get("ret"),
@@ -143,7 +144,7 @@ def insert_backtest_results(conn: sqlite3.Connection, rows: list[dict]) -> None:
         """
         INSERT OR REPLACE INTO backtest_results VALUES (
         ?,?,?,?,?,?,?,?,?,?,
-        ?,?,?
+        ?,?,?,?
         )
         """,
         payload,
@@ -155,6 +156,7 @@ def insert_backtest_decision_trace(conn: sqlite3.Connection, rows: list[dict]) -
     payload = [
         (
             _sql_date(r.get("date")),
+            r.get("scenario_id"),
             r.get("disinflation"),
             r.get("curve_inverted"),
             r.get("growth_slowing"),
@@ -169,7 +171,7 @@ def insert_backtest_decision_trace(conn: sqlite3.Connection, rows: list[dict]) -
 
     conn.executemany(
         """
-        INSERT OR REPLACE INTO backtest_decision_trace VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO backtest_decision_trace VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         payload,
     )
@@ -179,6 +181,7 @@ def insert_backtest_regime_trace(conn: sqlite3.Connection, rows: list[dict]) -> 
     payload = [
         (
             _sql_date(r.get("date")),
+            r.get("scenario_id"),
             r.get("inflation_regime"),
             r.get("growth_regime"),
             r.get("labour_regime"),
@@ -190,7 +193,7 @@ def insert_backtest_regime_trace(conn: sqlite3.Connection, rows: list[dict]) -> 
 
     conn.executemany(
         """
-        INSERT OR REPLACE INTO backtest_regime_trace VALUES (?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO backtest_regime_trace VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         payload,
     )

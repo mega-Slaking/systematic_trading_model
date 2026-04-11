@@ -1,11 +1,8 @@
 from src.backtest.engine import run_backtest
 from src.backtest.portfolio import Portfolio
-from src.storage.backtest_persister import save_backtest_results
-from src.api_fetch.fetch_etf_prices import fetch_etf_prices
-from src.api_fetch.fetch_macro_data import fetch_macro_data
 from src.storage.db_writer import insert_backtest_results, insert_backtest_decision_trace, insert_backtest_regime_trace
 from src.storage.db_reader import get_etf_history, get_macro_history
-import pandas as pd
+from src.scenarios.factory import build_vol_power_scenarios
 import sqlite3
 
 conn = sqlite3.connect("data/database.db")
@@ -42,22 +39,34 @@ def main():
 
     etf_history = etf_history[etf_history["date"] >= start_date]
 
-    portfolio = Portfolio(initial_capital=1_000_000)
+    #portfolio = Portfolio(initial_capital=1_000_000)
+    #context = run_backtest(etf_history, macro_history, portfolio)
 
-    context = run_backtest(etf_history, macro_history, portfolio)
+    scenarios = build_vol_power_scenarios()
+    for scenario in scenarios:
+        print(f"Running scenario: {scenario.scenario_id}")
 
-    save_backtest_results(context.daily_metrics)
-    insert_backtest_results(conn, context.daily_metrics)
-    pd.DataFrame(context.decision_trace).to_csv(
-        "output/backtests/decision_trace.csv",
-        index=False
-    )
-    insert_backtest_decision_trace(conn, context.decision_trace)
-    pd.DataFrame(context.regime_trace).to_csv(
-        "output/backtests/regime_trace.csv",
-        index=False
-    )
-    insert_backtest_regime_trace(conn, context.regime_trace)
+        portfolio = Portfolio(initial_capital=1_000_000)
+
+        context = run_backtest(
+            etf_history,
+            macro_history,
+            portfolio,
+            scenario=scenario,
+        )
+        for r in context.daily_metrics:
+            r["scenario_id"] = scenario.scenario_id
+
+        for r in context.decision_trace:
+            r["scenario_id"] = scenario.scenario_id
+
+        for r in context.regime_trace:
+            r["scenario_id"] = scenario.scenario_id
+
+        insert_backtest_results(conn, context.daily_metrics)
+        insert_backtest_decision_trace(conn, context.decision_trace)
+        insert_backtest_regime_trace(conn, context.regime_trace)
+
     print("Backtest complete.")
     conn.commit()
     conn.close()

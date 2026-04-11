@@ -18,10 +18,10 @@ class BacktestContext:
         self.current_date = pd.Timestamp(date)
 
     def fetch_etf_prices(self):
-        return self.etf_history[self.etf_history["date"] <= self.current_date]
+        return self.etf_history[self.etf_history["date"] < self.current_date]
 
     def fetch_macro_data(self):
-        return self.macro_history[self.macro_history["date"] <= self.current_date]
+        return self.macro_history[self.macro_history["date"] < self.current_date]
     
     def get_prices_today(self) -> dict[str, float] | None:
         etf_df = self.fetch_etf_prices()
