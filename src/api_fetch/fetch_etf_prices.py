@@ -40,7 +40,6 @@ def fetch_etf_prices():
 
     all_df = pd.concat(frames, ignore_index=True)
     all_df.sort_values(["date", "ticker"], inplace=True)
-    all_df.to_csv(ETF_PRICE_CSV, index=False)
     conn = sqlite3.connect("data/database.db")
     try:
         rows = all_df.to_dict(orient="records")

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Dict
 
 from src.decision.models import Decision
+from src.volatility.models import VolatilityEstimate
 
 
 TARGET_TICKERS = ["TLT", "AGG", "SHY"]
@@ -10,11 +11,12 @@ TARGET_TICKERS = ["TLT", "AGG", "SHY"]
 @dataclass
 class PositionSizingConfig:
     target_gross: float = 1.0
-    min_vol: float = 1e-6
+    min_vol: float = 0.05
     max_asset_weight: float = 1.0
     use_vol_scaling: bool = True
     use_conviction_scaling: bool = True
     fallback_to_base_if_empty: bool = True
+    vol_scaling_power: float = 0.20 #lower value - more signal based, higher - more risk adjusted
 
 
 def _validate_base_weights(decision: Decision) -> Dict[str, float]:
@@ -55,14 +57,18 @@ def _apply_volatility_scaling(
     scaled: Dict[str, float] = {}
 
     for ticker, weight in weights.items():
-        vol = float(vols.get(ticker, 0.0))
-        effective_vol = max(vol, config.min_vol)
-
         if weight == 0.0:
             scaled[ticker] = 0.0
             continue
 
-        scaled[ticker] = float(weight) / effective_vol
+        vol = vols.get(ticker)
+
+        if vol is None:
+            scaled[ticker] = float(weight)
+            continue
+
+        effective_vol = max(float(vol), config.min_vol)
+        scaled[ticker] = float(weight) / (effective_vol ** config.vol_scaling_power)
 
     return scaled
 
@@ -121,12 +127,13 @@ def _normalize_to_target_gross(
 
 def size_positions(
     decision: Decision,
-    vols: Dict[str, float] | None = None,
+    vol_estimate: VolatilityEstimate | None = None,
     config: PositionSizingConfig | None = None,
 ) -> Decision:
     config = config or PositionSizingConfig()
 
     base_weights = _validate_base_weights(decision)
+    vols = vol_estimate.vols if vol_estimate else None
 
     weights = _copy_weights(base_weights)
     decision.notes.append("Position sizing started from base_weights.")

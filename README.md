@@ -317,3 +317,39 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 - Introduced `decision_orchestration.py` to coordinate pipeline stages with signal data and configuration
 
 - Refactored consuming modules to use Decision properties instead of dict access: `run.py`, `portfolio.py`, `notifier.py`, `backtest.py`, `decision_trace.py`, `persister.py`
+
+## V 1.5.2
+
+- **Fixed t-1 data lag issue**: Changed data filtering in `BacktestContext` and `VolatilityEstimator` from `<=` to `<` to prevent look-ahead bias. Signals now use t-1 data when making t-day decisions.
+
+- **New Volatility Framework**: 
+  - Added `src/volatility/` module with `estimator.py` for asset-level volatility computation and `portfolio_vol_estimator.py` for portfolio-level volatility
+  - Created `VolatilityRequest`, `VolatilityEstimate`, and `PortfolioVolResult` dataclasses in `models.py`
+  - Integrated rolling standard deviation volatility computation into decision pipeline
+
+- **Scenario Testing Infrastructure**:
+  - Created `src/scenarios/` module with `factory.py` and `models.py` for parameterized backtest scenario definition
+  - Added `BacktestScenario` dataclass to bundle volatility config, position sizing parameters, and allocation profiles
+  - Implemented `build_vol_power_scenarios()` for running multi-scenario backtests with varying volatility scaling powers
+  - Updated `run_backtest.py` to loop through scenarios and tag all results with `scenario_id`
+
+- **Database Schema Updates**:
+  - Added `scenario_id` column to `backtest_results`, `backtest_decision_trace`, and `backtest_regime_trace` tables in `db_writer.py`
+  - All backtest output now flows to database only (removed CSV saving for test results)
+
+- **Streamlit Enhancements**:
+  - Added new `scenario_testing.py` page with 4-tab dashboard: NAV Comparison, Returns Analysis, Detailed Metrics, ETF Prices
+  - NAV Comparison now includes buy-and-hold benchmarks (TLT, AGG, SHY) for performance comparison
+  - Historical ETF price visualization with statistics (first/last close, min/max, total return)
+
+- **Code Cleanup**:
+  - Deleted dead code: `decision_engine.py`, `decision_engine_v2.py`, `backtest_persister.py`, `src/sizing/` module
+  - Removed CSV export for backtest results in `fetch_etf_prices.py` and `fetch_macro_data.py` (DB-only storage)
+  - Cleaned up imports: Consolidated `build_portfolio_vol_result` export in `volatility/__init__.py`
+
+- **API Changes**:
+  - `run_backtest()` now accepts `scenario` parameter for configuration
+  - `run_engine()` now accepts `scenario` parameter and computes portfolio volatility
+  - `size_positions()` refactored to accept `VolatilityEstimate` object instead of raw dict
+  - `PositionSizingConfig` extended with `vol_scaling_power` parameters
+
