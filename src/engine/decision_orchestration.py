@@ -1,3 +1,4 @@
+from src.covariance.models import CovarianceEstimate
 from src.decision.models import Decision
 from src.decision.regime_engine import evaluate_regime
 from src.decision.base_allocator_engine import allocate_base_weights
@@ -11,6 +12,7 @@ def orchestrate_decision_pipeline(
     price_signals,
     macro_signals,
     vol_estimate=None,
+    cov_estimate: CovarianceEstimate | None = None,
     sizing_config: PositionSizingConfig | None = None,
     constraints: WeightConstraints | None = None,
 ) -> Decision:
@@ -21,7 +23,7 @@ def orchestrate_decision_pipeline(
     decision = allocate_base_weights(decision)
     #Base Allocation
 
-    decision = size_positions(decision, vol_estimate=vol_estimate, config=sizing_config)
+    decision = size_positions(decision, vol_estimate=vol_estimate, cov_estimate=cov_estimate, config=sizing_config)
     #Position Sizing
 
     decision = apply_final_constraints(decision, constraints=constraints)

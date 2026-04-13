@@ -322,6 +322,13 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 
 - **Fixed t-1 data lag issue**: Changed data filtering in `BacktestContext` and `VolatilityEstimator` from `<=` to `<` to prevent look-ahead bias. Signals now use t-1 data when making t-day decisions.
 
+- **New object-oriented approach for decision pipeline**:
+  - Core design: A single strongly-typed `Decision` dataclass flows through four modular, composable engines (`regime_engine`, `base_allocator_engine`, `position_sizer_engine`, `constraint_engine`), accumulating state at each stage
+  - Each engine reads relevant fields from the `Decision` object, computes outputs, and returns an updated `Decision` instance—enabling clean composition and immutability
+  - Introduced parameterized `PositionSizingConfig` with volatility and conviction scaling parameters (`vol_scaling_power`, `use_covariance_scaling`, `target_portfolio_vol`) for scenario flexibility
+  - Pipeline now supports optional volatility estimates and covariance matrices fed into the `Decision` workflow, enabling risk-aware position sizing and multi-scenario backtesting
+  - Clean separation of concerns: each engine can be independently tested, reused, or evolved without affecting others
+
 - **New Volatility Framework**: 
   - Added `src/volatility/` module with `estimator.py` for asset-level volatility computation and `portfolio_vol_estimator.py` for portfolio-level volatility
   - Created `VolatilityRequest`, `VolatilityEstimate`, and `PortfolioVolResult` dataclasses in `models.py`
@@ -353,3 +360,24 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - `size_positions()` refactored to accept `VolatilityEstimate` object instead of raw dict
   - `PositionSizingConfig` extended with `vol_scaling_power` parameters
 
+## V 1.6.2
+
+- **New Covariance Module (`src/covariance/`)**: 
+  - Added `estimator.py` for rolling covariance matrix computation
+  - Created `models.py` with `CovarianceRequest` and `CovarianceMatrix` dataclasses for type-safe covariance workflow
+  - Covariance matrices are computed on rolling windows of returns with configurable half-life for exponential weighting
+  - Supports flexible asset lists and lookback periods for scenario-based testing
+
+- **Portfolio-Wide Volatility Targeting with Cash Treatment**:
+  - SHY is treated as a cash-equivalent asset (matched in covariance matrix and position sizing)
+  - Portfolio volatility target is specified in `PositionSizingConfig` with `target_portfolio_vol` parameter
+  - Position sizing now scales weights to hit target portfolio volatility while respecting SHY as cash reserve
+  - Portfolio vol computed from active asset weights (TLT/AGG) using covariance matrix; SHY provides downside cushion without participating in covariance drag
+
+- **Covariance-Aware Position Sizing**:
+  - Position sizing engine now integrates covariance-based portfolio volatility computation
+  - When `use_covariance_scaling` is True in scenario config, position sizes are scaled to match target portfolio volatility
+
+- **Enhanced Scenario Framework for Volatility Testing**:
+  - Extended `BacktestScenario` to include `target_portfolio_vol` list for multi-volatility backtests
+  - New `build_vol_target_scenarios()` in `scenarios/factory.py` generates scenarios across target volatility range

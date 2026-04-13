@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from typing import Dict
 
+from src.covariance.estimator import compute_portfolio_vol_from_covariance
 from src.decision.models import Decision
 from src.volatility.models import VolatilityEstimate
+from src.covariance.models import CovarianceEstimate
 
 
 TARGET_TICKERS = ["TLT", "AGG", "SHY"]
@@ -17,6 +19,8 @@ class PositionSizingConfig:
     use_conviction_scaling: bool = True
     fallback_to_base_if_empty: bool = True
     vol_scaling_power: float = 0.20 #lower value - more signal based, higher - more risk adjusted
+    use_covariance_scaling: bool = True
+    target_portfolio_vol: float = 0.10
 
 
 def _validate_base_weights(decision: Decision) -> Dict[str, float]:
@@ -124,10 +128,47 @@ def _normalize_to_target_gross(
     scale = float(config.target_gross) / gross
     return {ticker: float(weight) * scale for ticker, weight in weights.items()}
 
+def _apply_covariance_scaling_with_shy_buffer(
+    weights: Dict[str, float],
+    cov_estimate: CovarianceEstimate | None,
+    config: PositionSizingConfig,
+) -> tuple[Dict[str, float], float | None, float]:
+    if not config.use_covariance_scaling:
+        return _copy_weights(weights), None, 1.0
+
+    if cov_estimate is None:
+        return _copy_weights(weights), None, 1.0
+
+    portfolio_vol = compute_portfolio_vol_from_covariance(weights, cov_estimate)
+    if portfolio_vol is None or portfolio_vol <= 0.0:
+        return _copy_weights(weights), portfolio_vol, 1.0
+
+    raw_scale = float(config.target_portfolio_vol) / float(portfolio_vol)
+
+    adjusted = _copy_weights(weights)
+
+    risky_tickers = [ticker for ticker in adjusted if ticker != "SHY"]
+    risky_gross = sum(abs(float(adjusted[ticker])) for ticker in risky_tickers)
+
+    if risky_gross <= 0.0:
+        return adjusted, portfolio_vol, 1.0
+
+    max_scale = float(config.target_gross) / risky_gross
+    scale = min(raw_scale, max_scale)
+
+    for ticker in risky_tickers:
+        adjusted[ticker] = float(adjusted[ticker]) * scale
+
+    scaled_risky_gross = sum(abs(float(adjusted[ticker])) for ticker in risky_tickers)
+    adjusted["SHY"] = max(0.0, float(config.target_gross) - scaled_risky_gross)
+
+    return adjusted, portfolio_vol, scale
+
 
 def size_positions(
     decision: Decision,
     vol_estimate: VolatilityEstimate | None = None,
+    cov_estimate: CovarianceEstimate | None = None,
     config: PositionSizingConfig | None = None,
 ) -> Decision:
     config = config or PositionSizingConfig()
@@ -149,6 +190,21 @@ def size_positions(
 
     weights = _normalize_to_target_gross(weights, config)
     decision.notes.append(f"Gross target normalization applied with target_gross={config.target_gross}.")
+
+    weights, portfolio_vol, portfolio_scale = _apply_covariance_scaling_with_shy_buffer(
+        weights,
+        cov_estimate,
+        config,
+    )
+
+    decision.portfolio_vol_estimate = portfolio_vol
+    decision.portfolio_vol_target = config.target_portfolio_vol if config.use_covariance_scaling else None
+    decision.portfolio_scale = portfolio_scale
+
+    if config.use_covariance_scaling:
+        decision.notes.append(
+            f"Covariance scaling applied with portfolio_vol={portfolio_vol} and scale={portfolio_scale}."
+        )
 
     gross = _gross_exposure(weights)
     net = _net_exposure(weights)

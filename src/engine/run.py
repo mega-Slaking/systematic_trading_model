@@ -5,6 +5,8 @@ from src.engine.decision_orchestration import orchestrate_decision_pipeline
 from src.decision.decision_trace import record_decision
 from src.decision.regime_trace import record_regime
 from src.volatility import VolatilityConfig, VolatilityRequest, estimate_volatility
+from src.covariance.models import CovarianceConfig, CovarianceRequest
+from src.covariance.estimator import estimate_covariance
 import pandas as pd
 
 def run_engine(context,scenario=None):
@@ -22,10 +24,17 @@ def run_engine(context,scenario=None):
     
     if scenario is not None:
         vol_config = scenario.volatility_config
+        cov_config = scenario.covariance_config
         sizing_config = scenario.position_sizing_config
     else:
         vol_config = VolatilityConfig(
             method="rolling_std",
+            lookback_days=20,
+            annualization_factor=252,
+            min_history=20,
+        )
+        cov_config = CovarianceConfig(
+            method="sample_cov",
             lookback_days=20,
             annualization_factor=252,
             min_history=20,
@@ -40,11 +49,20 @@ def run_engine(context,scenario=None):
 
     vol_estimate = estimate_volatility(vol_request, vol_config) #Asset-wise, returns vector with length 3
 
+    cov_request = CovarianceRequest(
+        etf_history=etf_df,
+        as_of_date=context.current_date,
+        tickers=["TLT", "AGG", "SHY"],
+    )
+
+    cov_estimate = estimate_covariance(cov_request, cov_config)
+
     decision = orchestrate_decision_pipeline(
         decision=Decision(date=context.current_date.isoformat()),
         price_signals=price_signals,
         macro_signals=macro_signals,
         vol_estimate=vol_estimate,
+        cov_estimate=cov_estimate,
         sizing_config = sizing_config,
     )
     record_decision(context, decision, price_signals, macro_signals) #refactored
