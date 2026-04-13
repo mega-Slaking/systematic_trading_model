@@ -2,7 +2,7 @@ from src.backtest.engine import run_backtest
 from src.backtest.portfolio import Portfolio
 from src.storage.db_writer import insert_backtest_results, insert_backtest_decision_trace, insert_backtest_regime_trace
 from src.storage.db_reader import get_etf_history, get_macro_history
-from src.scenarios.factory import build_vol_power_scenarios
+from src.scenarios.factory import build_vol_power_scenarios, build_covariance_scaling_scenarios
 import sqlite3
 
 conn = sqlite3.connect("data/database.db")
@@ -42,7 +42,11 @@ def main():
     #portfolio = Portfolio(initial_capital=1_000_000)
     #context = run_backtest(etf_history, macro_history, portfolio)
 
-    scenarios = build_vol_power_scenarios()
+    scenarios = (
+        build_vol_power_scenarios()
+        + build_covariance_scaling_scenarios()
+    )
+    
     for scenario in scenarios:
         print(f"Running scenario: {scenario.scenario_id}")
 

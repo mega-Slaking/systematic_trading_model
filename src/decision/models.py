@@ -27,6 +27,11 @@ class Decision:
     gross_exposure: Optional[float] = None
     net_exposure: Optional[float] = None
 
+    # --- covariance / volatility adjustments ---
+    portfolio_vol_estimate: float | None = None
+    portfolio_vol_target: float | None = None
+    portfolio_scale: float | None = None
+
     # --- portfolio context ---
     current_weights: Optional[Dict[str, float]] = None
     rebalance_deltas: Optional[Dict[str, float]] = None
