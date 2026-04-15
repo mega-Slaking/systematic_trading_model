@@ -13,6 +13,7 @@ class CovarianceConfig:
     annualization_factor: int = 252
     min_history: int = 20
     ewma_lambda: float = 0.94
+    ewma_lookback_days: int = 756
 
 
 @dataclass

@@ -15,6 +15,10 @@ class VolatilityConfig:
     ewma_lambda: float = 0.94
     garch_p: int = 1
     garch_q: int = 1
+    garch_mean: str = "zero"
+    garch_dist: str = "normal"
+    garch_rescale_returns: bool = True
+    garch_lookback_days: int = 756
 
 
 @dataclass

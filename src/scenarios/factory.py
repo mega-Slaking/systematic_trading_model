@@ -11,6 +11,8 @@ def build_scenario(
     lookback_days: int = 20,
     annualization_factor: int = 252,
     min_history: int = 20,
+    ewma_lambda: float = 0.94,
+    cov_ewma_lookback_days: int = 756,
     vol_scaling_power: float = 0.0,
     use_vol_scaling: bool = True,
     use_conviction_scaling: bool = False,
@@ -31,12 +33,15 @@ def build_scenario(
             lookback_days=lookback_days,
             annualization_factor=annualization_factor,
             min_history=min_history,
+            ewma_lambda=ewma_lambda,
         ),
         covariance_config=CovarianceConfig(
             method=cov_method,
             lookback_days=cov_lookback_days,
             annualization_factor=cov_annualization_factor,
             min_history=cov_min_history,
+            ewma_lambda=ewma_lambda, #consider separation for asset and covar for expereimental design
+            ewma_lookback_days=cov_ewma_lookback_days,
         ),
         position_sizing_config=PositionSizingConfig(
             use_vol_scaling=use_vol_scaling,
@@ -105,5 +110,45 @@ def build_covariance_scaling_scenarios() -> list[BacktestScenario]:
             ),
         )
         scenarios.append(scenario)
+
+    return scenarios
+
+
+def build_ewma_covariance_scaling_scenarios() -> list[BacktestScenario]:
+    ewma_lambdas = [0.94]
+    target_vols = [0.10, 0.12, 0.20, 0.24]
+
+    scenarios: list[BacktestScenario] = []
+
+    for ewma_lambda in ewma_lambdas:
+        lambda_label = f"lam{int(round(ewma_lambda * 100)):02d}"
+
+        for target_vol in target_vols:
+            vol_label = f"tv{int(round(target_vol * 100)):02d}"
+
+            scenario = build_scenario(
+                scenario_id=f"baseV1_roll20_ewmacov_{lambda_label}_{vol_label}_convOff",
+                vol_method="rolling_std",
+                lookback_days=20,
+                annualization_factor=252,
+                min_history=20,
+                vol_scaling_power=0.00,
+                use_vol_scaling=False,
+                use_conviction_scaling=False,
+                cov_method="ewma_cov",
+                cov_annualization_factor=252,
+                cov_min_history=20,
+                ewma_lambda=ewma_lambda,
+                use_covariance_scaling=True,
+                target_portfolio_vol=target_vol,
+                base_allocation_profile="baseV1",
+                conviction_profile="convOff",
+                description=(
+                    f"Base V1, rolling 20-day asset vol, EWMA covariance "
+                    f"(lambda {ewma_lambda:.2f}), target portfolio vol {target_vol:.2f}, "
+                    f"conviction off"
+                ),
+            )
+            scenarios.append(scenario)
 
     return scenarios
