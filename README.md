@@ -381,3 +381,25 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 - **Enhanced Scenario Framework for Volatility Testing**:
   - Extended `BacktestScenario` to include `target_portfolio_vol` list for multi-volatility backtests
   - New `build_vol_target_scenarios()` in `scenarios/factory.py` generates scenarios across target volatility range
+
+  ## V 1.7.2
+
+- **Advanced Volatility Estimation Methods**:
+  - Implemented EWMA (exponential moving average) volatility estimation with configurable decay parameter (λ=0.94 default)
+  - Implemented GARCH(1,1) volatility estimation with conditional heteroscedasticity modeling via `arch` library
+
+- **EWMA Covariance Matrix Estimation**:
+  - Implemented `_estimate_ewma_cov()` in covariance estimator for exponentially-weighted correlation structure
+
+- **Extended Scenario Factory for Risk Model Comparison**:
+  - Added `build_ewma_covariance_scaling_scenarios()` to generate backtests combining rolling asset vol with EWMA covariance matrices
+  - Scenario naming: `baseV1_roll20_ewmacov_lam{lambda}_tv{target_vol}_convOff` for clear identification
+
+- **Backtest Date Range Refinement**:
+  - Constrained backtest start date
+  - Ensures sufficient historical data for GARCH model initialization (100+ day minimum history) and stable covariance estimation
+
+- **Configuration & Schema Updates**:
+  - Added `ewma_lookback_days` parameter to `CovarianceConfig` (default 756 days ~3 years) for EWMA covariance window control
+  - Extended `VolatilityConfig` with GARCH parameters: `garch_mean`, `garch_dist`, `garch_rescale_returns`, `garch_lookback_days`
+  - Updated `build_scenario()` factory to accept and propagate `ewma_lambda` to both volatility and covariance configs
