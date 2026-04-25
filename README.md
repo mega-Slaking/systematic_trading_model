@@ -1,216 +1,178 @@
 # Project Overview
-## V 1.1.0
+## Current Version: V 1.7.2
 
-This project implements a systematic, rule-based trading strategy designed to rotate between three U.S. Treasury–focused bond ETFs:
+This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
 
-TLT — Long-duration Treasuries
+TLT: Long-duration Treasuries
 
-AGG — Broad U.S. bond market
+AGG: Broad U.S. bond market
 
-SHY — Short-duration “cash-like” Treasuries
+SHY: Short-duration “cash-like” Treasuries
 
-The strategy uses a hybrid signaling model that combines:
+The strategy uses a hybrid decision framework that combines:
 
-Price-based trend / momentum indicators (short horizon; faster reaction)
+- Price-based trend and momentum signals, which provide faster reaction to changing market conditions
+- Macro-based direction and acceleration filters, which act as a slower-moving regime validation layer
+- Volatility and covariance-aware position sizing, which adjusts exposure based on estimated asset and portfolio risk
 
-Macro-based direction + acceleration filters (slow horizon; validation layer)
+The system is designed to participate in bond rallies when price and macro conditions are supportive, reduce duration exposure during tightening or unstable macro regimes, and rotate toward lower-risk bond exposure when conviction is weaker.
 
-The system aims to participate in bond rallies, reduce exposure during tightening cycles, and avoid duration risk in unstable macro environments — without needing predictive forecasting or assumptions about future policy decisions.
+Rather than relying on explicit rate forecasts or discretionary assumptions about future policy decisions, the engine uses observable market and macro states to make systematic allocation decisions.
 
 
 # Goal of the Strategy
 
-The core goal is:
+The core goal of the strategy is to allocate across bond exposures based on the prevailing monetary and macro regime.
 
-Rotate into assets that benefit from the current monetary regime and exit duration exposure when macro instability exceeds reward.
+The engine aims to rotate toward assets that are better suited to the current environment, while reducing duration exposure when macro instability or inflation risk outweighs the expected reward.
 
-Put simply:
+In simplified terms:
 
-If disinflation and weakening growth → duration benefits → TLT
+- When disinflation and weakening growth conditions are supportive of duration, the strategy can increase exposure to longer-duration bonds such as TLT.
+- When macro conditions are stable and non-accelerating, the strategy can favour a broader intermediate bond allocation such as AGG.
+- When inflation pressure, policy uncertainty, or macro instability rises, the strategy can reduce duration exposure and rotate toward lower-duration assets such as SHY.
 
-If macro stable and non-accelerating → broad bond allocation → AGG
+The strategy is designed to be:
 
-If inflation accelerating or uncertainty rising → reduce duration → SHY
-
-The strategy strives to be:
-
-Simple enough to understand
-
-Systematic enough to avoid emotion
-
-Flexible enough to evolve
-
-Based on economic reasoning, not hindsight heuristics
-
-
-# Why This Strategy Exists
-
-Traditional retail strategies react purely to price crosses, MA thresholds, or chart patterns, ignoring the macroeconomic context that drives fixed-income markets.
-
-Bond performance is heavily tied to:
-
-- Inflation direction
-
-- Policy expectations
-
-- Growth momentum
-
-- Yield curve shape
-
-- Market volatility regimes
-
-This project addresses two major weaknesses of purely price-driven strategies:
-
-Problem	Macro Layer Benefit
-Whipsaws on false breakouts	Filters entries
-Late exits after macro shifts	Validates urgency
-
-This system blends price responsiveness with macro validation, mirroring how professional macro desks operate.
+- Simple enough to understand
+- Systematic enough to reduce emotional decision-making
+- Flexible enough to evolve through new signals, sizing methods, and scenario testing
+- Grounded in economic reasoning rather than hindsight-fitted rules
 
 # Core Assumptions
 
-The strategy is built on the following economically defensible assumptions:
+The strategy is built on the following economically motivated assumptions:
 
-Economic Condition	Policy Incentive	Duration Result
-Inflation falling	Easing bias	TLT positive
-Growth stable	Neutral policy	AGG stable
-Inflation accelerating	Tightening	Duration negative
-High uncertainty	Defensive	SHY preferred
+| Economic Condition | Policy / Market Interpretation | Preferred Duration Exposure |
+|---|---|---|
+| Inflation falling | Easing expectations may increase | Longer duration can benefit |
+| Growth weakening | Defensive demand for bonds may rise | Longer duration can benefit |
+| Growth stable and inflation non-accelerating | Policy environment may remain balanced | Broad bond exposure can be appropriate |
+| Inflation accelerating | Tightening expectations may increase | Duration exposure should be reduced |
+| High macro uncertainty | Risk control becomes more important | Lower-duration exposure may be preferred |
 
-Bonds don’t move only because yields changed —
-They move because expectations changed.
+Bonds do not move only because yields have changed. They move because expectations about inflation, growth, policy, and risk have changed.
 
-Macro data is slow, price data is fast:
+Macro data is slower-moving, while price data reacts faster:
 
-Price = timing
+- Price signals help with timing
+- Macro signals help with validation
+- Volatility and covariance estimates help with risk sizing
 
-Macro = validation
+# Strategy Logic
 
-# Data Sources
-Dataset	Frequency	Role
-SHY, AGG, TLT prices	Daily	Trend signals
-CPI YoY	Monthly	Inflation filter
-Optional — ISM PMI	Monthly	Growth momentum
-Optional — 2y–10y spread	Daily	Recession risk
-Optional — MOVE index	Daily	Volatility regime
+At a high level, the strategy converts market and macro conditions into a systematic allocation decision across TLT, AGG, and SHY.
 
-Price → Fast reacting, noisy
-Macro → Slow reacting, stable
+The engine does not rely on a single rule, moving-average crossover, or static macro lookup table. Instead, it uses a modular decision pipeline that separates signal generation, regime interpretation, conviction scoring, risk-aware sizing, and portfolio constraints.
 
-Combining improves robustness.
+## Signal Inputs
 
-# Strategy Logic (High Level)
-Price Trigger
+The strategy currently uses two main categories of signals:
 
-Uses return lookback, MA cross, or both to determine potential entry timing
+### Price Signals
+
+Price signals provide the faster-moving view of the market.
+
+They are used to identify whether each asset is currently behaving favourably from a trend or momentum perspective. These signals help determine timing and whether the market is confirming the macro view.
+
+Examples include:
+
+- Recent return behaviour
+- Trend / momentum direction
+- Asset-level price confirmation
+- Missing-price and data-quality checks
+
+### Macro Signals
+
+Macro signals provide the slower-moving economic context.
+
+They are used to identify whether the broader environment is supportive or hostile for duration exposure.
+
+The macro layer focuses on:
+
+- Inflation direction
+- Growth direction
+- Macro acceleration or deceleration
+- Labour-market strength or weakness
+- Regime stability or instability
+
+The purpose of the macro layer is not to forecast policy directly. Instead, it acts as a validation layer for deciding whether duration exposure is economically justified.
+
+# Decision Framework
+
+The strategy uses a decision framework rather than a fixed allocation table.
+
+Each run produces a `Decision` object that carries the state of the strategy through the pipeline. This object is progressively enriched with:
+
+- Price state
+- Macro state
+- Regime classification
+- Conviction score
+- Base allocation
+- Volatility estimates
+- Covariance estimates
+- Sized weights
+- Final constrained weights
+- Rebalance instructions
+- Trace/debug metadata
+
+This makes the system easier to test, inspect, and extend.
+
+## Allocation Intuition
+
+The simplified economic logic is:
+
+| Environment | Strategy Interpretation | Allocation Bias |
+|---|---|---|
+| Disinflation + weakening growth | Conditions may support duration | Increase long-duration exposure, typically TLT |
+| Stable growth + non-accelerating inflation | Balanced bond environment | Favour broad bond exposure, typically AGG |
+| Re-accelerating inflation or tightening pressure | Duration risk is less attractive | Reduce TLT exposure |
+| High uncertainty or weak conviction | Risk control becomes more important | Rotate toward lower-duration exposure, typically SHY |
 
 
- Macro Filter: 
+These are not hard-coded forecasts. They are economic priors that guide how the system interprets observable price and macro data.
 
-| Inflation + Curve \\ Growth + Labor | **G↓, U↑**<br>Growth slowing, labor weakening | **G↓, U↓**<br>Growth slowing, labor strong | **G↑, U↑**<br>Growth improving, labor weak | **G↑, U↓**<br>Growth improving, labor strong |
-|:----------------------------------|:--------------------------------------------|:-------------------------------------------|:-------------------------------------------|:--------------------------------------------|
-| **DIS + INV**<br>Strong disinflation, inverted curve | **TLT if momentum+, else AGG**<br> | **TLT if momentum+, else AGG** | **AGG** | **AGG** |
-| **DIS + NORM**<br>Disinflation, normal curve | **TLT if momentum+, else AGG** | **AGG** | **AGG** | **AGG** |
-| **STB + INV**<br>Stable inflation, inverted curve | **AGG (defensive)**<br>SHY only if AGG momentum negative | **AGG** | **AGG or SHY (price-driven)** | **AGG** |
-| **STB + NORM**<br>Stable inflation, normal curve | **AGG** | **AGG** | **AGG** | **AGG** |
-| **INF + INV**<br>Inflation rising, inverted curve | **SHY** | **SHY** | **SHY** | **SHY** |
-| **INF + NORM**<br>Inflation rising, normal curve | **SHY** | **SHY** | **SHY** | **SHY** |
+The final allocation is then adjusted by the risk layer.
 
+# Experimental Architecture
 
+The strategy is designed to support controlled experimentation.
 
-The table defines which assets are permitted by macro regime, while price momentum determines when higher-conviction allocations (TLT) are executed; AGG serves as the default bond exposure and SHY is reserved for inflation-hostile environments.
+Different scenario configurations can be tested by changing the relevant config objects rather than rewriting the strategy logic.
 
+Examples of configurable experiments include:
 
-# Risk Philosophy
+- Volatility estimation method
+  - Rolling standard deviation
+  - EWMA volatility
+  - GARCH volatility
 
-This is not a forecasting model, it does not predict what the Fed will do.
+- Volatility scaling behaviour
+  - Scaling on/off
+  - Different volatility lookback windows
+  - Different volatility scaling powers
 
-It responds to ongoing regime transitions earlier than macro-only, later than price-only and is more stable than both individually
+- Covariance modelling
+  - Sample covariance
+  - EWMA covariance
+  - Portfolio volatility targeting
 
-This strategy prioritizes avoiding large drawdowns, participating in sustained trends and reducing emotional decision-making
+- Allocation profiles
+  - Current base allocation logic
+  - Legacy conviction-driven allocation logic
+  - Future strategy variants
 
-# Flow:
+- Conviction profiles
+  - Conviction disabled
+  - Conviction-driven sizing
+  - Future macro/price confidence models
 
-Fetch price + macro data
-
-Compute trend + derivative macro signals
-
-Generate allocation decision
-
-Log + notify + visualize
-
-# Summary
-
-This project creates a rule-based ETF rotation model based on macroeconomic derivatives (not just raw values), combined with price-based momentum (for timing). It is designed for durability across regimes without relying on prediction or subjective bias
-
-Future versions of this application aim to include:
-
-- Backtesting (this is a top priority and will be implemented ASAP)
-
-- Shorting
-
-- Volatility scaling
-
-- Term-structure signals
-
-- Equity integration
-
-- Optimization
-
-- ML-based regime classifier (far future)
-
-But Version 1 succeeds with simplicity + strong reasoning.
-```
-
-                         ┌────────────────┐
-                         │ Scheduler (EOD)│
-                         │  Cron / Task   │
-                         └───────┬────────┘
-                                 │
-                 ┌───────────────┼───────────────┐
-                 │                               │
-      ┌───────────────────────┐     ┌─────────────────────────┐
-      │  ETF Price Data Fetch │     │ Macro Data Fetch        │
-      │  (SHY / AGG / TLT)    │     │ CPI, PMI, Curve, MOVE   │
-      │  Daily via FMP API    │     │ FRED API (monthly/daily)│
-      └──────────┬────────────┘     └────────────┬────────────┘
-                 │                               │
-                 ▼                               ▼
-       ┌─────────────────────┐        ┌───────────────────────┐
-       │ Price Signal Engine │        │ Macro Signal Engine   │
-       │ - Returns / MAs     │        │ - Direction (1st der) │
-       │ - Trend detection   │        │ - Acceleration (2nd)  │
-       └──────────┬──────────┘        └───────────┬───────────┘
-                  │                               │
-                  └──────────────┬────────────────┘
-                                 ▼
-                       ┌─────────────────────┐
-                       │ Decision Engine     │
-                       │Combine (Price+Macro)│
-                       │ TLT / AGG / SHY     │
-                       └──────────┬──────────┘
-                                  │
-                 ┌────────────────┼─────────────────┐
-                 │                                  │
-         ┌────────────────┐                 ┌─────────────────────┐
-         │ Trade Logger   │                 │ Notification System │
-         │ CSV / DB Store │                 │ Email / SMS / UI    │
-         └───────┬────────┘                 └───────────┬─────────┘
-                 │                                      │
-                 ▼                                      ▼
-      ┌───────────────────────┐           ┌─────────────────────────┐
-      │ Backtest + Analytics  │           │ Front End Visualization │
-      │ Drawdown / Sharpe etc │           │ Charts / Signals / Macro│
-      └──────────┬────────────┘           └─────────────┬───────────┘
-                 │                                      │
-                 └──────────────────────────────────────┘
-                                   Feedback loop
-```
+The goal is to make strategy development empirical. Instead of relying on a single backtest result, the system can compare multiple strategy configurations under the same data, execution, cost, and portfolio assumptions.
 
 # Expected Timeline:
 ### V 1.x.x - Measurement and Execution Realism
 #### V 1.2.0
-- Full Analytics Dashboard (streamlit for early stage, React once full product is complete)
+- Full Analytics Dashboard
 - NAV, returns, drawdowns, exposure history
 - Decision logs and regime annotations
 - Foundation for performance attribution
