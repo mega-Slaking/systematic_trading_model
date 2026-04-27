@@ -16,23 +16,65 @@ class PositionSizingConfig:
     min_vol: float = 0.05
     max_asset_weight: float = 1.0
     use_vol_scaling: bool = True
-    use_conviction_scaling: bool = True
     fallback_to_base_if_empty: bool = True
     vol_scaling_power: float = 0.20 #lower value - more signal based, higher - more risk adjusted
     use_covariance_scaling: bool = True
     target_portfolio_vol: float = 0.10
+    starting_weight_source: str = "conviction"
 
 
-def _validate_base_weights(decision: Decision) -> Dict[str, float]:
-    if decision.base_weights is None:
-        raise ValueError("Decision.base_weights must be populated before position sizing.")
+def _extract_weight_vector(
+    source_name: str,
+    weights_dict: dict[str, float] | None,
+) -> Dict[str, float]:
+    if weights_dict is None:
+        raise ValueError(f"{source_name} is None.")
 
-    weights = {ticker: float(decision.base_weights.get(ticker, 0.0)) for ticker in TARGET_TICKERS}
+    weights = {
+        ticker: float(weights_dict.get(ticker, 0.0))
+        for ticker in TARGET_TICKERS
+    }
 
-    if not weights:
-        raise ValueError("Decision.base_weights is empty.")
+    if not any(weight != 0.0 for weight in weights.values()):
+        raise ValueError(f"{source_name} is empty or all zero.")
 
     return weights
+
+def _get_starting_weights(decision: Decision, config: PositionSizingConfig) -> Dict[str, float]:
+    source = config.starting_weight_source
+
+    if source == "legacy":
+        weights = _extract_weight_vector(
+            "decision.legacy_base_weights",
+            decision.legacy_base_weights,
+        )
+        decision.notes.append("Position sizing started from legacy_base_weights.")
+        return weights
+
+    if source == "conviction":
+        if decision.conviction_weights is not None:
+            weights = _extract_weight_vector(
+                "decision.conviction_weights",
+                decision.conviction_weights,
+            )
+            decision.notes.append("Position sizing started from conviction_weights.")
+            return weights
+
+        if config.fallback_to_base_if_empty:
+            weights = _extract_weight_vector(
+                "decision.base_weights",
+                decision.base_weights,
+            )
+            decision.notes.append(
+                "conviction_weights unavailable; position sizing fell back to base_weights."
+            )
+            return weights
+
+        raise ValueError(
+            "starting_weight_source='conviction' but conviction_weights is unavailable."
+        )
+
+    raise ValueError(f"Unknown starting_weight_source: {source}")
 
 
 def _copy_weights(weights: Dict[str, float]) -> Dict[str, float]:
@@ -77,26 +119,6 @@ def _apply_volatility_scaling(
     return scaled
 
 
-def _apply_conviction_scaling(
-    weights: Dict[str, float],
-    conviction: Dict[str, float] | None,
-    config: PositionSizingConfig,
-) -> Dict[str, float]:
-    if not config.use_conviction_scaling:
-        return _copy_weights(weights)
-
-    if not conviction:
-        return _copy_weights(weights)
-
-    scaled: Dict[str, float] = {}
-
-    for ticker, weight in weights.items():
-        conviction_mult = float(conviction.get(ticker, 1.0))
-        scaled[ticker] = float(weight) * conviction_mult
-
-    return scaled
-
-
 def _apply_asset_caps(
     weights: Dict[str, float],
     config: PositionSizingConfig,
@@ -127,6 +149,7 @@ def _normalize_to_target_gross(
 
     scale = float(config.target_gross) / gross
     return {ticker: float(weight) * scale for ticker, weight in weights.items()}
+
 
 def _apply_covariance_scaling_with_shy_buffer(
     weights: Dict[str, float],
@@ -173,17 +196,13 @@ def size_positions(
 ) -> Decision:
     config = config or PositionSizingConfig()
 
-    base_weights = _validate_base_weights(decision)
+    starting_weights = _get_starting_weights(decision, config)
     vols = vol_estimate.vols if vol_estimate else None
 
-    weights = _copy_weights(base_weights)
-    decision.notes.append("Position sizing started from base_weights.")
+    weights = _copy_weights(starting_weights)
 
     weights = _apply_volatility_scaling(weights, vols, config)
     decision.notes.append("Volatility scaling applied.")
-
-    weights = _apply_conviction_scaling(weights, decision.conviction, config)
-    decision.notes.append("Conviction scaling applied.")
 
     weights = _apply_asset_caps(weights, config)
     decision.notes.append(f"Per-asset caps applied with max_asset_weight={config.max_asset_weight}.")
@@ -210,10 +229,10 @@ def size_positions(
     net = _net_exposure(weights)
 
     if gross == 0.0 and config.fallback_to_base_if_empty:
-        weights = _copy_weights(base_weights)
+        weights = _copy_weights(starting_weights)
         gross = _gross_exposure(weights)
         net = _net_exposure(weights)
-        decision.notes.append("Sized weights collapsed to zero; fell back to base_weights.")
+        decision.notes.append("Sized weights collapsed to zero; fell back to conviction_weights.")
 
     decision.sized_weights = weights
     decision.gross_exposure = gross

@@ -13,4 +13,3 @@ class BacktestScenario:
     position_sizing_config: PositionSizingConfig
     description: Optional[str] = None
     base_allocation_profile: str = "baseV1"
-    conviction_profile: str = "convOff"

@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.7.2
+## Current Version: V 1.8.2
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
 
@@ -365,3 +365,44 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - Added `ewma_lookback_days` parameter to `CovarianceConfig` (default 756 days ~3 years) for EWMA covariance window control
   - Extended `VolatilityConfig` with GARCH parameters: `garch_mean`, `garch_dist`, `garch_rescale_returns`, `garch_lookback_days`
   - Updated `build_scenario()` factory to accept and propagate `ewma_lambda` to both volatility and covariance configs
+
+  ## V 1.8.2
+
+- **Expanded Macro Data Fetching via FRED**:
+  - Updated FRED data ingestion to include a broader macro dataset for regime classification and conviction scoring
+  - Added/standardised key macro series including inflation, core inflation, unemployment, payrolls, Treasury yields, Fed funds, credit stress, sentiment, and jobless claims
+  - Improved macro input coverage for monetary policy, economic health, labour market weakness, credit stress, and duration-support signals
+
+- **Lean Macro Database Schema**:
+  - Refactored macro storage to keep the database focused on raw fetched series only
+  - Removed derived fields from persistent storage, including YoY inflation, yield curve, inflation direction, regime flags, and confidence/stress indicators
+  - Moved derived macro feature computation into runtime signal processing via `compute_macro_signals()`
+  - Reduces stale derived-data risk and keeps signal logic centralised in the macro signal engine
+
+- **Monetary and Economic Regime Classification**:
+  - Extended the decision pipeline to classify macro environment into separate monetary and economic regimes
+  - Monetary regime now supports `dovish`, `hawkish`, and `neutral` classifications
+  - Economic regime now supports `bullish`, `bearish`, and `neutral` classifications
+  - Combined regime labels such as `dovish_neutral`, `hawkish_bearish`, and `neutral_bullish` are now stored on the `Decision` object for traceability
+
+- **Asset-Level Conviction Scaling Engine**:
+  - Added a new conviction scaling layer to tilt allocations after base allocation and before risk sizing
+  - Conviction is calculated at the asset level using macro evidence, favourable-asset direction, and price-trend confirmation
+  - Added support for price steepness through volatility-normalised moving-average slope signals
+  - Conviction outputs are stored separately as multipliers, component scores, raw scores, and conviction-adjusted weights for better debugging and scenario attribution
+
+- **Pipeline Support for Legacy Allocation Engine**:
+  - Added support for calculating legacy signal-weighted base allocations alongside the newer direction-neutral base allocation approach
+  - Legacy allocation logic remains available for controlled comparison against the current conviction-based allocation flow
+  - Position sizing can now select the starting weight source via configuration, including `conviction` or `legacy`
+  - This allows legacy and current allocation methods to be tested under the same risk-sizing and covariance-scaling framework
+
+- **Scenario Factory Extensions for Legacy Comparisons**:
+  - Extended scenario configuration to support `starting_weight_source`
+  - Added legacy allocation scenario variants for covariance scaling and EWMA covariance experiments
+  - Enables direct comparison between legacy base allocation and current conviction-adjusted allocation under matched volatility/covariance assumptions
+
+- **Front-End Scenario Analytics Enhancements**:
+  - Added analytics views for comparing scenario-level performance across allocation and risk-model variants
+  - Scenario comparison now supports return, max drawdown, volatility, and other risk/return metrics across backtest runs
+  - Provides a cleaner teardown workflow for understanding whether outperformance is driven by allocation logic, duration exposure, covariance scaling, or volatility targeting

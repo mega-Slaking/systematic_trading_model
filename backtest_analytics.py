@@ -16,9 +16,9 @@ from src.storage.db_reader import get_backtest_regime_trace
 strategy = load_results("output/backtests/backtest_results.csv")
 etf_prices = load_results("data/raw/etf_prices.csv")
 
-tlt_nav = build_buy_and_hold_nav(etf_prices, "TLT")
-agg_nav = build_buy_and_hold_nav(etf_prices, "AGG")
-shy_nav = build_buy_and_hold_nav(etf_prices, "SHY")
+tlt_nav = build_buy_and_hold_nav(etf_prices, "TLT", start_date="2014-01-01")
+agg_nav = build_buy_and_hold_nav(etf_prices, "AGG", start_date="2014-01-01")
+shy_nav = build_buy_and_hold_nav(etf_prices, "SHY", start_date="2014-01-01")
 
 plot_nav([strategy], [ "Relaxed"], "nav")
 plot_nav(

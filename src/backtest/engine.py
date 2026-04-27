@@ -1,5 +1,6 @@
 import pandas as pd
 
+from src.decision.models import Decision
 from src.engine.run import run_engine
 from src.context.backtest import BacktestContext
 from src.utils.ensure_long import ensure_long
@@ -20,6 +21,35 @@ def _weights_from_holdings(holdings: dict[str, float], prices: dict[str, float],
 
     return w
 
+
+def _print_decision_debug(decision: Decision, prefix: str = "") -> None:
+    print(f"\n{prefix}DECISION DEBUG")
+    print("date:", decision.date)
+    print("regime:", decision.regime)
+    print("monetary_regime:", decision.monetary_regime)
+    print("economic_regime:", decision.economic_regime)
+    print("reason:", decision.reason)
+
+    print("direction:", decision.direction)
+    print("base_weights:", decision.base_weights)
+    print("conviction:", decision.conviction)
+    print("conviction_scores:", decision.conviction_scores)
+    print("conviction_components:", decision.conviction_components)
+    print("conviction_weights:", decision.conviction_weights)
+    print("sized_weights:", decision.sized_weights)
+    print("final_weights:", decision.final_weights)
+
+    print("gross_exposure:", decision.gross_exposure)
+    print("net_exposure:", decision.net_exposure)
+    print("portfolio_vol_estimate:", decision.portfolio_vol_estimate)
+    print("portfolio_vol_target:", decision.portfolio_vol_target)
+    print("portfolio_scale:", decision.portfolio_scale)
+
+    if decision.notes:
+        print("notes:")
+        for note in decision.notes[-8:]:
+            print("  -", note)
+
 def run_backtest(etf_history, macro_history, portfolio,scenario):
     etf_history = ensure_long(etf_history)
     context = BacktestContext(etf_history, macro_history, portfolio)
@@ -31,6 +61,7 @@ def run_backtest(etf_history, macro_history, portfolio,scenario):
     skip_prices = 0
     executed = 0
     nav_prev = None
+    last_decision = None
 
     for date in dates:
         context.set_date(pd.Timestamp(date))
@@ -43,6 +74,7 @@ def run_backtest(etf_history, macro_history, portfolio,scenario):
                 print("SKIP decision None on", context.current_date)
             continue
 
+        last_decision = decision
         prices_today = context.get_prices_today()
         if prices_today is None:
             skip_prices += 1
@@ -131,6 +163,8 @@ def run_backtest(etf_history, macro_history, portfolio,scenario):
     print("results rows:", len(context.results))
     print("daily_metrics rows:", len(context.daily_metrics))
     print("trade_log rows:", len(context.trade_log))
+    if last_decision is not None:
+        _print_decision_debug(last_decision, prefix="LAST DAY ")
 
     if context.results:
         print("results NAV first/last:", context.results[0]["nav"], context.results[-1]["nav"])

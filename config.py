@@ -20,21 +20,20 @@ DATA_DIR = "data"
 RAW_DIR = f"{DATA_DIR}/raw"
 PROC_DIR = f"{DATA_DIR}/processed"
 
-ETF_PRICE_CSV = f"{RAW_DIR}/etf_prices.csv"
-MACRO_CPI_CSV = f"{RAW_DIR}/macro_cpi.csv"
-
 LOOKBACK_DAYS = 30
 SLIPPAGE_BPS = {
-    "SHY": 1.0,
-    "AGG": 2.0,
-    "TLT": 3.0,
-}
+    "SHY": 0.0,
+    "AGG": 0.0,
+    "TLT": 0.0,
+} #for now, I'm going to set these to 0 - fees depend heavily on a broker and could dismiss strategies that have potential
 
 FEE_BPS = {
-    "SHY": 1.0,
-    "AGG": 2.0,
-    "TLT": 3.0,
+    "SHY": 0.0,
+    "AGG": 0.0,
+    "TLT": 0.0,
 }
+#for now, I'm going to set these to 0 - fees depend heavily on a broker and could dismiss strategies that have potential
+
 MIN_TRADE_NOTIONAL = 10.0 #this changes relative to your capital - probably shouldnt hardcode; consideration for later
 #NORMASL/STRRESS MODE
 DRIFT_TOL = 0.02 #5% drift tolerance before rebalancing; consideration for later - could make dynamic for volatility

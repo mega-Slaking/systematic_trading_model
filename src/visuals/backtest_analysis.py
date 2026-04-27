@@ -61,12 +61,16 @@ def plot_exposure(df, name=None):
 
     return fig
 
-def build_buy_and_hold_nav(etf_df, ticker, initial_nav=1_000_000):
+def build_buy_and_hold_nav(etf_df, ticker, initial_nav=1_000_000, start_date=None):
     df = (
         etf_df[etf_df["ticker"] == ticker]
         .sort_values("date")
         .copy()
     )
+    
+    if start_date is not None:
+        start_date = pd.to_datetime(start_date)
+        df = df[df["date"] >= start_date].copy()
 
     returns = df["close"].pct_change().fillna(0)
     df["nav"] = initial_nav * (1 + returns).cumprod()
