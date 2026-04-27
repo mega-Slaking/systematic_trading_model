@@ -13,11 +13,20 @@ class Decision:
     macro_state: Optional[dict] = None
     price_state: Optional[dict] = None
     regime: Optional[str] = None
+    economic_regime: Optional[str] = None
+    monetary_regime: Optional[str] = None
 
     # --- directional intent ---
     direction: Optional[Dict[str, int]] = None  # e.g. {"TLT": 1, "AGG": 0, "SHY": -1}
     conviction: Optional[Dict[str, float]] = None
+    conviction_scores: Optional[Dict[str, float]] = None
+    conviction_components: Optional[Dict[str, Dict[str, float]]] = None  # e.g. {"TLT": {"macro": 0.5, "price": 0.3, "direction": 0.2}, ...}
+    conviction_weights: Optional[Dict[str, float]] = None
 
+    # --- Legacy allocation ---
+    legacy_base_weights: Optional[Dict[str, float]] = None
+    base_allocation_profile: Optional[str] = None
+    
     # --- allocation stages ---
     base_weights: Optional[Dict[str, float]] = None
     sized_weights: Optional[Dict[str, float]] = None

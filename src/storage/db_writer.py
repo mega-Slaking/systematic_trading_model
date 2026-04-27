@@ -79,7 +79,7 @@ def insert_etf_prices(conn: sqlite3.Connection, rows: list[dict]) -> None:
     )
 
 
-def insert_macro_cpi(conn: sqlite3.Connection, rows: list[dict]) -> None:
+def insert_macro_data(conn: sqlite3.Connection, rows: list[dict]) -> None:
 
     payload = [
         (
@@ -87,35 +87,42 @@ def insert_macro_cpi(conn: sqlite3.Connection, rows: list[dict]) -> None:
             r.get("cpi"),
             r.get("core_cpi"),
             r.get("unemployment"),
+            r.get("payrolls"),
             r.get("gs2"),
             r.get("gs10"),
             r.get("pmi"),
-            r.get("cpi_yoy"),
-            r.get("core_cpi_yoy"),
-            r.get("cpi_yoy_direction"),
-            r.get("cpi_yoy_acceleration"),
-            r.get("core_cpi_direction"),
-            r.get("core_cpi_acceleration"),
-            r.get("yield_curve"),
-            r.get("pmi_direction"),
-            r.get("unemployment_direction"),
-            r.get("disinflation"),
-            r.get("inflation_rising"),
-            r.get("econ_slowdown"),
-            r.get("curve_inverted"),
+            r.get("fed_funds"),
+            r.get("hy_oas"),
+            r.get("consumer_sentiment"),
+            r.get("jobless_claims"),
         )
         for r in rows
     ]
 
     conn.executemany(
         """
-        INSERT OR REPLACE INTO macro_cpi VALUES (
-        ?,?,?,?,?,?,?,?,?,?,
-        ?,?,?,?,?,?,?,?,?,?
+        INSERT OR REPLACE INTO macro_data (
+            date,
+            cpi,
+            core_cpi,
+            unemployment,
+            payrolls,
+            gs2,
+            gs10,
+            pmi,
+            fed_funds,
+            hy_oas,
+            consumer_sentiment,
+            jobless_claims
+        )
+        VALUES (
+            ?,?,?,?,?,?,
+            ?,?,?,?,?,?
         )
         """,
         payload,
     )
+    #explicit inserts are probably safer now as I may add more things
 
 
 def insert_backtest_results(conn: sqlite3.Connection, rows: list[dict]) -> None:

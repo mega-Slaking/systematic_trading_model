@@ -1,7 +1,6 @@
 import yfinance as yf
 import pandas as pd
-from config import TICKERS, ETF_PRICE_CSV,RAW_DIR
-import os
+from config import TICKERS
 import sqlite3
 from src.storage.db_writer import insert_etf_prices
 

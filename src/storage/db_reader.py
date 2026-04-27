@@ -36,11 +36,20 @@ def get_etf_history(tickers=None):
 
 def get_macro_history():
     query = """
-        SELECT date, cpi, core_cpi, unemployment, gs2, gs10, pmi, cpi_yoy,
-        core_cpi_yoy, cpi_yoy_direction, cpi_yoy_acceleration, core_cpi_direction, core_cpi_acceleration,
-        yield_curve, pmi_direction, unemployment_direction, disinflation, inflation_rising,
-        econ_slowdown, curve_inverted
-        FROM macro_cpi
+        SELECT
+            date,
+            cpi,
+            core_cpi,
+            unemployment,
+            payrolls,
+            gs2,
+            gs10,
+            pmi,
+            fed_funds,
+            hy_oas,
+            consumer_sentiment,
+            jobless_claims
+        FROM macro_data
         ORDER BY date
     """
 
