@@ -406,3 +406,9 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - Added analytics views for comparing scenario-level performance across allocation and risk-model variants
   - Scenario comparison now supports return, max drawdown, volatility, and other risk/return metrics across backtest runs
   - Provides a cleaner teardown workflow for understanding whether outperformance is driven by allocation logic, duration exposure, covariance scaling, or volatility targeting
+
+  ## V 1.8.3
+   
+- **C++-Accelerated Covariance Matrix Computation**:
+  - Added an initial C++ computation path for covariance matrix estimation to improve backtest runtime performance
+  - Moved the most calculation-heavy covariance operations out of pure Python/Pandas and into compiled C++ logic
