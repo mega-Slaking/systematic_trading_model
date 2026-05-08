@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.8.2
+## Current Version: V 1.8.4
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
 
@@ -412,3 +412,20 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 - **C++-Accelerated Covariance Matrix Computation**:
   - Added an initial C++ computation path for covariance matrix estimation to improve backtest runtime performance
   - Moved the most calculation-heavy covariance operations out of pure Python/Pandas and into compiled C++ logic
+  - Exposed C++ covariance functions to Python via `pybind11`
+
+  ## V 1.8.4
+
+- **Precomputed Returns View for Covariance Estimation**:
+  - Added a precomputed covariance returns view to avoid rebuilding aligned return matrices on every backtest date
+  - Refactored covariance estimation to reuse a shared `returns_wide` representation instead of repeatedly copying ETF history, converting dates, sorting, calculating percentage returns, pivoting, and dropping missing rows
+  - Added a `CovarianceReturnsView` path for slicing return windows by `as_of_date` and lookback configuration
+  - Updated the backtest flow to build the returns view once before running scenario batches and pass it through the backtest context
+  - Keeps covariance estimation behaviour consistent while reducing repeated Pandas preprocessing overhead
+
+- **Covariance Matrix Cache Across Scenario Runs**:
+  - Added covariance estimate caching on the precomputed returns view
+  - Cache keys are based on covariance-specific inputs including date, tickers, covariance method, lookback window, EWMA lookback window, minimum history, annualisation factor, and EWMA lambda
+  - Enables covariance matrices to be reused across scenario variants where sizing parameters differ but covariance assumptions are identical
+  - Prevents unnecessary recalculation across target-volatility scenario grids while preserving separate covariance outputs for distinct methods, lookbacks, and EWMA lambda values
+  - Added cache hit/miss tracking to support debugging and performance validation during scenario runs

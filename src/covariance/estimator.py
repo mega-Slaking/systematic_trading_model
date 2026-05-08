@@ -5,8 +5,8 @@ from typing import Dict
 from src.covariance.models import (
     CovarianceConfig,
     CovarianceEstimate,
-    CovarianceRequest,
 )
+from src.covariance.returns_view import CovarianceReturnsView
 
 try:
     import fast_covariance_cpp # type: ignore[import-not-found]
@@ -14,242 +14,48 @@ except ImportError:
     fast_covariance_cpp = None
 
 
-def estimate_covariance(
-    request: CovarianceRequest,
+def estimate_covariance_from_returns_view(
+    *,
+    returns_view: CovarianceReturnsView,
+    as_of_date,
+    tickers: list[str],
     config: CovarianceConfig | None = None,
 ) -> CovarianceEstimate:
     config = config or CovarianceConfig()
 
-    if config.method == "sample_cov":
-        return _estimate_sample_cov(request, config)
-
-    if config.method == "ewma_cov":
-        return _estimate_ewma_cov(request, config)
-
-    raise ValueError(f"Unsupported covariance method: {config.method}")
-
-
-def _prepare_returns_wide(
-    request: CovarianceRequest,
-) -> tuple[pd.DataFrame, list[str], list[str]]:
-    df = request.etf_history.copy()
-
-    required_columns = {"date", "ticker", "close"}
-    missing_columns = required_columns.difference(df.columns)
-
-    if missing_columns:
-        raise ValueError(
-            f"ETF history is missing required columns: {sorted(missing_columns)}"
-        )
-
-    requested_tickers = list(request.tickers)
-
-    df["date"] = pd.to_datetime(df["date"]).dt.tz_localize(None)
-    as_of_date = pd.Timestamp(request.as_of_date).tz_localize(None)
-
-    df = df[df["date"] < as_of_date].copy()
-
-    if df.empty:
-        return pd.DataFrame(), [], requested_tickers
-
-    df = df.sort_values(["ticker", "date"]).copy()
-    df["return"] = df.groupby("ticker")["close"].pct_change()
-
-    returns_wide = df.pivot(index="date", columns="ticker", values="return")
-
-    available_tickers = [
-        ticker for ticker in requested_tickers
-        if ticker in returns_wide.columns
-    ]
-
-    invalid_tickers = [
-        ticker for ticker in requested_tickers
-        if ticker not in returns_wide.columns
-    ]
-
-    if not available_tickers:
-        return pd.DataFrame(), [], invalid_tickers
-
-    returns_wide = returns_wide[available_tickers].copy()
-    returns_wide = returns_wide.dropna()
-
-    return returns_wide, available_tickers, invalid_tickers
-
-
-def _empty_estimate(
-    *,
-    method: str,
-    request: CovarianceRequest,
-    tickers: list[str],
-    notes: list[str],
-    invalid_tickers: list[str],
-) -> CovarianceEstimate:
-    return CovarianceEstimate(
-        method=method,
-        as_of_date=pd.Timestamp(request.as_of_date),
-        annualized=True,
+    cache_key = _make_returns_view_cache_key(
+        as_of_date=as_of_date,
         tickers=tickers,
-        covariance_matrix=pd.DataFrame(),
-        notes=notes,
-        invalid_tickers=invalid_tickers,
+        config=config,
     )
 
+    cached_estimate = returns_view.get_cached_covariance(cache_key)
 
-def _estimate_sample_cov(
-    request: CovarianceRequest,
-    config: CovarianceConfig,
-) -> CovarianceEstimate:
-    method = "sample_cov"
-    notes: list[str] = []
+    if cached_estimate is not None:
+        return cached_estimate
 
-    returns_wide, available_tickers, invalid_tickers = _prepare_returns_wide(request)
-
-    if not available_tickers:
-        return _empty_estimate(
-            method=method,
-            request=request,
-            tickers=[],
-            notes=["None of the requested tickers were available in return history."],
-            invalid_tickers=invalid_tickers,
-        )
-
-    if len(returns_wide) < config.min_history:
-        notes.append(
-            f"Insufficient aligned return history for covariance "
-            f"({len(returns_wide)} < {config.min_history})."
-        )
-
-        return _empty_estimate(
-            method=method,
-            request=request,
-            tickers=available_tickers,
-            notes=notes,
-            invalid_tickers=invalid_tickers,
-        )
-
-    window_returns = returns_wide.tail(config.lookback_days)
-
-    if len(window_returns) < config.min_history:
-        notes.append(
-            f"Insufficient lookback history after tail selection "
-            f"({len(window_returns)} < {config.min_history})."
-        )
-
-        return _empty_estimate(
-            method=method,
-            request=request,
-            tickers=available_tickers,
-            notes=notes,
-            invalid_tickers=invalid_tickers,
-        )
-
-    if fast_covariance_cpp is not None:
-        returns_np = np.ascontiguousarray(
-            window_returns.to_numpy(dtype=np.float64)
-        )
-
-        covariance_np = fast_covariance_cpp.sample_covariance(
-            returns_np,
-            float(config.annualization_factor),
-        )
-
-        covariance_matrix = pd.DataFrame(
-            np.asarray(covariance_np),
-            index=available_tickers,
-            columns=available_tickers,
-        )
-    else:
-        notes.append("fast_covariance_cpp unavailable; used pandas fallback.")
-        covariance_matrix = window_returns.cov() * config.annualization_factor
-        covariance_matrix = covariance_matrix.loc[
-            available_tickers,
-            available_tickers,
-        ]
-
-    return CovarianceEstimate(
-        method=method,
-        as_of_date=pd.Timestamp(request.as_of_date),
-        annualized=True,
-        tickers=available_tickers,
-        covariance_matrix=covariance_matrix,
-        notes=notes,
-        invalid_tickers=invalid_tickers,
-    )
-
-
-def _estimate_ewma_cov(
-    request: CovarianceRequest,
-    config: CovarianceConfig,
-) -> CovarianceEstimate:
-    method = "ewma_cov"
-    notes: list[str] = []
-
-    if not 0.0 < config.ewma_lambda < 1.0:
-        raise ValueError(
-            f"ewma_lambda must be between 0 and 1 exclusive, got {config.ewma_lambda}."
-        )
-
-    returns_wide, available_tickers, invalid_tickers = _prepare_returns_wide(request)
-
-    if not available_tickers:
-        return _empty_estimate(
-            method=method,
-            request=request,
-            tickers=[],
-            notes=["None of the requested tickers were available in return history."],
-            invalid_tickers=invalid_tickers,
-        )
-
-    window_returns = returns_wide.tail(config.ewma_lookback_days)
-
-    if len(window_returns) < config.min_history:
-        notes.append(
-            f"Insufficient aligned return history for covariance "
-            f"({len(window_returns)} < {config.min_history})."
-        )
-
-        return _empty_estimate(
-            method=method,
-            request=request,
-            tickers=available_tickers,
-            notes=notes,
-            invalid_tickers=invalid_tickers,
-        )
-
-    if fast_covariance_cpp is not None:
-        returns_np = np.ascontiguousarray(
-            window_returns.to_numpy(dtype=np.float64)
-        )
-
-        covariance_np = fast_covariance_cpp.ewma_covariance(
-            returns_np,
-            int(config.min_history),
-            float(config.ewma_lambda),
-            float(config.annualization_factor),
-        )
-
-        covariance_matrix = pd.DataFrame(
-            np.asarray(covariance_np),
-            index=available_tickers,
-            columns=available_tickers,
-        )
-    else:
-        notes.append("fast_covariance_cpp unavailable; used pandas fallback.")
-        covariance_matrix = _estimate_ewma_cov_python_fallback(
-            window_returns=window_returns,
-            available_tickers=available_tickers,
+    if config.method == "sample_cov":
+        estimate = _estimate_sample_cov_from_returns_view(
+            returns_view=returns_view,
+            as_of_date=as_of_date,
+            tickers=tickers,
             config=config,
         )
 
-    return CovarianceEstimate(
-        method=method,
-        as_of_date=pd.Timestamp(request.as_of_date),
-        annualized=True,
-        tickers=available_tickers,
-        covariance_matrix=covariance_matrix,
-        notes=notes,
-        invalid_tickers=invalid_tickers,
-    )
+    elif config.method == "ewma_cov":
+        estimate = _estimate_ewma_cov_from_returns_view(
+            returns_view=returns_view,
+            as_of_date=as_of_date,
+            tickers=tickers,
+            config=config,
+        )
+
+    else:
+        raise ValueError(f"Unsupported covariance method: {config.method}")
+
+    returns_view.set_cached_covariance(cache_key, estimate)
+
+    return estimate
 
 
 def _estimate_ewma_cov_python_fallback(
@@ -308,3 +114,197 @@ def compute_portfolio_vol_from_covariance(
         return None
 
     return float(np.sqrt(portfolio_var))
+
+
+def _empty_estimate_for_date(
+    *,
+    method: str,
+    as_of_date,
+    tickers: list[str],
+    notes: list[str],
+    invalid_tickers: list[str],
+) -> CovarianceEstimate:
+    return CovarianceEstimate(
+        method=method,
+        as_of_date=pd.Timestamp(as_of_date),
+        annualized=True,
+        tickers=tickers,
+        covariance_matrix=pd.DataFrame(),
+        notes=notes,
+        invalid_tickers=invalid_tickers,
+    )
+
+
+def _estimate_sample_cov_from_returns_view(
+    *,
+    returns_view: CovarianceReturnsView,
+    as_of_date,
+    tickers: list[str],
+    config: CovarianceConfig,
+) -> CovarianceEstimate:
+    method = "sample_cov"
+    notes: list[str] = []
+
+    window_returns, available_tickers, invalid_tickers = returns_view.get_window(
+        as_of_date=as_of_date,
+        tickers=tickers,
+        lookback_days=config.lookback_days,
+    )
+
+    if not available_tickers:
+        return _empty_estimate_for_date(
+            method=method,
+            as_of_date=as_of_date,
+            tickers=[],
+            notes=["None of the requested tickers were available in return history."],
+            invalid_tickers=invalid_tickers,
+        )
+
+    if len(window_returns) < config.min_history:
+        notes.append(
+            f"Insufficient lookback history after tail selection "
+            f"({len(window_returns)} < {config.min_history})."
+        )
+
+        return _empty_estimate_for_date(
+            method=method,
+            as_of_date=as_of_date,
+            tickers=available_tickers,
+            notes=notes,
+            invalid_tickers=invalid_tickers,
+        )
+
+    if fast_covariance_cpp is not None:
+        returns_np = np.ascontiguousarray(
+            window_returns.to_numpy(dtype=np.float64)
+        )
+
+        covariance_np = fast_covariance_cpp.sample_covariance(
+            returns_np,
+            float(config.annualization_factor),
+        )
+
+        covariance_matrix = pd.DataFrame(
+            np.asarray(covariance_np),
+            index=available_tickers,
+            columns=available_tickers,
+        )
+    else:
+        notes.append("fast_covariance_cpp unavailable; used pandas fallback.")
+
+        covariance_matrix = window_returns.cov() * config.annualization_factor
+        covariance_matrix = covariance_matrix.loc[
+            available_tickers,
+            available_tickers,
+        ]
+
+    return CovarianceEstimate(
+        method=method,
+        as_of_date=pd.Timestamp(as_of_date),
+        annualized=True,
+        tickers=available_tickers,
+        covariance_matrix=covariance_matrix,
+        notes=notes,
+        invalid_tickers=invalid_tickers,
+    )
+
+
+def _estimate_ewma_cov_from_returns_view(
+    *,
+    returns_view: CovarianceReturnsView,
+    as_of_date,
+    tickers: list[str],
+    config: CovarianceConfig,
+) -> CovarianceEstimate:
+    method = "ewma_cov"
+    notes: list[str] = []
+
+    if not 0.0 < config.ewma_lambda < 1.0:
+        raise ValueError(
+            f"ewma_lambda must be between 0 and 1 exclusive, got {config.ewma_lambda}."
+        )
+
+    window_returns, available_tickers, invalid_tickers = returns_view.get_window(
+        as_of_date=as_of_date,
+        tickers=tickers,
+        lookback_days=config.ewma_lookback_days,
+    )
+
+    if not available_tickers:
+        return _empty_estimate_for_date(
+            method=method,
+            as_of_date=as_of_date,
+            tickers=[],
+            notes=["None of the requested tickers were available in return history."],
+            invalid_tickers=invalid_tickers,
+        )
+
+    if len(window_returns) < config.min_history:
+        notes.append(
+            f"Insufficient aligned return history for covariance "
+            f"({len(window_returns)} < {config.min_history})."
+        )
+
+        return _empty_estimate_for_date(
+            method=method,
+            as_of_date=as_of_date,
+            tickers=available_tickers,
+            notes=notes,
+            invalid_tickers=invalid_tickers,
+        )
+
+    if fast_covariance_cpp is not None:
+        returns_np = np.ascontiguousarray(
+            window_returns.to_numpy(dtype=np.float64)
+        )
+
+        covariance_np = fast_covariance_cpp.ewma_covariance(
+            returns_np,
+            int(config.min_history),
+            float(config.ewma_lambda),
+            float(config.annualization_factor),
+        )
+
+        covariance_matrix = pd.DataFrame(
+            np.asarray(covariance_np),
+            index=available_tickers,
+            columns=available_tickers,
+        )
+    else:
+        notes.append("fast_covariance_cpp unavailable; used pandas fallback.")
+
+        covariance_matrix = _estimate_ewma_cov_python_fallback(
+            window_returns=window_returns,
+            available_tickers=available_tickers,
+            config=config,
+        )
+
+    return CovarianceEstimate(
+        method=method,
+        as_of_date=pd.Timestamp(as_of_date),
+        annualized=True,
+        tickers=available_tickers,
+        covariance_matrix=covariance_matrix,
+        notes=notes,
+        invalid_tickers=invalid_tickers,
+    )
+
+
+def _make_returns_view_cache_key(
+    *,
+    as_of_date,
+    tickers: list[str],
+    config: CovarianceConfig,
+) -> tuple:
+    as_of_date = pd.Timestamp(as_of_date).tz_localize(None)
+
+    return (
+        as_of_date,
+        tuple(tickers),
+        config.method,
+        config.lookback_days,
+        config.ewma_lookback_days,
+        config.min_history,
+        config.annualization_factor,
+        config.ewma_lambda,
+    )

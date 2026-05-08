@@ -50,9 +50,11 @@ def _print_decision_debug(decision: Decision, prefix: str = "") -> None:
         for note in decision.notes[-8:]:
             print("  -", note)
 
-def run_backtest(etf_history, macro_history, portfolio,scenario):
+def run_backtest(etf_history, macro_history, portfolio,scenario, returns_view=None):
     etf_history = ensure_long(etf_history)
     context = BacktestContext(etf_history, macro_history, portfolio)
+
+    context.returns_view = returns_view
 
     dates = sorted(etf_history["date"].dropna().unique())
     print("DATES:", len(dates), "FIRST:", dates[0] if dates else None, "LAST:", dates[-1] if dates else None)
