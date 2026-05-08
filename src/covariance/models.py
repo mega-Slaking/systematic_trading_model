@@ -17,13 +17,6 @@ class CovarianceConfig:
 
 
 @dataclass
-class CovarianceRequest:
-    etf_history: pd.DataFrame
-    as_of_date: pd.Timestamp
-    tickers: List[str]
-
-
-@dataclass
 class CovarianceEstimate:
     method: CovarianceMethod
     as_of_date: pd.Timestamp

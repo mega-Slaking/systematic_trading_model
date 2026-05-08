@@ -5,8 +5,8 @@ from src.engine.decision_orchestration import orchestrate_decision_pipeline
 from src.decision.decision_trace import record_decision
 from src.decision.regime_trace import record_regime
 from src.volatility import VolatilityConfig, VolatilityRequest, estimate_volatility
-from src.covariance.models import CovarianceConfig, CovarianceRequest
-from src.covariance.estimator import estimate_covariance
+from src.covariance.models import CovarianceConfig
+from src.covariance.estimator import estimate_covariance_from_returns_view
 import pandas as pd
 
 def run_engine(context,scenario=None):
@@ -49,13 +49,12 @@ def run_engine(context,scenario=None):
 
     vol_estimate = estimate_volatility(vol_request, vol_config) #Asset-wise, returns vector with length 3
 
-    cov_request = CovarianceRequest(
-        etf_history=etf_df,
+    cov_estimate = estimate_covariance_from_returns_view(
+        returns_view=context.returns_view,
         as_of_date=context.current_date,
         tickers=["TLT", "AGG", "SHY"],
+        config=cov_config,
     )
-
-    cov_estimate = estimate_covariance(cov_request, cov_config)
 
     decision = orchestrate_decision_pipeline(
         decision=Decision(date=context.current_date.isoformat()),
