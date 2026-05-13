@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.8.4
+## Current Version: V 1.8.5
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
 
@@ -429,3 +429,32 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - Enables covariance matrices to be reused across scenario variants where sizing parameters differ but covariance assumptions are identical
   - Prevents unnecessary recalculation across target-volatility scenario grids while preserving separate covariance outputs for distinct methods, lookbacks, and EWMA lambda values
   - Added cache hit/miss tracking to support debugging and performance validation during scenario runs
+
+  ## V 1.8.5
+
+- **Dynamic Tearsheet Analytics Layer**:
+  - Added a dedicated tearsheet analytics flow for evaluating each backtest scenario beyond NAV comparison alone
+  - Introduced structured tearsheet models for separating summary metrics, equity curve data, drawdown curve data, rolling metrics, exposure summaries, and regime summaries
+  - Refactored tearsheet calculation into a reusable accounting/analytics layer so Streamlit renders computed outputs instead of owning the metric logic
+  - Keeps tearsheet metrics dynamically computed from persisted backtest results rather than storing derived analytics in the database
+
+- **Expanded Scenario Performance Metrics**:
+  - Added full-period performance and risk metrics including total return, CAGR, annualised volatility, Sharpe ratio, Sortino ratio, max drawdown, Calmar ratio, historical VaR, historical CVaR, skew, excess kurtosis, worst day, and best day
+  - Added rolling metric outputs for time-series analysis of rolling return, rolling volatility, and rolling Sharpe
+
+- **Exposure and Allocation Diagnostics**:
+  - Added exposure summary calculations using stored portfolio weights from backtest results
+  - Computes average asset weights for TLT, AGG, and SHY to show how each scenario allocates across duration and defensive assets over time
+  - Helps diagnose whether weak or strong scenario performance is driven by excessive concentration, insufficient defensive allocation, or persistent duration exposure
+
+- **Regime-Based Performance Breakdown**:
+  - Integrated `regime_trace` into the tearsheet workflow using scenario-aligned regime data by date and `scenario_id`
+  - Added regime summary analytics across inflation regime, growth regime, labour regime, curve state, and macro duration-support state
+  - Computes return, volatility, drawdown, worst day, best day, and average asset weights within each regime bucket
+  - Enables analysis of where each scenario performs well or breaks down across different macro environments
+
+- **Streamlit Tearsheet Integration**:
+  - Added a dedicated tearsheet tab to the scenario testing dashboard
+  - Updated the frontend to pass selected scenario results and matching regime trace data into the tearsheet builder
+  - Added tearsheet display sections for summary metrics, equity curve, drawdown curve, rolling metrics, exposure summary, regime summary, full summary table, and raw scenario data
+  - Added regime trace match-rate debugging to validate date and scenario alignment between backtest results and regime trace data
