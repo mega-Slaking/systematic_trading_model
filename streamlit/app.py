@@ -5,9 +5,14 @@ import sys
 from pathlib import Path
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from dataclasses import asdict
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT))
+SRC_ROOT = REPO_ROOT / "src"
+
+sys.path.insert(0, str(SRC_ROOT))
+
+from accounting.tearsheet_builder import build_tearsheet
 
 st.set_page_config(page_title="Scenario Testing", layout="wide")
 st.title("Scenario Testing Dashboard")
@@ -44,8 +49,33 @@ def load_etf_prices() -> pd.DataFrame:
     
     return df
 
+
+@st.cache_data
+def load_regime_trace() -> pd.DataFrame:
+    query = """
+        SELECT
+            date,
+            scenario_id,
+            inflation_regime,
+            growth_regime,
+            labour_regime,
+            curve_state,
+            macro_supports_duration
+        FROM backtest_regime_trace
+        ORDER BY scenario_id, date
+    """
+
+    with _connect_db() as conn:
+        df = pd.read_sql(query, conn, parse_dates=["date"])
+
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"])
+
+    return df
+
 # Load data
 results = load_backtest_results()
+regime_trace = load_regime_trace()
 
 # Check if scenario_id column exists
 if "scenario_id" not in results.columns:
@@ -59,7 +89,7 @@ st.subheader(f"Available Scenarios: {len(scenarios)}")
 st.divider()
 
 # Create tabs for different views
-tab1, tab2, tab3, tab4 = st.tabs(["NAV Comparison", "Returns Analysis", "Detailed Metrics", "ETF Prices"])
+tab1, tab2, tab3, tab4 = st.tabs(["NAV Comparison", "Returns Analysis", "Tearsheet", "ETF Prices"])
 
 with tab1:
     st.subheader("NAV Curves by Scenario + Buy & Hold Benchmarks")
@@ -166,35 +196,333 @@ with tab2:
     st.plotly_chart(fig, use_container_width=True)
 
 with tab3:
-    st.subheader("Detailed Metrics by Scenario")
-    
-    selected_scenario = st.selectbox("Select a scenario to view detailed metrics:", scenarios)
-    
-    scenario_data = results[results["scenario_id"] == selected_scenario].sort_values("date")
-    
+    st.subheader("Tearsheet by Scenario")
+
+    selected_scenario = st.selectbox(
+        "Select a scenario:",
+        scenarios,
+        key="tearsheet_scenario_select",
+    )
+
+    scenario_data = (
+        results[results["scenario_id"] == selected_scenario]
+        .sort_values("date")
+        .copy()
+    )
+
+    scenario_regime_trace = (
+        regime_trace[regime_trace["scenario_id"] == selected_scenario]
+        .sort_values("date")
+        .copy()
+    )
+
+    ##dewbug
+    merged_debug = scenario_data.merge(
+        scenario_regime_trace,
+        on=["date", "scenario_id"],
+        how="left",
+    )
+
+    if "inflation_regime" in merged_debug.columns:
+        match_rate = merged_debug["inflation_regime"].notna().mean()
+        st.caption(f"Regime trace match rate: {match_rate:.2%}")
+    ##dewbug
+
+    if scenario_data.empty:
+        st.warning("No data available for selected scenario.")
+        st.stop()
+
+    tearsheet = build_tearsheet(
+        results_df=scenario_data,
+        regime_df=scenario_regime_trace,
+        risk_free_rate=0.02,
+        periods_per_year=252,
+    )
+
+    summary = tearsheet.summary
+
+    st.caption(
+        f"{summary.scenario_id} | {summary.start_date} to {summary.end_date}"
+    )
+
     col1, col2, col3, col4 = st.columns(4)
+
     with col1:
-        st.metric("Final NAV", f"${scenario_data['nav'].iloc[-1]:,.0f}")
+        st.metric("Total Return", f"{summary.total_return:.2%}")
+        st.metric("CAGR", f"{summary.cagr:.2%}")
+
     with col2:
-        total_return = (scenario_data['nav'].iloc[-1] / scenario_data['nav'].iloc[0] - 1)
-        st.metric("Total Return", f"{total_return:.2%}")
+        st.metric("Annualized Volatility", f"{summary.annualized_volatility:.2%}")
+        st.metric("Sharpe", f"{summary.sharpe:.2f}")
+
     with col3:
-        peak = scenario_data["nav"].cummax()
-        max_drawdown = (scenario_data["nav"] / peak - 1).min()
-        st.metric("Max Drawdown", f"{max_drawdown:.2%}")
+        st.metric("Sortino", f"{summary.sortino:.2f}")
+        st.metric("Calmar", f"{summary.calmar:.2f}")
+
     with col4:
-        if "ret" in scenario_data.columns:
-            ann_vol = scenario_data["ret"].std() * (252 ** 0.5)
-            st.metric("Annualized Volatility", f"{ann_vol:.2%}")
+        st.metric("Max Drawdown", f"{summary.max_drawdown:.2%}")
+        st.metric("VaR 95%", f"{summary.var_95:.2%}")
+
+    st.divider()
+
+    col5, col6, col7, col8 = st.columns(4)
+
+    with col5:
+        st.metric("CVaR 95%", f"{summary.cvar_95:.2%}")
+
+    with col6:
+        st.metric("Skew", f"{summary.skew:.2f}")
+
+    with col7:
+        st.metric("Excess Kurtosis", f"{summary.excess_kurtosis:.2f}")
+
+    with col8:
+        st.metric("Avg Turnover", f"{summary.avg_turnover:.2%}")
+
+    col12, col13 = st.columns(2)
+
+    with col12:
+        st.metric("Worst Day", f"{summary.worst_day:.2%}")
+
+    with col13:
+        st.metric("Best Day", f"{summary.best_day:.2%}")
+
+    col9, col10, col11 = st.columns(3)
+
+    with col9:
+        st.metric("Annualized Turnover", f"{summary.annualized_turnover:.2%}")
+
+    with col10:
+        st.metric("Total Cost", f"${summary.total_cost:,.2f}")
+
+    with col11:
+        if summary.cost_drag is None:
+            st.metric("Cost Drag", "N/A")
+        else:
+            st.metric("Cost Drag", f"{summary.cost_drag:.2%}")
+
+    st.divider()
+
+    chart_col1, chart_col2 = st.columns(2)
+
+    with chart_col1:
+        st.write("**Equity Curve**")
+
+        equity_fig = go.Figure()
+        equity_fig.add_trace(
+            go.Scatter(
+                x=tearsheet.equity_curve["date"],
+                y=tearsheet.equity_curve["nav"],
+                mode="lines",
+                name="NAV",
+                hovertemplate=(
+                    "Date: %{x|%Y-%m-%d}<br>"
+                    "NAV: $%{y:,.0f}"
+                    "<extra></extra>"
+                ),
+            )
+        )
+
+        equity_fig.update_layout(
+            title="Scenario NAV",
+            xaxis_title="Date",
+            yaxis_title="NAV ($)",
+            template="plotly_white",
+            height=400,
+        )
+
+        st.plotly_chart(equity_fig, use_container_width=True)
+
+    with chart_col2:
+        st.write("**Drawdown Curve**")
+
+        drawdown_fig = go.Figure()
+        drawdown_fig.add_trace(
+            go.Scatter(
+                x=tearsheet.drawdown_curve["date"],
+                y=tearsheet.drawdown_curve["drawdown"],
+                mode="lines",
+                name="Drawdown",
+                hovertemplate=(
+                    "Date: %{x|%Y-%m-%d}<br>"
+                    "Drawdown: %{y:.2%}"
+                    "<extra></extra>"
+                ),
+            )
+        )
+
+        drawdown_fig.update_layout(
+            title="Drawdown",
+            xaxis_title="Date",
+            yaxis_title="Drawdown",
+            template="plotly_white",
+            height=400,
+        )
+
+        st.plotly_chart(drawdown_fig, use_container_width=True)
+
+    st.divider()
+
+    st.write("**Rolling Metrics**")
+
+    rolling_df = tearsheet.rolling_metrics.dropna().copy()
+
+    if rolling_df.empty:
+        st.info("Not enough data to calculate rolling metrics yet.")
+    else:
+        rolling_fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+        rolling_fig.add_trace(
+            go.Scatter(
+                x=rolling_df["date"],
+                y=rolling_df["rolling_volatility"],
+                mode="lines",
+                name="Rolling Volatility",
+                hovertemplate=(
+                    "Date: %{x|%Y-%m-%d}<br>"
+                    "Rolling Volatility: %{y:.2%}"
+                    "<extra></extra>"
+                ),
+            ),
+            secondary_y=False,
+        )
+
+        rolling_fig.add_trace(
+            go.Scatter(
+                x=rolling_df["date"],
+                y=rolling_df["rolling_sharpe"],
+                mode="lines",
+                name="Rolling Sharpe",
+                hovertemplate=(
+                    "Date: %{x|%Y-%m-%d}<br>"
+                    "Rolling Sharpe: %{y:.2f}"
+                    "<extra></extra>"
+                ),
+            ),
+            secondary_y=True,
+        )
+
+        rolling_fig.update_layout(
+            title="Rolling Volatility and Rolling Sharpe",
+            xaxis_title="Date",
+            template="plotly_white",
+            hovermode="x unified",
+            height=500,
+        )
+
+        rolling_fig.update_yaxes(
+            title_text="Rolling Volatility",
+            tickformat=".0%",
+            secondary_y=False,
+        )
+
+        rolling_fig.update_yaxes(
+            title_text="Rolling Sharpe",
+            secondary_y=True,
+        )
+
+        st.plotly_chart(rolling_fig, use_container_width=True)
     
-    st.write("**Metrics Over Time**")
+        st.divider()
+
+    st.write("**Exposure Summary**")
+
+    if tearsheet.exposure_summary is None or tearsheet.exposure_summary.empty:
+        st.info(
+            "No exposure summary available. Check whether weights are stored in backtest_results."
+        )
+    else:
+        exposure_display = tearsheet.exposure_summary.copy()
+
+        if "value" in exposure_display.columns:
+            exposure_display["value"] = exposure_display["value"].map(
+                lambda x: f"{x:.2%}" if pd.notna(x) else "N/A"
+            )
+
+        st.dataframe(
+            exposure_display,
+            use_container_width=True,
+        )
+
     
-    # Show detailed columns
-    display_columns = [col for col in ["date", "nav", "ret", "turnover", "fee_cost", "slippage_cost", "num_positions"] 
-                       if col in scenario_data.columns or col == "date" or col == "nav"]
-    
-    st.dataframe(scenario_data[["date", "nav", "ret", "turnover"] if "turnover" in scenario_data.columns else ["date", "nav", "ret"]], 
-                 use_container_width=True)
+        st.divider()
+
+    st.write("**Regime Summary**")
+
+    if tearsheet.regime_summary is None or tearsheet.regime_summary.empty:
+        st.info(
+            "No regime summary available. Check whether regime_trace is populated and date-aligned."
+        )
+    else:
+        regime_summary = tearsheet.regime_summary.copy()
+
+        percent_columns = [
+            "total_return",
+            "annualized_volatility",
+            "max_drawdown",
+            "worst_day",
+            "best_day",
+            "avg_weight_TLT",
+            "avg_weight_AGG",
+            "avg_weight_SHY",
+        ]
+
+        for regime_type in regime_summary["regime_type"].dropna().unique():
+            st.write(f"**{regime_type}**")
+
+            subset = regime_summary[
+                regime_summary["regime_type"] == regime_type
+            ].copy()
+
+            for column in percent_columns:
+                if column in subset.columns:
+                    subset[column] = subset[column].map(
+                        lambda x: f"{x:.2%}" if pd.notna(x) else "N/A"
+                    )
+
+            if "regime_type" in subset.columns:
+                subset = subset.drop(columns=["regime_type"])
+
+            st.dataframe(
+                subset,
+                use_container_width=True,
+            )
+
+    st.divider()
+
+    st.write("**Tearsheet Summary Table**")
+
+    summary_df = pd.DataFrame([asdict(summary)]).T
+    summary_df.columns = ["Value"]
+
+    st.dataframe(summary_df, use_container_width=True)
+
+    st.write("**Raw Scenario Data**")
+
+    display_columns = [
+        column
+        for column in [
+            "date",
+            "scenario_id",
+            "nav_pre",
+            "nav",
+            "ret",
+            "turnover",
+            "fee_cost",
+            "slippage_cost",
+            "total_cost",
+            "gross_notional",
+            "n_positions",
+            "top_asset",
+            "top_weight",
+        ]
+        if column in scenario_data.columns
+    ]
+
+    st.dataframe(
+        scenario_data[display_columns],
+        use_container_width=True,
+    )
 
 with tab4:
     st.subheader("Historical ETF Prices")

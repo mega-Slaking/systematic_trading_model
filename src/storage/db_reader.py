@@ -59,15 +59,94 @@ def get_macro_history():
     return df
 
 
-def get_backtest_regime_trace():
+def get_backtest_regime_trace(scenario_id: str | None = None) -> pd.DataFrame:
     query = """
-        SELECT date, inflation_regime, growth_regime, 
-        labour_regime, curve_state, macro_supports_duration
-        FROM regime_trace
-        ORDER BY date
+        SELECT
+            date,
+            scenario_id,
+            inflation_regime,
+            growth_regime,
+            labour_regime,
+            curve_state,
+            macro_supports_duration
+        FROM backtest_regime_trace
+    """
+
+    params = {}
+
+    if scenario_id is not None:
+        query += """
+            WHERE scenario_id = :scenario_id
+        """
+        params["scenario_id"] = scenario_id
+
+    query += """
+        ORDER BY scenario_id, date
     """
 
     with _connect() as conn:
-        df = pd.read_sql(query, conn, parse_dates=["date"])
+        df = pd.read_sql(
+            query,
+            conn,
+            params=params,
+            parse_dates=["date"],
+        )
+
+    return df
+
+
+def get_scenario_ids() -> list[str]:
+    query = """
+        SELECT DISTINCT scenario_id
+        FROM backtest_results
+        ORDER BY scenario_id
+    """
+
+    with _connect() as conn:
+        df = pd.read_sql(query, conn)
+
+    return df["scenario_id"].tolist()
+#This way, we only query scenarios we want rather than everything
+
+
+def get_backtest_results(scenario_id: str | None = None) -> pd.DataFrame:
+    base_query = """
+        SELECT
+            date,
+            scenario_id,
+            nav_pre,
+            nav,
+            ret,
+            turnover,
+            fee_cost,
+            slippage_cost,
+            total_cost,
+            gross_notional,
+            weights,
+            n_positions,
+            top_asset,
+            top_weight
+        FROM backtest_results
+    """
+
+    params = {}
+
+    if scenario_id is not None:
+        base_query += """
+            WHERE scenario_id = :scenario_id
+        """
+        params["scenario_id"] = scenario_id
+
+    base_query += """
+        ORDER BY scenario_id, date
+    """
+
+    with _connect() as conn:
+        df = pd.read_sql(
+            base_query,
+            conn,
+            params=params,
+            parse_dates=["date"],
+        )
 
     return df
