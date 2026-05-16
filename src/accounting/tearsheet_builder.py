@@ -3,19 +3,26 @@ import pandas as pd
 
 from accounting.tearsheet_models import TearsheetMetrics, TearsheetResult
 from accounting.tearsheet_calculator import (
+    build_benchmark_summary,
     build_exposure_summary,
     build_regime_summary,
     compute_annualized_turnover,
     compute_annualized_volatility,
     compute_avg_turnover,
+    compute_avg_win,
+    compute_avg_loss,
     compute_best_day,
     compute_cagr,
     compute_calmar,
     compute_cost_drag,
     compute_cvar,
+    compute_daily_hit_rate,
     compute_drawdown_curve,
     compute_excess_kurtosis,
     compute_max_drawdown,
+    compute_payoff_ratio,
+    compute_profit_factor,
+    compute_parametric_var,
     compute_rolling_metrics,
     compute_sharpe,
     compute_skew,
@@ -30,7 +37,8 @@ from accounting.tearsheet_calculator import (
 def build_tearsheet(
     results_df: pd.DataFrame,
     regime_df: pd.DataFrame | None = None,
-    risk_free_rate: float = 0.02,
+    benchmark_prices_df: pd.DataFrame | None = None,
+    risk_free_rate: float = 0.02, #question this value
     periods_per_year: int = 252,
 ) -> TearsheetResult:
     df = _prepare_results_df(results_df)
@@ -67,6 +75,12 @@ def build_tearsheet(
             results_df=df,
             regime_df=regime_df,
             periods_per_year=periods_per_year,
+        ),
+        benchmark_summary=build_benchmark_summary(
+            results_df=df,
+            benchmark_prices_df=benchmark_prices_df,
+            periods_per_year=periods_per_year,
+            risk_free_rate=risk_free_rate,
         ),
     )
 
@@ -142,6 +156,15 @@ def _build_summary_metrics(
             n_periods=n_periods,
             periods_per_year=periods_per_year,
         ),
+        parametric_var_95=compute_parametric_var(
+            returns=returns,
+            confidence=0.95,
+        ),
+        daily_hit_rate=compute_daily_hit_rate(returns),
+        avg_win=compute_avg_win(returns),
+        avg_loss=compute_avg_loss(returns),
+        payoff_ratio=compute_payoff_ratio(returns),
+        profit_factor=compute_profit_factor(returns),
     )
 
 

@@ -28,6 +28,13 @@ class TearsheetMetrics:
     total_cost: float
     cost_drag: float | None
 
+    daily_hit_rate: float
+    avg_win: float
+    avg_loss: float
+    payoff_ratio: float
+    profit_factor: float
+    parametric_var_95: float
+
 
 @dataclass
 class TearsheetResult:
@@ -37,3 +44,4 @@ class TearsheetResult:
     rolling_metrics: pd.DataFrame
     exposure_summary: pd.DataFrame | None
     regime_summary: pd.DataFrame | None
+    benchmark_summary: pd.DataFrame | None

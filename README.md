@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.8.5
+## Current Version: V 1.8.6
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
 
@@ -458,3 +458,40 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - Updated the frontend to pass selected scenario results and matching regime trace data into the tearsheet builder
   - Added tearsheet display sections for summary metrics, equity curve, drawdown curve, rolling metrics, exposure summary, regime summary, full summary table, and raw scenario data
   - Added regime trace match-rate debugging to validate date and scenario alignment between backtest results and regime trace data
+
+  ## V 1.8.6
+
+- **Tearsheet Metrics Framework**:
+  - Introduced structured metric models in `tearsheet_models.py` to represent calculated tearsheet outputs in a consistent format
+  - Added trade/return quality metrics including daily hit rate, payoff ratio, profit factor, average win day, and average loss day
+  - Provides a cleaner foundation for comparing whether scenario performance is driven by returns, risk control, drawdown behaviour, or consistency of positive return days
+
+- **Tearsheet Calculation Layer**:
+  - Added `tearsheet_calculator.py` to centralise tearsheet metric calculations from persisted backtest results
+  - Keeps metric formulas separated from Streamlit rendering logic for improved testability and maintainability
+  - Calculates scenario-level statistics from daily NAV/return data, enabling consistent comparison across different strategy configurations
+  - Supports better debugging of weak scenarios by exposing whether performance issues come from low hit rate, poor payoff ratio, excess volatility, or drawdown behaviour
+
+- **Tearsheet Builder Layer**:
+  - Added `tearsheet_builder.py` to assemble tearsheet outputs from raw backtest result data
+  - Provides a structured bridge between stored scenario results and front-end display components
+  - Improves separation of concerns by keeping data preparation, metric calculation, and UI rendering in separate layers
+  - Establishes a reusable pattern for extending analytics with future metrics such as VaR, rolling drawdowns, exposure attribution, carry analysis, and regime-level performance breakdowns
+
+- **Streamlit Front-End Refactor**:
+  - Refactored the Scenario Testing Dashboard into separate tab rendering modules under `home_page_tabs`
+  - Split major dashboard views into dedicated render functions:
+    - `render_nav_comparison_tab()`
+    - `render_returns_analysis_tab()`
+    - `render_tearsheet_tab()`
+    - `render_etf_prices_tab()`
+  - Simplified the main Streamlit app so it now acts primarily as the dashboard entry point and tab orchestrator
+  - Moved shared loading/configuration utilities into `home_page_tabs.utils`, including `load_backtest_results` and `DB_PATH`
+  - Improves front-end maintainability by separating NAV comparison, returns analysis, tearsheet analytics, and ETF price inspection into isolated scripts
+  - Creates a cleaner structure for adding future analytics tabs without bloating the main dashboard file
+
+- **Scenario Analytics Workflow Improvements**:
+  - Improved the ability to compare strategy variants using both performance metrics and behavioural diagnostics
+  - Supports more disciplined strategy iteration by making it easier to distinguish between high-return, high-risk, and genuinely risk-adjusted improvements
+  - Provides a stronger analytics layer for validating covariance scaling, volatility targeting, allocation logic, and future strategy experiments
+  - Establishes the tearsheet as the main evaluation layer for determining whether scenario changes are actually improving strategy quality
