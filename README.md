@@ -1,5 +1,6 @@
 # Project Overview
-## Current Version: V 1.9.0
+## Current Version: V 1.9.1
+![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
 
@@ -168,6 +169,17 @@ Examples of configurable experiments include:
   - Future macro/price confidence models
 
 The goal is to make strategy development empirical. Instead of relying on a single backtest result, the system can compare multiple strategy configurations under the same data, execution, cost, and portfolio assumptions.
+
+# Testing
+
+A `pytest` suite lives under `tests/` (see `tests/TEST_PLAN.md` for the full blueprint and coverage map).
+
+- Run everything: `python -m pytest`
+- Fast loop (skips the slow GARCH fit and backtest e2e): `python -m pytest -m "not slow"`
+
+It runs automatically in two places:
+- **CI** — GitHub Actions (`.github/workflows/tests.yml`) on every push to `main`/`dev` and on pull requests.
+- **Pre-commit** — a local hook runs the fast suite before each commit. Enable once with `pip install -r requirements-dev.txt` then `pre-commit install`.
 
 # Expected Timeline:
 ### V 1.x.x - Measurement and Execution Realism
@@ -533,3 +545,22 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - Added `tests/feature_surface_test.py` cross-validating the surface against the point-in-time estimator across random dates
   - Confirms rolling and EWMA match to floating-point precision, GARCH matches exactly under daily refit, and comparison-ratio features are self-consistent
   - Doubles as a lookahead check: agreement with the `date < t` estimator confirms the surface uses no data on or after each date
+
+  ## V 1.9.1
+
+- **Test Suite**:
+  - Added a `pytest` suite under `tests/` (~182 tests) covering pure mechanics (weights, valuation, day metrics, rebalance), the decision pipeline (regime → favourable-asset → base allocation → conviction → sizing → constraints), volatility and covariance estimation, the volatility feature surface, execution/accounting, tearsheet analytics, persistence round-trips, and a full backtest end-to-end run
+  - Organized by domain (`data/`, `features/`, `backtest/`, `strategy/`, `tearsheets/`, `persistence/`), with the full blueprint and coverage map in `tests/TEST_PLAN.md`
+  - Dedicated regression guards for lookahead safety, determinism, and money/weight invariants
+
+- **Coverage**:
+  - Wired `pytest-cov` with a scoped `.coveragerc` that excludes external I/O, visuals, and the deferred live path; in-scope line coverage is ~82%
+  - Run locally with `python -m pytest --cov=src --cov-report=term-missing`
+
+- **Continuous Integration**:
+  - Added a GitHub Actions workflow (`.github/workflows/tests.yml`) running the suite on pushes to `main`/`dev` and on pull requests
+  - Added a local pre-commit hook (`.pre-commit-config.yaml`) running the fast suite before each commit
+  - Added `requirements-dev.txt` (pytest, pytest-cov, pre-commit)
+
+- **Bug Fix**:
+  - Fixed `get_backtest_results` in `db_reader.py` selecting a non-existent `gross_notional` column (the column is `gross_trade_notional`), which raised `OperationalError` on every call; surfaced and regression-guarded by the new persistence round-trip tests

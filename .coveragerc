@@ -1,0 +1,16 @@
+# Coverage scope. Excludes code deliberately not unit-tested:
+#  - external I/O (api_fetch, notify) — hit live services
+#  - visuals — plotting / Streamlit rendering
+#  - the deferred live path (context/live.py, storage/persister.py) — see tests/TEST_PLAN.md §9
+[run]
+source = src
+omit =
+    src/api_fetch/*
+    src/notify/*
+    src/visuals/*
+    src/context/live.py
+    src/storage/persister.py
+
+[report]
+exclude_also =
+    if __name__ == .__main__.:

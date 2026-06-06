@@ -1,0 +1,30 @@
+name: tests
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          allow-prereleases: true
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run test suite
+        # API keys are stubbed in tests/conftest.py and the suite uses synthetic
+        # data / temp DBs, so no secrets or data/database.db are required.
+        run: python -m pytest -q
