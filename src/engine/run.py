@@ -7,6 +7,7 @@ from src.decision.regime_trace import record_regime
 from src.volatility import VolatilityConfig, VolatilityRequest, estimate_volatility
 from src.covariance.models import CovarianceConfig
 from src.covariance.estimator import estimate_covariance_from_returns_view
+from src.covariance.returns_view import CovarianceReturnsView
 import pandas as pd
 
 def run_engine(context,scenario=None):
@@ -49,14 +50,24 @@ def run_engine(context,scenario=None):
 
     vol_estimate = estimate_volatility(vol_request, vol_config) #Asset-wise, returns vector with length 3
 
-    # Passive volatility feature surface lookup: features known as-of current_date
-    # (already lagged for lookahead safety). Exposed for diagnostics/future signals;
-    # deliberately NOT fed into the decision pipeline yet.
-    volatility_snapshot = context.get_volatility_snapshot()
-    context.volatility_features = context.volatility_snapshot_to_dict(volatility_snapshot)
+    # Passive volatility feature surface lookup (optional: only contexts that carry a
+    # surface, e.g. the backtest, implement these). Features are lagged for lookahead
+    # safety and are NOT fed into the decision pipeline yet.
+    if hasattr(context, "get_volatility_snapshot"):
+        volatility_snapshot = context.get_volatility_snapshot()
+        context.volatility_features = context.volatility_snapshot_to_dict(volatility_snapshot)
+
+    # The backtest pre-builds and caches a returns view; the live context does not,
+    # so fall back to building one from the fetched history.
+    returns_view = getattr(context, "returns_view", None)
+    if returns_view is None:
+        returns_view = CovarianceReturnsView.from_etf_history(
+            etf_history=etf_df,
+            tickers=["TLT", "AGG", "SHY"],
+        )
 
     cov_estimate = estimate_covariance_from_returns_view(
-        returns_view=context.returns_view,
+        returns_view=returns_view,
         as_of_date=context.current_date,
         tickers=["TLT", "AGG", "SHY"],
         config=cov_config,

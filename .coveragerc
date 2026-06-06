@@ -8,7 +8,6 @@ omit =
     src/api_fetch/*
     src/notify/*
     src/visuals/*
-    src/context/live.py
     src/storage/persister.py
 
 [report]
