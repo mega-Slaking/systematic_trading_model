@@ -14,6 +14,13 @@ def _sql_date(var):
     return var
 
 
+def _none_if_nan(v):
+    # NaN is the only value not equal to itself; map it (and pandas NaN) to NULL.
+    if v is None or (isinstance(v, float) and v != v):
+        return None
+    return v
+
+
 def insert_decision_trace(conn: sqlite3.Connection, rows: list[dict]) -> None:
 
     payload = [
@@ -201,6 +208,53 @@ def insert_backtest_regime_trace(conn: sqlite3.Connection, rows: list[dict]) -> 
     conn.executemany(
         """
         INSERT OR REPLACE INTO backtest_regime_trace VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        payload,
+    )
+
+
+_VOLATILITY_FEATURE_COLUMNS = [
+    "rolling_20",
+    "rolling_60",
+    "ewma_94",
+    "ewma_97",
+    "garch",
+    "ewma_94_to_rolling_20",
+    "ewma_94_change_5d",
+    "ewma_97_to_rolling_20",
+    "ewma_97_change_5d",
+]
+
+
+def insert_volatility_features(conn: sqlite3.Connection, rows: list[dict]) -> None:
+
+    payload = [
+        (
+            _sql_date(r.get("date")),
+            r.get("ticker"),
+            *[_none_if_nan(r.get(col)) for col in _VOLATILITY_FEATURE_COLUMNS],
+            r.get("config_key"),
+        )
+        for r in rows
+    ]
+
+    conn.executemany(
+        """
+        INSERT OR REPLACE INTO volatility_features (
+            date,
+            ticker,
+            rolling_20,
+            rolling_60,
+            ewma_94,
+            ewma_97,
+            garch,
+            ewma_94_to_rolling_20,
+            ewma_94_change_5d,
+            ewma_97_to_rolling_20,
+            ewma_97_change_5d,
+            config_key
+        )
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
         """,
         payload,
     )

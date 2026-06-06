@@ -11,11 +11,45 @@ class BacktestContext:
         self.decision_trace = []
         self.regime_trace = []
         self.results = []
-        self.daily_metrics = [] 
-        self.trade_log = []  
+        self.daily_metrics = []
+        self.trade_log = []
+        # Read-only volatility feature surface, built once before the scenario
+        # loop and attached in run_backtest (mirrors self.returns_view).
+        self.volatility_feature_surface = None
+        # Per-date volatility features refreshed inside the engine loop. Passive
+        # for now: exposed for diagnostics/future signals, not used for sizing.
+        self.volatility_features = {}
 
     def set_date(self, date):
         self.current_date = pd.Timestamp(date)
+
+    def get_volatility_snapshot(self):
+        """Volatility features known as-of current_date (already lookahead-lagged)."""
+        if self.volatility_feature_surface is None or self.current_date is None:
+            return pd.DataFrame()
+        return self.volatility_feature_surface.get_snapshot(self.current_date)
+
+    @staticmethod
+    def volatility_snapshot_to_dict(snapshot) -> dict[str, dict[str, float]]:
+        if snapshot is None or snapshot.empty:
+            return {}
+
+        feature_columns = [
+            column
+            for column in snapshot.columns
+            if column not in {"date", "ticker"}
+        ]
+
+        output: dict[str, dict[str, float]] = {}
+        for _, row in snapshot.iterrows():
+            ticker = row["ticker"]
+            output[ticker] = {
+                column: float(row[column])
+                for column in feature_columns
+                if pd.notna(row[column])
+            }
+
+        return output
 
     def fetch_etf_prices(self):
         return self.etf_history[self.etf_history["date"] < self.current_date]
