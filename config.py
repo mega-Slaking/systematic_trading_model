@@ -35,5 +35,5 @@ FEE_BPS = {
 #for now, I'm going to set these to 0 - fees depend heavily on a broker and could dismiss strategies that have potential
 
 MIN_TRADE_NOTIONAL = 10.0 #this changes relative to your capital - probably shouldnt hardcode; consideration for later
-#NORMASL/STRRESS MODE
+#NORMAL/STRESS MODE
 DRIFT_TOL = 0.02 #5% drift tolerance before rebalancing; consideration for later - could make dynamic for volatility

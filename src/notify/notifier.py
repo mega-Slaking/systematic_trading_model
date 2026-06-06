@@ -5,7 +5,7 @@ from src.decision.models import Decision
 def _resolve_weights(decision: Decision) -> dict[str, float]:
     return (
         decision.final_weights
-        or decision.sized_weights #remove these once vol and conviction modelling copmplete
+        or decision.sized_weights #remove these once vol and conviction modelling complete
         or decision.base_weights
         or {}
     )

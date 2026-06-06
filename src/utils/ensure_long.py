@@ -33,7 +33,7 @@ def ensure_long(etf_df: pd.DataFrame) -> pd.DataFrame:
 
     out = pd.concat(rows, ignore_index=True)
 
-    # FINAL HARD GUARARDS
+    # FINAL HARD GUARDS
     assert {"date", "ticker", "close"}.issubset(out.columns)
     assert isinstance(out["close"], pd.Series)
 

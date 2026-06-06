@@ -122,16 +122,6 @@ class CovarianceReturnsView:
     
 
     def get_cached_covariance(self, cache_key: tuple):
-        return self.covariance_cache.get(cache_key)
-
-    def set_cached_covariance(self, cache_key: tuple, estimate) -> None:
-        self.covariance_cache[cache_key] = estimate
-
-    def clear_covariance_cache(self) -> None:
-        self.covariance_cache.clear()
-
-#########################
-    def get_cached_covariance(self, cache_key: tuple):
         cached = self.covariance_cache.get(cache_key)
 
         if cached is not None:

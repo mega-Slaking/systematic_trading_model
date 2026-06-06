@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.9.2
+## Current Version: V 1.9.3
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -579,3 +579,14 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 
 - **Repository Hygiene**:
   - Fixed an over-broad `.gitignore` rule (`data/`) that was unintentionally ignoring the `tests/data/` test folder; anchored it to `/data/` so test code is tracked while the root data directory stays ignored
+
+  ## V 1.9.3
+
+- **Code Cleanup (no behaviour change)**:
+  - Removed duplicate `get_cached_covariance` / `set_cached_covariance` / `clear_covariance_cache` definitions in `CovarianceReturnsView`; the first set was dead code, silently overridden by the cache hit/miss-tracking versions
+  - Dropped the unused `generate_single_asset_rebalance_trades` import/export (superseded by `rebalance_v2`) and marked `src/execution/rebalance.py` as deprecated
+  - Deleted the redundant print-based `tests/feature_surface_test.py` (superseded by `tests/features/test_volatility_surface.py`) and removed its stale pytest `--ignore`
+
+- **Repository Hygiene**:
+  - Stopped gitignoring the database schema: `.gitignore` now uses `/data/*` with a `!/data/db_population.py` exception, so the canonical `CREATE TABLE` definitions are tracked while the database and raw data stay ignored
+  - Fixed assorted typos across comments and identifiers

@@ -35,11 +35,12 @@ htmlcov/
 *.log
 output/logs/*.log
 
-# Data for working environment clenliness - should refactor to sqlite
+# Data for working environment cleanliness - should refactor to sqlite
 # Anchored to repo root so it doesn't also ignore tests/data/ (test code).
-/data/
+# Ignore the data dir's contents but keep the tracked schema file.
+/data/*
+!/data/db_population.py
 output/
-/data/processed/
 *.csv
 *.png
 *.jpg

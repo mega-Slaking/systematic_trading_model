@@ -1,6 +1,4 @@
 from src.execution.models import ExecutionCosts
-from src.execution.rebalance import generate_single_asset_rebalance_trades
-#import new rebalance module
 from src.execution.rebalance_v2 import generate_weight_rebalance_trades
 from src.utils.weights import normalize_weights, clip_weights
 from config import FEE_BPS, SLIPPAGE_BPS, MIN_TRADE_NOTIONAL, DRIFT_TOL

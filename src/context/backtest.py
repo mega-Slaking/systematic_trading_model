@@ -87,7 +87,7 @@ class BacktestContext:
             return dict(decision.base_weights)
 
         return {}
-    #this staticmethod defines a hierarchy of what weight to use; discontinue usage once proper scaling is imnplemented
+    #this staticmethod defines a hierarchy of what weight to use; discontinue usage once proper scaling is implemented
 
     def persist(self, etf_df, macro_df, price_signals, macro_signals, decision):
         prices_today = PriceNormalizer.normalize_prices(self.fetch_etf_prices())
