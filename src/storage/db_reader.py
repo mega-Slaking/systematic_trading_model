@@ -154,7 +154,7 @@ def get_backtest_results(scenario_id: str | None = None) -> pd.DataFrame:
             fee_cost,
             slippage_cost,
             total_cost,
-            gross_notional,
+            gross_trade_notional,
             weights,
             n_positions,
             top_asset,
