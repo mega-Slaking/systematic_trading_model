@@ -36,9 +36,10 @@ htmlcov/
 output/logs/*.log
 
 # Data for working environment clenliness - should refactor to sqlite
-data/
+# Anchored to repo root so it doesn't also ignore tests/data/ (test code).
+/data/
 output/
-data/processed/
+/data/processed/
 *.csv
 *.png
 *.jpg
