@@ -7,6 +7,7 @@ from home_page_tabs import (
     render_returns_analysis_tab,
     render_tearsheet_tab,
     render_etf_prices_tab,
+    render_volatility_features_tab,
 )
 from home_page_tabs.utils import load_backtest_results, DB_PATH
 
@@ -32,7 +33,9 @@ st.subheader(f"Available Scenarios: {len(scenarios)}")
 st.divider()
 
 # Create tabs for different views
-tab1, tab2, tab3, tab4 = st.tabs(["NAV Comparison", "Returns Analysis", "Tearsheet", "ETF Prices"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["NAV Comparison", "Returns Analysis", "Tearsheet", "ETF Prices", "Volatility Features"]
+)
 
 with tab1:
     render_nav_comparison_tab()
@@ -45,3 +48,6 @@ with tab3:
 
 with tab4:
     render_etf_prices_tab()
+
+with tab5:
+    render_volatility_features_tab()

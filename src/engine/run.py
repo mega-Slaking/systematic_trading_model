@@ -49,6 +49,12 @@ def run_engine(context,scenario=None):
 
     vol_estimate = estimate_volatility(vol_request, vol_config) #Asset-wise, returns vector with length 3
 
+    # Passive volatility feature surface lookup: features known as-of current_date
+    # (already lagged for lookahead safety). Exposed for diagnostics/future signals;
+    # deliberately NOT fed into the decision pipeline yet.
+    volatility_snapshot = context.get_volatility_snapshot()
+    context.volatility_features = context.volatility_snapshot_to_dict(volatility_snapshot)
+
     cov_estimate = estimate_covariance_from_returns_view(
         returns_view=context.returns_view,
         as_of_date=context.current_date,

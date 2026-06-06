@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.8.6
+## Current Version: V 1.9.0
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
 
@@ -495,3 +495,41 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - Supports more disciplined strategy iteration by making it easier to distinguish between high-return, high-risk, and genuinely risk-adjusted improvements
   - Provides a stronger analytics layer for validating covariance scaling, volatility targeting, allocation logic, and future strategy experiments
   - Establishes the tearsheet as the main evaluation layer for determining whether scenario changes are actually improving strategy quality
+
+  ## V 1.9.0
+
+- **Volatility Feature Surface Module (`src/volatility/feature_surface.py`)**:
+  - Added a precomputed asset-level volatility feature surface spanning the full `date × ticker` panel, built once and reused across all scenarios (analogous to the covariance returns view)
+  - Computes multiple volatility estimates per asset in a single structure: rolling standard deviation (20d, 60d) and EWMA (λ=0.94, λ=0.97), plus comparison features (EWMA-to-rolling ratios and 5-day EWMA change)
+  - Conceptually separated from the existing point-in-time `estimator.py`: the surface exposes many volatility views as signals/diagnostics, while the estimator still produces the single selected volatility used for sizing
+  - Added in-memory caching keyed on tickers, config, price column, lag, and the date range, with `clear_volatility_feature_surface_cache()`
+  - Lookahead-safe by construction: all feature columns are lagged one day (`lag_features_days=1`) so each date only carries volatility known *before* that date, matching the estimator's `date < as_of_date` rule
+
+- **GARCH(1,1) Volatility in the Feature Surface**:
+  - Added GARCH(1,1) as an opt-in surface feature (`include_garch`) using the `arch` library, reusing the existing estimator's fit recipe
+  - Implemented a monthly-refit + daily roll-forward design: the expensive optimisation is refit only at the configured `garch_refit_frequency` (daily/weekly/monthly), and the conditional variance is rolled forward each day with the held parameters, keeping the feature responsive without per-day refitting
+  - Validated to reduce exactly to the point-in-time estimator when refit daily (0.00e+00 difference)
+
+- **New Volatility Feature Config & Surface Models (`src/volatility/models.py`)**:
+  - Added `VolatilityFeatureConfig` (rolling windows, EWMA lambdas, GARCH parameters, refit frequency, annualisation, minimum history) with a `cache_key()` for safe caching
+  - Added `VolatilityFeatureSurface` carrying the feature panel with `get_snapshot(as_of_date)` and `get_ticker_snapshot(as_of_date, ticker)` accessors
+
+- **Passive Backtest Integration**:
+  - The feature surface is built once before the scenario loop and attached to `BacktestContext` (beside the returns view), shared read-only across scenarios
+  - The engine retrieves the daily snapshot into `context.volatility_features` each date via `get_volatility_snapshot()` / `volatility_snapshot_to_dict()`
+  - Integration is deliberately passive: features are made available for diagnostics and future signals, but allocation/strategy logic is unchanged
+
+- **Volatility Feature Persistence**:
+  - Added a scenario-independent `volatility_features` table (one row per `date, ticker`, storing all feature columns plus a `config_key`)
+  - Added `insert_volatility_features()` in `db_writer.py` and `get_volatility_features()` in `db_reader.py`
+  - `run_backtest.py` persists the surface once per run (outside the scenario loop) so the front-end reads the exact lagged values the strategy saw
+
+- **Streamlit Volatility Features Tab**:
+  - Added a new "Volatility Features" tab to the Scenario Testing Dashboard
+  - Renders per-asset annualised volatility estimates over time (rolling 20/60, EWMA 0.94/0.97, GARCH) with a method selector and a latest-values table
+  - Added `load_volatility_features()` to `home_page_tabs.utils`, guarded to degrade gracefully when the table is empty
+
+- **Volatility Feature Validation Suite**:
+  - Added `tests/feature_surface_test.py` cross-validating the surface against the point-in-time estimator across random dates
+  - Confirms rolling and EWMA match to floating-point precision, GARCH matches exactly under daily refit, and comparison-ratio features are self-consistent
+  - Doubles as a lookahead check: agreement with the `date < t` estimator confirms the surface uses no data on or after each date

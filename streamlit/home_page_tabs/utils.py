@@ -41,6 +41,23 @@ def load_etf_prices() -> pd.DataFrame:
 
 
 @st.cache_data
+def load_volatility_features() -> pd.DataFrame:
+    """Load the persisted volatility feature surface (scenario-independent)."""
+    query = "SELECT * FROM volatility_features ORDER BY ticker, date"
+    try:
+        with connect_db() as conn:
+            df = pd.read_sql(query, conn, parse_dates=["date"])
+    except Exception:
+        # Table not created / not yet populated.
+        return pd.DataFrame()
+
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"])
+
+    return df
+
+
+@st.cache_data
 def load_regime_trace() -> pd.DataFrame:
     """Load regime trace from database."""
     query = """

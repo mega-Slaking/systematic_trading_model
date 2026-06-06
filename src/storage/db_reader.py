@@ -109,6 +109,39 @@ def get_scenario_ids() -> list[str]:
 #This way, we only query scenarios we want rather than everything
 
 
+def get_volatility_features(tickers=None) -> pd.DataFrame:
+    query = """
+        SELECT
+            date,
+            ticker,
+            rolling_20,
+            rolling_60,
+            ewma_94,
+            ewma_97,
+            garch,
+            ewma_94_to_rolling_20,
+            ewma_94_change_5d,
+            ewma_97_to_rolling_20,
+            ewma_97_change_5d,
+            config_key
+        FROM volatility_features
+    """
+
+    params = []
+
+    if tickers:
+        placeholders = ",".join("?" for _ in tickers)
+        query += f" WHERE ticker IN ({placeholders})"
+        params.extend(tickers)
+
+    query += " ORDER BY ticker, date"
+
+    with _connect() as conn:
+        df = pd.read_sql(query, conn, params=params, parse_dates=["date"])
+
+    return df
+
+
 def get_backtest_results(scenario_id: str | None = None) -> pd.DataFrame:
     base_query = """
         SELECT
