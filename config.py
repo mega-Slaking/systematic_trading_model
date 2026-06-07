@@ -14,7 +14,8 @@ if FRED_API_KEY is None:
     raise RuntimeError("Missing FRED_API_KEY in .env file")
 
 
-TICKERS = ["SHY", "AGG", "TLT"]
+from src.universe import UNIVERSE
+TICKERS = list(UNIVERSE)
 
 DATA_DIR = "data"
 RAW_DIR = f"{DATA_DIR}/raw"

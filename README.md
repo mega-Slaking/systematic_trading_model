@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.9.3
+## Current Version: V 1.9.4
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -590,3 +590,13 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 - **Repository Hygiene**:
   - Stopped gitignoring the database schema: `.gitignore` now uses `/data/*` with a `!/data/db_population.py` exception, so the canonical `CREATE TABLE` definitions are tracked while the database and raw data stay ignored
   - Fixed assorted typos across comments and identifiers
+
+  ## V 1.9.4
+
+- **Configuration Consolidation (no behaviour change)**:
+  - Centralized the tradable asset universe in `src/universe.py`; the six modules that each re-declared `["TLT", "AGG", "SHY"]` now import a single `UNIVERSE` constant, which also resolved an ordering inconsistency with `config.TICKERS`
+  - Centralized the sqlite database location in `src/storage/paths.py`; readers, writers, fetchers, and `run_backtest.py` now import one `DB_PATH` instead of four hardcoded variants (and `persister.py` no longer depends on `config`)
+
+- **Logging**:
+  - Replaced ad-hoc `print()` statements across the backtest engine, fetchers, notifier, and runner with module-level loggers (`logging.getLogger(__name__)`), defaulting to `debug` level; entry points (`run_backtest.py`, `main.py`) configure logging so output is shown when running the app but stays quiet under tests
+  - Missing-required-ticker conditions are logged at `warning` level

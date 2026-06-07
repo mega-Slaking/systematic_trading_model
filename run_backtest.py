@@ -5,13 +5,21 @@ from src.storage.db_reader import get_etf_history, get_macro_history
 from src.scenarios.factory import build_vol_power_scenarios, build_covariance_scaling_scenarios, build_ewma_covariance_scaling_scenarios, build_legacy_ewma_covariance_scaling_scenarios, build_legacy_covariance_scaling_scenarios
 from src.covariance.returns_view import CovarianceReturnsView
 from src.volatility import build_volatility_feature_surface, VolatilityFeatureConfig
+from src.storage.paths import DB_PATH
 import sqlite3
+import logging
 import pandas as pd
 
-conn = sqlite3.connect("data/database.db")
+logger = logging.getLogger(__name__)
+
+conn = sqlite3.connect(DB_PATH)
 
 def main():
-    print("Running backtest. Please be patient...")
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    logger.debug("Running backtest. Please be patient...")
     etf_history = get_etf_history()
 
     macro_history = get_macro_history()
@@ -23,8 +31,8 @@ def main():
     available = set(etf_history["ticker"].dropna().unique())
     missing = required - available
     if missing:
-        print("WARNING: Missing required tickers in ETF history:", sorted(missing))
-        print("Available tickers:", sorted(available))
+        logger.warning("Missing required tickers in ETF history: %s", sorted(missing))
+        logger.warning("Available tickers: %s", sorted(available))
         # Fallback to whatever is available for historic coverage, but strategy may be degraded.
         required = required & available
 
@@ -87,7 +95,7 @@ def main():
     )
     
     for scenario in scenarios:
-        print(f"Running scenario: {scenario.scenario_id}")
+        logger.debug("Running scenario: %s", scenario.scenario_id)
 
         portfolio = Portfolio(initial_capital=1_000_000)
 
@@ -112,12 +120,10 @@ def main():
         insert_backtest_decision_trace(conn, context.decision_trace)
         insert_backtest_regime_trace(conn, context.regime_trace)
 
-    print("Backtest complete.")
-    ##
-    print("Covariance cache size:", len(returns_view.covariance_cache))
-    print("Covariance cache hits:", returns_view.covariance_cache_hits)
-    print("Covariance cache misses:", returns_view.covariance_cache_misses)
-    ##
+    logger.debug("Backtest complete.")
+    logger.debug("Covariance cache size: %s", len(returns_view.covariance_cache))
+    logger.debug("Covariance cache hits: %s", returns_view.covariance_cache_hits)
+    logger.debug("Covariance cache misses: %s", returns_view.covariance_cache_misses)
     conn.commit()
     conn.close()
 

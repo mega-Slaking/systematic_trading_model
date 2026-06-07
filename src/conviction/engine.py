@@ -4,7 +4,7 @@ from src.decision.models import Decision
 from src.conviction.models import ConvictionConfig, ConvictionEstimate
 
 
-TARGET_TICKERS = ["TLT", "AGG", "SHY"]
+from src.universe import UNIVERSE as TARGET_TICKERS
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:

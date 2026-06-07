@@ -1,3 +1,5 @@
+import logging
+
 import pandas as pd
 
 from src.decision.models import Decision
@@ -6,6 +8,9 @@ from src.context.backtest import BacktestContext
 from src.utils.ensure_long import ensure_long
 from src.accounting.valuation import value_portfolio
 from src.accounting.metrics import compute_day_metrics
+
+logger = logging.getLogger(__name__)
+
 
 def _weights_from_holdings(holdings: dict[str, float], prices: dict[str, float], nav: float) -> dict[str, float]:
     nav = float(nav)
@@ -22,33 +27,34 @@ def _weights_from_holdings(holdings: dict[str, float], prices: dict[str, float],
     return w
 
 
-def _print_decision_debug(decision: Decision, prefix: str = "") -> None:
-    print(f"\n{prefix}DECISION DEBUG")
-    print("date:", decision.date)
-    print("regime:", decision.regime)
-    print("monetary_regime:", decision.monetary_regime)
-    print("economic_regime:", decision.economic_regime)
-    print("reason:", decision.reason)
+def _log_decision_debug(decision: Decision, prefix: str = "") -> None:
+    logger.debug("%sDECISION DEBUG", prefix)
+    logger.debug("date: %s", decision.date)
+    logger.debug("regime: %s", decision.regime)
+    logger.debug("monetary_regime: %s", decision.monetary_regime)
+    logger.debug("economic_regime: %s", decision.economic_regime)
+    logger.debug("reason: %s", decision.reason)
 
-    print("direction:", decision.direction)
-    print("base_weights:", decision.base_weights)
-    print("conviction:", decision.conviction)
-    print("conviction_scores:", decision.conviction_scores)
-    print("conviction_components:", decision.conviction_components)
-    print("conviction_weights:", decision.conviction_weights)
-    print("sized_weights:", decision.sized_weights)
-    print("final_weights:", decision.final_weights)
+    logger.debug("direction: %s", decision.direction)
+    logger.debug("base_weights: %s", decision.base_weights)
+    logger.debug("conviction: %s", decision.conviction)
+    logger.debug("conviction_scores: %s", decision.conviction_scores)
+    logger.debug("conviction_components: %s", decision.conviction_components)
+    logger.debug("conviction_weights: %s", decision.conviction_weights)
+    logger.debug("sized_weights: %s", decision.sized_weights)
+    logger.debug("final_weights: %s", decision.final_weights)
 
-    print("gross_exposure:", decision.gross_exposure)
-    print("net_exposure:", decision.net_exposure)
-    print("portfolio_vol_estimate:", decision.portfolio_vol_estimate)
-    print("portfolio_vol_target:", decision.portfolio_vol_target)
-    print("portfolio_scale:", decision.portfolio_scale)
+    logger.debug("gross_exposure: %s", decision.gross_exposure)
+    logger.debug("net_exposure: %s", decision.net_exposure)
+    logger.debug("portfolio_vol_estimate: %s", decision.portfolio_vol_estimate)
+    logger.debug("portfolio_vol_target: %s", decision.portfolio_vol_target)
+    logger.debug("portfolio_scale: %s", decision.portfolio_scale)
 
     if decision.notes:
-        print("notes:")
+        logger.debug("notes:")
         for note in decision.notes[-8:]:
-            print("  -", note)
+            logger.debug("  - %s", note)
+
 
 def run_backtest(etf_history, macro_history, portfolio,scenario, returns_view=None, volatility_feature_surface=None):
     etf_history = ensure_long(etf_history)
@@ -58,7 +64,10 @@ def run_backtest(etf_history, macro_history, portfolio,scenario, returns_view=No
     context.volatility_feature_surface = volatility_feature_surface
 
     dates = sorted(etf_history["date"].dropna().unique())
-    print("DATES:", len(dates), "FIRST:", dates[0] if dates else None, "LAST:", dates[-1] if dates else None)
+    logger.debug(
+        "DATES: %s FIRST: %s LAST: %s",
+        len(dates), dates[0] if dates else None, dates[-1] if dates else None,
+    )
 
     skip_decision = 0
     skip_prices = 0
@@ -74,7 +83,7 @@ def run_backtest(etf_history, macro_history, portfolio,scenario, returns_view=No
         if decision is None:
             skip_decision += 1
             if skip_decision <= 5:
-                print("SKIP decision None on", context.current_date)
+                logger.debug("SKIP decision None on %s", context.current_date)
             continue
 
         last_decision = decision
@@ -82,9 +91,9 @@ def run_backtest(etf_history, macro_history, portfolio,scenario, returns_view=No
         if prices_today is None:
             skip_prices += 1
             if skip_prices <= 5:
-                print("SKIP prices None on", context.current_date)
+                logger.debug("SKIP prices None on %s", context.current_date)
                 etf_df = context.fetch_etf_prices()
-                print("  tickers in slice:", sorted(etf_df["ticker"].dropna().unique().tolist()))
+                logger.debug("  tickers in slice: %s", sorted(etf_df["ticker"].dropna().unique().tolist()))
             continue
 
         executed += 1
@@ -154,25 +163,27 @@ def run_backtest(etf_history, macro_history, portfolio,scenario, returns_view=No
             })
         nav_prev = day.nav
 
-    ###################### DEBUG ####################################
-    print("SUMMARY executed=", executed, "skip_decision=", skip_decision, "skip_prices=", skip_prices)
-    print("Total costs paid:", sum(r["total_cost"] for r in context.daily_metrics))
+    # ----- run summary (debug) -----
+    logger.debug(
+        "SUMMARY executed=%s skip_decision=%s skip_prices=%s",
+        executed, skip_decision, skip_prices,
+    )
     trade_days = sum(1 for r in context.daily_metrics if r["gross_trade_notional"] > 0)
-    print("Trade days:", trade_days)
     total_cost = sum(r["total_cost"] for r in context.daily_metrics)
     avg_cost_per_trade_day = total_cost / trade_days if trade_days > 0 else 0.0
-    print("Total costs paid:", total_cost)
-    print("Average cost per trade day:", avg_cost_per_trade_day)
-    print("results rows:", len(context.results))
-    print("daily_metrics rows:", len(context.daily_metrics))
-    print("trade_log rows:", len(context.trade_log))
+    logger.debug("Trade days: %s", trade_days)
+    logger.debug("Total costs paid: %s", total_cost)
+    logger.debug("Average cost per trade day: %s", avg_cost_per_trade_day)
+    logger.debug("results rows: %s", len(context.results))
+    logger.debug("daily_metrics rows: %s", len(context.daily_metrics))
+    logger.debug("trade_log rows: %s", len(context.trade_log))
     if last_decision is not None:
-        _print_decision_debug(last_decision, prefix="LAST DAY ")
+        _log_decision_debug(last_decision, prefix="LAST DAY ")
 
     if context.results:
-        print("results NAV first/last:", context.results[0]["nav"], context.results[-1]["nav"])
+        logger.debug("results NAV first/last: %s %s", context.results[0]["nav"], context.results[-1]["nav"])
 
     if context.daily_metrics:
-        print("daily_metrics NAV first/last:", context.daily_metrics[0]["nav"], context.daily_metrics[-1]["nav"])
+        logger.debug("daily_metrics NAV first/last: %s %s", context.daily_metrics[0]["nav"], context.daily_metrics[-1]["nav"])
 
     return context

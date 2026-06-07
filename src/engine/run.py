@@ -8,6 +8,7 @@ from src.volatility import VolatilityConfig, VolatilityRequest, estimate_volatil
 from src.covariance.models import CovarianceConfig
 from src.covariance.estimator import estimate_covariance_from_returns_view
 from src.covariance.returns_view import CovarianceReturnsView
+from src.universe import UNIVERSE
 import pandas as pd
 
 def run_engine(context,scenario=None):
@@ -45,7 +46,7 @@ def run_engine(context,scenario=None):
     vol_request = VolatilityRequest(
         etf_history=etf_df,
         as_of_date=context.current_date,
-        tickers=["TLT", "AGG", "SHY"],
+        tickers=list(UNIVERSE),
     )
 
     vol_estimate = estimate_volatility(vol_request, vol_config) #Asset-wise, returns vector with length 3
@@ -63,13 +64,13 @@ def run_engine(context,scenario=None):
     if returns_view is None:
         returns_view = CovarianceReturnsView.from_etf_history(
             etf_history=etf_df,
-            tickers=["TLT", "AGG", "SHY"],
+            tickers=list(UNIVERSE),
         )
 
     cov_estimate = estimate_covariance_from_returns_view(
         returns_view=returns_view,
         as_of_date=context.current_date,
-        tickers=["TLT", "AGG", "SHY"],
+        tickers=list(UNIVERSE),
         config=cov_config,
     )
 

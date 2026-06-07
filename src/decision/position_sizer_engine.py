@@ -7,7 +7,7 @@ from src.volatility.models import VolatilityEstimate
 from src.covariance.models import CovarianceEstimate
 
 
-TARGET_TICKERS = ["TLT", "AGG", "SHY"]
+from src.universe import UNIVERSE as TARGET_TICKERS
 
 
 @dataclass

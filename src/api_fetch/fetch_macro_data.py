@@ -1,10 +1,14 @@
 import os
 import sqlite3
+import logging
 import requests
 import pandas as pd
 
 from config import FRED_API_KEY, RAW_DIR
 from src.storage.db_writer import insert_macro_data
+from src.storage.paths import DB_PATH
+
+logger = logging.getLogger(__name__)
 
 
 CUTOFF_DATE = pd.to_datetime("2002-01-01")
@@ -65,7 +69,7 @@ def to_monthly(df: pd.DataFrame, value_col: str, method: str = "last") -> pd.Dat
 def fetch_macro_data() -> pd.DataFrame:
     os.makedirs(RAW_DIR, exist_ok=True)
 
-    print("Fetching macro data from FRED...")
+    logger.debug("Fetching macro data from FRED...")
 
     series_frames = []
 
@@ -94,7 +98,7 @@ def fetch_macro_data() -> pd.DataFrame:
 
     macro["real_policy_rate"] = macro["fed_funds"] - (macro["core_cpi_yoy"] * 100)
 
-    conn = sqlite3.connect("data/database.db")
+    conn = sqlite3.connect(DB_PATH)
     try:
         rows = macro.to_dict(orient="records")
         insert_macro_data(conn, rows)
@@ -102,5 +106,5 @@ def fetch_macro_data() -> pd.DataFrame:
     finally:
         conn.close()
 
-    print("Macro data fetched successfully.")
+    logger.debug("Macro data fetched successfully.")
     return macro
