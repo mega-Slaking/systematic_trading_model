@@ -1,20 +1,10 @@
-"""Shared fixtures for the test suite.
+"""Shared fixtures for the test suite."""
 
-Importing this (pytest does so before collecting tests) also stubs the API-key
-env vars that `config.py` requires at import time, so tests that transitively
-import `config` (price signals, portfolio) don't blow up. The keys are never used
-because no test calls the live fetchers.
-"""
-
-import os
 import sqlite3
 
 import numpy as np
 import pandas as pd
 import pytest
-
-os.environ.setdefault("FMP_API_KEY", "test-key")
-os.environ.setdefault("FRED_API_KEY", "test-key")
 
 
 # Self-contained schema for the tables the suite exercises. Mirrors

@@ -9,9 +9,10 @@ from src.covariance.models import CovarianceConfig
 from src.covariance.estimator import estimate_covariance_from_returns_view
 from src.covariance.returns_view import CovarianceReturnsView
 from src.universe import UNIVERSE
+from src.context.protocol import EngineContext
 import pandas as pd
 
-def run_engine(context,scenario=None):
+def run_engine(context: EngineContext, scenario=None):
     assert isinstance(context.current_date, pd.Timestamp), context.current_date
     etf_df = context.fetch_etf_prices()
     macro_df = context.fetch_macro_data()
@@ -51,12 +52,14 @@ def run_engine(context,scenario=None):
 
     vol_estimate = estimate_volatility(vol_request, vol_config) #Asset-wise, returns vector with length 3
 
-    # Passive volatility feature surface lookup (optional: only contexts that carry a
-    # surface, e.g. the backtest, implement these). Features are lagged for lookahead
-    # safety and are NOT fed into the decision pipeline yet.
-    if hasattr(context, "get_volatility_snapshot"):
-        volatility_snapshot = context.get_volatility_snapshot()
-        context.volatility_features = context.volatility_snapshot_to_dict(volatility_snapshot)
+    # Passive volatility feature surface lookup (optional: only contexts that carry
+    # a surface implement these, so accessed dynamically to keep the EngineContext
+    # contract minimal). Features are lagged for lookahead safety and are NOT fed
+    # into the decision pipeline yet.
+    get_volatility_snapshot = getattr(context, "get_volatility_snapshot", None)
+    snapshot_to_dict = getattr(context, "volatility_snapshot_to_dict", None)
+    if get_volatility_snapshot is not None and snapshot_to_dict is not None:
+        setattr(context, "volatility_features", snapshot_to_dict(get_volatility_snapshot()))
 
     # The backtest pre-builds and caches a returns view; the live context does not,
     # so fall back to building one from the fetched history.

@@ -3,15 +3,10 @@ import os
 
 load_dotenv()
 
-FMP_API_KEY = os.getenv("FMP_API_KEY")
-
-if FMP_API_KEY is None:
-    raise RuntimeError("Missing FMP_API_KEY in .env file")
-
+# API keys are read lazily (no import-time raise) so the package imports without
+# a .env present. The consumer validates the key when it actually fetches.
+# (FMP_API_KEY removed — yfinance replaced FMP, so the key is no longer used.)
 FRED_API_KEY = os.getenv("FRED_API_KEY")
-
-if FRED_API_KEY is None:
-    raise RuntimeError("Missing FRED_API_KEY in .env file")
 
 
 from src.universe import UNIVERSE

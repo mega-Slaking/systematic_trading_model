@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.9.4
+## Current Version: V 1.9.5
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -600,3 +600,16 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 - **Logging**:
   - Replaced ad-hoc `print()` statements across the backtest engine, fetchers, notifier, and runner with module-level loggers (`logging.getLogger(__name__)`), defaulting to `debug` level; entry points (`run_backtest.py`, `main.py`) configure logging so output is shown when running the app but stays quiet under tests
   - Missing-required-ticker conditions are logged at `warning` level
+
+  ## V 1.9.5
+
+- **Engine Context Contract (`EngineContext`)**:
+  - Added `src/context/protocol.py` — a runtime-checkable `Protocol` describing the interface `run_engine` requires of a context. `BacktestContext` and `LiveContext` satisfy it structurally; this guards the drift that previously broke the live run (`run_engine` reaching for a member a context didn't provide)
+  - Enforced two ways: a runtime `isinstance` conformance test (`tests/context/`) and a static `pyright` check in CI scoped to the protocol + `run_engine` (`pyrightconfig.json`; `pyright` added to dev dependencies and the CI workflow)
+  - Declared `returns_view` in `BacktestContext.__init__` so the context shape is explicit rather than attached externally
+
+- **Importable Without Secrets**:
+  - `config.py` no longer raises at import when API keys are absent. The dead `FMP_API_KEY` (superseded by yfinance) was removed and `FRED_API_KEY` is validated lazily inside `fetch_macro_data`, so the package imports with no `.env` present — tests and CI require no secrets
+
+- **Execution Boundary Cleanup (no behaviour change)**:
+  - Removed weight re-normalisation from `Portfolio.rebalance_v2`; the execution layer now trusts the decision layer's canonical weights (`apply_constraints` owns shaping). This is behaviour-preserving today, and unblocks future sub-1.0 cash buffers and signed/short weights that the old normalisation would have silently flattened

@@ -1,6 +1,5 @@
 from src.execution.models import ExecutionCosts
 from src.execution.rebalance_v2 import generate_weight_rebalance_trades
-from src.utils.weights import normalize_weights, clip_weights
 from config import FEE_BPS, SLIPPAGE_BPS, MIN_TRADE_NOTIONAL, DRIFT_TOL
 class Portfolio:
     def __init__(self, initial_capital):
@@ -58,9 +57,11 @@ class Portfolio:
             or {}
         )
 
-        weights = normalize_weights(
-            clip_weights(raw_weights)
-        ) #this could be redundant later
+        # Execution boundary: trust the decision/sizing layer's canonical weights
+        # (apply_constraints owns shaping). Deliberately NOT re-normalised/clipped
+        # here — that would erase a sub-1.0 cash buffer or negative (short) weights
+        # once those are introduced.
+        weights = dict(raw_weights)
 
         costs = ExecutionCosts(
             fee_bps=FEE_BPS,

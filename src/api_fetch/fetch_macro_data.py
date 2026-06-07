@@ -67,6 +67,9 @@ def to_monthly(df: pd.DataFrame, value_col: str, method: str = "last") -> pd.Dat
 
 
 def fetch_macro_data() -> pd.DataFrame:
+    if FRED_API_KEY is None:
+        raise RuntimeError("Missing FRED_API_KEY in .env file")
+
     os.makedirs(RAW_DIR, exist_ok=True)
 
     logger.debug("Fetching macro data from FRED...")
