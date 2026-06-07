@@ -1,6 +1,6 @@
 from src.decision.models import Decision
 
-TARGET_TICKERS = ["TLT", "AGG", "SHY"]
+from src.universe import UNIVERSE as TARGET_TICKERS
 
 
 def _validate_decision(decision: Decision) -> None:

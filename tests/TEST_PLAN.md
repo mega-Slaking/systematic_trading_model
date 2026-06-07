@@ -171,17 +171,25 @@ tests/
 
 ## 9. Out of scope
 
-### Deferred — live / `main.py` path (currently broken)
-The live daily-run path is **explicitly not covered** by this suite — it is known
-broken and will be addressed separately. No tests target:
-- `main.py` (live entry point)
-- `src/context/live.py` (`LiveContext`)
-- `src/storage/persister.py` (`save_run`, live-only persistence)
-- the live wiring of `engine/normalize.normalize_selected_price`, `notify/*`, `visuals/*`
+### Live / `main.py` path — decision path fixed & tested; edges still mocked
+The live **decision** path (`run_engine(LiveContext)`) was drifting from the backtest
+(missing `returns_view` + volatility-surface hooks) and is now fixed: `run_engine` builds
+a returns view when the context doesn't carry one and guards the optional surface hooks.
+Covered by `tests/live/test_live_run.py` (external edges mocked). `context/live.py` ~72%.
+
+Still **not** directly tested (mocked in the live test, or genuinely out of scope):
+- `main.py` entry point and the external fetchers (`api_fetch/*` — live network)
+- `storage/persister.py` (`save_run`), `notify/*` (email), `visuals/*` (plots)
+
+Resolved live-run issues:
+- `LiveContext.get_selected_price_today` now uses `PriceNormalizer.normalize_prices`
+  (previously called a non-existent method); covered by `tests/live`.
+- `LiveContext.visualize` is now a no-op — `generate_daily_report` is **deprecated**
+  (superseded by the HTML report under `output/reports/`), so the old `cpi_yoy` plotting
+  bug no longer runs.
 
 Note: the **backtest** path and all *shared* logic (decision engines, volatility,
-covariance, execution, accounting) **are** covered — so most live-path bugs in shared
-code will still be caught; only the live entry/context/notification wiring is excluded.
+covariance, execution, accounting) are covered too.
 
 ### Low ROI (skip or smoke-only)
 - `api_fetch/*` — external (FRED/price APIs). Mock or skip; not in CI.

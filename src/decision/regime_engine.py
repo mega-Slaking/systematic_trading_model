@@ -2,7 +2,7 @@ import pandas as pd
 
 from src.decision.models import Decision
 
-TARGET_TICKERS = ["TLT", "AGG", "SHY"]
+from src.universe import UNIVERSE as TARGET_TICKERS
 
 
 def _latest_row(df: pd.DataFrame, ticker: str) -> pd.Series | None:

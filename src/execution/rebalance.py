@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+# DEPRECATED: single-asset (V1) rebalance, superseded by rebalance_v2's
+# weight-based path. No longer imported anywhere; kept for reference/rollback.
+
 from typing import Dict, List
 from .models import Trade, ExecutionCosts
 

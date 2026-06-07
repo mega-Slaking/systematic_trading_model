@@ -1,4 +1,4 @@
-UNIVERSE = ["TLT", "AGG", "SHY"]
+from src.universe import UNIVERSE
 
 
 def record_decision(context, decision, price_signals, macro_signals):

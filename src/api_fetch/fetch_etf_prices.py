@@ -1,14 +1,18 @@
+import logging
 import yfinance as yf
 import pandas as pd
 from config import TICKERS
 import sqlite3
 from src.storage.db_writer import insert_etf_prices
+from src.storage.paths import DB_PATH
+
+logger = logging.getLogger(__name__)
 
 def fetch_etf_prices():
     frames = []
 
     for ticker in TICKERS:
-        print(f"Downloading {ticker}…")
+        logger.debug("Downloading %s", ticker)
         df = yf.download(
             ticker,
             period="max",
@@ -39,7 +43,7 @@ def fetch_etf_prices():
 
     all_df = pd.concat(frames, ignore_index=True)
     all_df.sort_values(["date", "ticker"], inplace=True)
-    conn = sqlite3.connect("data/database.db")
+    conn = sqlite3.connect(DB_PATH)
     try:
         rows = all_df.to_dict(orient="records")
         insert_etf_prices(conn, rows)

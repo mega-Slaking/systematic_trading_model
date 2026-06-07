@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.9.1
+## Current Version: V 1.9.4
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -564,3 +564,39 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 
 - **Bug Fix**:
   - Fixed `get_backtest_results` in `db_reader.py` selecting a non-existent `gross_notional` column (the column is `gross_trade_notional`), which raised `OperationalError` on every call; surfaced and regression-guarded by the new persistence round-trip tests
+
+  ## V 1.9.2
+
+- **Live Run Fixes**:
+  - Repaired the live daily-run path (`run_engine` via `LiveContext`), which had drifted out of sync with the backtest. `run_engine` now builds a covariance returns view when the context does not supply one, and treats the volatility-surface hooks as optional, so running with a `LiveContext` no longer raises `AttributeError`
+  - Fixed `LiveContext.get_selected_price_today` to use `PriceNormalizer.normalize_prices` (it previously called a method that did not exist)
+
+- **Report Deprecation**:
+  - Deprecated `generate_daily_report` (the matplotlib daily report); it is no longer wired into the live run and `LiveContext.visualize` is now a no-op. This removes a `KeyError` that occurred when raw macro data was passed to plots reading derived columns such as `cpi_yoy`
+
+- **Live Path Test Coverage**:
+  - Added `tests/live/` exercising the live decision path end-to-end (decision output, recorded decision/regime traces, lazy returns-view build), the price-lookup fix, the deprecated no-op `visualize`, and that the live run invokes its persist/notify hooks
+
+- **Repository Hygiene**:
+  - Fixed an over-broad `.gitignore` rule (`data/`) that was unintentionally ignoring the `tests/data/` test folder; anchored it to `/data/` so test code is tracked while the root data directory stays ignored
+
+  ## V 1.9.3
+
+- **Code Cleanup (no behaviour change)**:
+  - Removed duplicate `get_cached_covariance` / `set_cached_covariance` / `clear_covariance_cache` definitions in `CovarianceReturnsView`; the first set was dead code, silently overridden by the cache hit/miss-tracking versions
+  - Dropped the unused `generate_single_asset_rebalance_trades` import/export (superseded by `rebalance_v2`) and marked `src/execution/rebalance.py` as deprecated
+  - Deleted the redundant print-based `tests/feature_surface_test.py` (superseded by `tests/features/test_volatility_surface.py`) and removed its stale pytest `--ignore`
+
+- **Repository Hygiene**:
+  - Stopped gitignoring the database schema: `.gitignore` now uses `/data/*` with a `!/data/db_population.py` exception, so the canonical `CREATE TABLE` definitions are tracked while the database and raw data stay ignored
+  - Fixed assorted typos across comments and identifiers
+
+  ## V 1.9.4
+
+- **Configuration Consolidation (no behaviour change)**:
+  - Centralized the tradable asset universe in `src/universe.py`; the six modules that each re-declared `["TLT", "AGG", "SHY"]` now import a single `UNIVERSE` constant, which also resolved an ordering inconsistency with `config.TICKERS`
+  - Centralized the sqlite database location in `src/storage/paths.py`; readers, writers, fetchers, and `run_backtest.py` now import one `DB_PATH` instead of four hardcoded variants (and `persister.py` no longer depends on `config`)
+
+- **Logging**:
+  - Replaced ad-hoc `print()` statements across the backtest engine, fetchers, notifier, and runner with module-level loggers (`logging.getLogger(__name__)`), defaulting to `debug` level; entry points (`run_backtest.py`, `main.py`) configure logging so output is shown when running the app but stays quiet under tests
+  - Missing-required-ticker conditions are logged at `warning` level

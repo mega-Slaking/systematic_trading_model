@@ -3,6 +3,8 @@ import json
 import numpy as np
 import pandas as pd
 
+from src.universe import UNIVERSE
+
 
 def compute_total_return(equity_curve: pd.DataFrame) -> float:
     start_nav = float(equity_curve["nav"].iloc[0])
@@ -421,7 +423,7 @@ def build_regime_summary(
                 "best_day": compute_best_day(returns),
             }
 
-            for asset in ["TLT", "AGG", "SHY"]:
+            for asset in UNIVERSE:
                 if asset in group.columns:
                     row[f"avg_weight_{asset}"] = float(group[asset].mean())
 
