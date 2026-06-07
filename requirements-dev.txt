@@ -4,3 +4,4 @@
 pytest==9.0.3
 pytest-cov
 pre-commit
+pyright

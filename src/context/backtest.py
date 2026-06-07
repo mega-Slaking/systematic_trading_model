@@ -13,8 +13,9 @@ class BacktestContext:
         self.results = []
         self.daily_metrics = []
         self.trade_log = []
-        # Read-only volatility feature surface, built once before the scenario
-        # loop and attached in run_backtest (mirrors self.returns_view).
+        # Read-only views built once before the scenario loop and attached in
+        # run_backtest; declared here so the context shape is explicit.
+        self.returns_view = None
         self.volatility_feature_surface = None
         # Per-date volatility features refreshed inside the engine loop. Passive
         # for now: exposed for diagnostics/future signals, not used for sizing.

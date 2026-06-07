@@ -25,6 +25,30 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Run test suite
-        # API keys are stubbed in tests/conftest.py and the suite uses synthetic
-        # data / temp DBs, so no secrets or data/database.db are required.
+        # config.py imports without API keys and the suite uses synthetic data /
+        # temp DBs, so no secrets or data/database.db are required.
         run: python -m pytest -q
+
+  typecheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          allow-prereleases: true
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Type-check the engine-context contract
+        # Scoped to the protocol + run_engine: enforces that BacktestContext and
+        # LiveContext satisfy EngineContext and that run_engine only uses the
+        # contract. (The wider codebase is not yet fully typed.)
+        run: python -m pyright src/context/protocol.py src/engine/run.py
