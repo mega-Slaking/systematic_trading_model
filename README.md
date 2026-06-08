@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.9.5
+## Current Version: V 1.10.0
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -613,3 +613,28 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 
 - **Execution Boundary Cleanup (no behaviour change)**:
   - Removed weight re-normalisation from `Portfolio.rebalance_v2`; the execution layer now trusts the decision layer's canonical weights (`apply_constraints` owns shaping). This is behaviour-preserving today, and unblocks future sub-1.0 cash buffers and signed/short weights that the old normalisation would have silently flattened
+
+  ## V 1.10.0
+
+- **Unified, Selectable Strategy Configuration (`src/strategy/`)**:
+  - Added `StrategyConfig` (`src/strategy/config.py`) — a single, frozen config that composes the five existing sub-configs (`VolatilityConfig`, `CovarianceConfig`, `PositionSizingConfig`, `ConvictionConfig`, `WeightConstraints`) into one source of truth shared by backtest and live. This is the config-side peer to V1.9.5's `EngineContext` Protocol (the Protocol unified the *interface*; this unifies the *config*)
+  - Added a `.with_(**overrides)` helper that flips any knob by name (e.g. `use_covariance_scaling`, `target_portfolio_vol`, `shy_floor`) without the caller knowing which nested sub-config owns it, returning a new immutable config. Toggling a risk feature on/off is now a one-liner instead of a factory edit
+  - Design spec: `docs/strategy_config_design_spec.md`
+
+- **Named Strategy Registry (`src/strategy/presets.py`)**:
+  - Added `STRATEGIES`, a flat dict of concrete, named configs built from `grid(...)` sweep helpers, replacing the five `src/scenarios/factory.py` builder functions
+  - Reproduces all 22 historical scenarios with their exact prior names (so `scenario_id`-tagged history is preserved) and adds `default` (the live-equivalent config that was never previously backtested) → 23 entries; `run_backtest.py` now iterates the registry, so adding a scenario is a one-line registry edit with no run-script changes
+  - Adding a new knob now costs one line in the `_FIELD_OWNERS` map instead of editing the factory signature, body, and every builder
+
+- **Conviction + Constraints Now Configurable Per Run**:
+  - `run_engine` now forwards `conviction_config` and `constraints` into the decision pipeline; previously both were accepted by `orchestrate_decision_pipeline` but never passed, so they were silently pinned to defaults on every run. Conviction parameters and the SHY floor / eligibility are now sweepable
+  - Behaviour-preserving: forwarding the explicit defaults is byte-identical to the old implicit `None` (verified by the backtest determinism/NAV and live regression tests)
+
+- **Live Strategy Selection**:
+  - Added `LIVE_STRATEGY` + `live_strategy()` in `src/strategy/presets.py`; `main.py` now trades exactly one selected registry entry (`run_engine(context, strategy=live_strategy())`). Switching the live book is a one-line change, and a bad name fails fast with the list of valid names
+  - The live run was moved off the previous implicit default onto a validated registry entry (currently `baseV1_roll20_ewmacov_lam94_tv05`). Email notification and DB persistence are unchanged
+
+- **Migration & Safety**:
+  - Old code (the `run_engine` config fork, the `run_backtest.py` scenario list, and the five factory builders) is commented out rather than deleted, per the repo's refactor convention, as a rollback safety net; `build_scenario` / `BacktestScenario` remain as the back-compat path
+  - Added `tests/strategy/test_strategy_config.py` and `tests/strategy/test_presets.py`; full suite green (210 passed)
+  - Clarified that `base_allocation_profile` is an inert identifier label (the functional base-allocation switch is `starting_weight_source`); left in place, slated for later cleanup

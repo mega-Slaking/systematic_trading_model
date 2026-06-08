@@ -2,7 +2,10 @@ from src.backtest.engine import run_backtest
 from src.backtest.portfolio import Portfolio
 from src.storage.db_writer import insert_backtest_results, insert_backtest_decision_trace, insert_backtest_regime_trace, insert_volatility_features
 from src.storage.db_reader import get_etf_history, get_macro_history
-from src.scenarios.factory import build_vol_power_scenarios, build_covariance_scaling_scenarios, build_ewma_covariance_scaling_scenarios, build_legacy_ewma_covariance_scaling_scenarios, build_legacy_covariance_scaling_scenarios
+# --- OLD scenario-builder imports (commented out per project convention;
+# --- replaced by the STRATEGIES registry). Kept as a rollback safety net.
+# from src.scenarios.factory import build_vol_power_scenarios, build_covariance_scaling_scenarios, build_ewma_covariance_scaling_scenarios, build_legacy_ewma_covariance_scaling_scenarios, build_legacy_covariance_scaling_scenarios
+from src.strategy.presets import STRATEGIES
 from src.covariance.returns_view import CovarianceReturnsView
 from src.volatility import build_volatility_feature_surface, VolatilityFeatureConfig
 from src.storage.paths import DB_PATH
@@ -47,7 +50,7 @@ def main():
     macro_start = macro_history["date"].min()
 
     #start_date = max(etf_start, macro_start)
-    start_date = max(etf_start, macro_start, pd.Timestamp("2014-01-01"))
+    start_date = max(etf_start, macro_start, pd.Timestamp("2010-01-01"))
 
     etf_history = etf_history[etf_history["date"] >= start_date]
 
@@ -82,20 +85,48 @@ def main():
     #portfolio = Portfolio(initial_capital=1_000_000)
     #context = run_backtest(etf_history, macro_history, portfolio)
 
-    scenarios = (
-        build_vol_power_scenarios()
-        +
-        build_covariance_scaling_scenarios()
-        + 
-        build_ewma_covariance_scaling_scenarios()
-        + 
-        build_legacy_ewma_covariance_scaling_scenarios()
-        + 
-        build_legacy_covariance_scaling_scenarios()
-    )
-    
-    for scenario in scenarios:
-        logger.debug("Running scenario: %s", scenario.scenario_id)
+    # --- OLD scenario list (commented out per project convention; replaced by
+    # --- iterating the STRATEGIES registry). Kept as a rollback safety net.
+    # scenarios = (
+    #     build_vol_power_scenarios()
+    #     +
+    #     build_covariance_scaling_scenarios()
+    #     +
+    #     build_ewma_covariance_scaling_scenarios()
+    #     +
+    #     build_legacy_ewma_covariance_scaling_scenarios()
+    #     +
+    #     build_legacy_covariance_scaling_scenarios()
+    # )
+    #
+    # for scenario in scenarios:
+    #     logger.debug("Running scenario: %s", scenario.scenario_id)
+    #
+    #     portfolio = Portfolio(initial_capital=1_000_000)
+    #
+    #     context = run_backtest(
+    #         etf_history,
+    #         macro_history,
+    #         portfolio,
+    #         scenario=scenario,
+    #         returns_view=returns_view,
+    #         volatility_feature_surface=volatility_feature_surface,
+    #     )
+    #     for r in context.daily_metrics:
+    #         r["scenario_id"] = scenario.scenario_id
+    #
+    #     for r in context.decision_trace:
+    #         r["scenario_id"] = scenario.scenario_id
+    #
+    #     for r in context.regime_trace:
+    #         r["scenario_id"] = scenario.scenario_id
+    #
+    #     insert_backtest_results(conn, context.daily_metrics)
+    #     insert_backtest_decision_trace(conn, context.decision_trace)
+    #     insert_backtest_regime_trace(conn, context.regime_trace)
+
+    for strategy in STRATEGIES.values():
+        logger.debug("Running strategy: %s", strategy.name)
 
         portfolio = Portfolio(initial_capital=1_000_000)
 
@@ -103,18 +134,19 @@ def main():
             etf_history,
             macro_history,
             portfolio,
-            scenario=scenario,
+            strategy=strategy,
             returns_view=returns_view,
             volatility_feature_surface=volatility_feature_surface,
         )
+        # strategy.name now plays the scenario_id role (the DB column/key is unchanged).
         for r in context.daily_metrics:
-            r["scenario_id"] = scenario.scenario_id
+            r["scenario_id"] = strategy.name
 
         for r in context.decision_trace:
-            r["scenario_id"] = scenario.scenario_id
+            r["scenario_id"] = strategy.name
 
         for r in context.regime_trace:
-            r["scenario_id"] = scenario.scenario_id
+            r["scenario_id"] = strategy.name
 
         insert_backtest_results(conn, context.daily_metrics)
         insert_backtest_decision_trace(conn, context.decision_trace)

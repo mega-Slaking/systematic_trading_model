@@ -49,3 +49,6 @@ output/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local Claude Code subagent (kept local for now)
+.claude/agents/quant-engineer.md

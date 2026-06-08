@@ -56,7 +56,7 @@ def _log_decision_debug(decision: Decision, prefix: str = "") -> None:
             logger.debug("  - %s", note)
 
 
-def run_backtest(etf_history, macro_history, portfolio,scenario, returns_view=None, volatility_feature_surface=None):
+def run_backtest(etf_history, macro_history, portfolio, scenario=None, strategy=None, returns_view=None, volatility_feature_surface=None):
     etf_history = ensure_long(etf_history)
     context = BacktestContext(etf_history, macro_history, portfolio)
 
@@ -79,7 +79,7 @@ def run_backtest(etf_history, macro_history, portfolio,scenario, returns_view=No
         context.set_date(pd.Timestamp(date))
         as_of = str(context.current_date)
 
-        decision = run_engine(context, scenario=scenario)
+        decision = run_engine(context, scenario=scenario, strategy=strategy)
         if decision is None:
             skip_decision += 1
             if skip_decision <= 5:

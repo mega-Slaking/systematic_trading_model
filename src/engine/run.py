@@ -10,9 +10,33 @@ from src.covariance.estimator import estimate_covariance_from_returns_view
 from src.covariance.returns_view import CovarianceReturnsView
 from src.universe import UNIVERSE
 from src.context.protocol import EngineContext
+from src.strategy.config import StrategyConfig
+from src.strategy.presets import STRATEGIES
 import pandas as pd
 
-def run_engine(context: EngineContext, scenario=None):
+
+def resolve_strategy(scenario=None, strategy=None) -> StrategyConfig:
+    """Resolve the three possible config inputs into one StrategyConfig.
+
+    Precedence: explicit ``strategy`` wins; otherwise a back-compat
+    ``BacktestScenario`` is lifted into a StrategyConfig (conviction/constraints
+    stay at their defaults, which is byte-identical to the old implicit None);
+    otherwise the live-equivalent ``STRATEGIES["default"]`` is used.
+    """
+    if strategy is not None:
+        return strategy
+    if scenario is not None:
+        return StrategyConfig(
+            name=scenario.scenario_id,
+            description=scenario.description,
+            volatility=scenario.volatility_config,
+            covariance=scenario.covariance_config,
+            sizing=scenario.position_sizing_config,
+        )
+    return STRATEGIES["default"]
+
+
+def run_engine(context: EngineContext, scenario=None, strategy=None):
     assert isinstance(context.current_date, pd.Timestamp), context.current_date
     etf_df = context.fetch_etf_prices()
     macro_df = context.fetch_macro_data()
@@ -24,25 +48,32 @@ def run_engine(context: EngineContext, scenario=None):
 
     if price_signals.empty or macro_signals.empty:
         return
-    
-    if scenario is not None:
-        vol_config = scenario.volatility_config
-        cov_config = scenario.covariance_config
-        sizing_config = scenario.position_sizing_config
-    else:
-        vol_config = VolatilityConfig(
-            method="rolling_std",
-            lookback_days=20,
-            annualization_factor=252,
-            min_history=20,
-        )
-        cov_config = CovarianceConfig(
-            method="sample_cov",
-            lookback_days=20,
-            annualization_factor=252,
-            min_history=20,
-        )
-        sizing_config = None
+
+    # --- OLD config fork (commented out per project convention; replaced by
+    # --- resolve_strategy + StrategyConfig). Kept as a rollback safety net.
+    # if scenario is not None:
+    #     vol_config = scenario.volatility_config
+    #     cov_config = scenario.covariance_config
+    #     sizing_config = scenario.position_sizing_config
+    # else:
+    #     vol_config = VolatilityConfig(
+    #         method="rolling_std",
+    #         lookback_days=20,
+    #         annualization_factor=252,
+    #         min_history=20,
+    #     )
+    #     cov_config = CovarianceConfig(
+    #         method="sample_cov",
+    #         lookback_days=20,
+    #         annualization_factor=252,
+    #         min_history=20,
+    #     )
+    #     sizing_config = None
+
+    strategy = resolve_strategy(scenario=scenario, strategy=strategy)
+    vol_config = strategy.volatility
+    cov_config = strategy.covariance
+    sizing_config = strategy.sizing
 
     vol_request = VolatilityRequest(
         etf_history=etf_df,
@@ -81,9 +112,11 @@ def run_engine(context: EngineContext, scenario=None):
         decision=Decision(date=context.current_date.isoformat()),
         price_signals=price_signals,
         macro_signals=macro_signals,
+        conviction_config=strategy.conviction,   # NEW (was implicitly None == ConvictionConfig())
         vol_estimate=vol_estimate,
         cov_estimate=cov_estimate,
         sizing_config = sizing_config,
+        constraints=strategy.constraints,         # NEW (was implicitly None == WeightConstraints())
     )
     record_decision(context, decision, price_signals, macro_signals) #refactored
     record_regime(context, macro_signals)
