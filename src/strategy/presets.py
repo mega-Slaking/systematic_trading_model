@@ -64,7 +64,7 @@ STRATEGIES = _registry(
     # which would have inherited PositionSizingConfig()'s True and silently turned
     # covariance scaling ON for this live scenario).
     grid(BASE_V1, name="baseV1_roll20", use_vol_scaling=True,
-         vol_scaling_power=[0.01], use_covariance_scaling=False,
+         vol_scaling_power=0.0, use_covariance_scaling=False,
          labels={"vol_scaling_power": lambda v: f"p{int(round(v*100)):03d}"}),
 
     # build_covariance_scaling_scenarios()  -> 3
@@ -73,7 +73,7 @@ STRATEGIES = _registry(
     grid(BASE_V1, name="baseV1_roll20_covlb20", use_vol_scaling=False,
          vol_scaling_power=0.0,
          use_covariance_scaling=True, cov_method="sample_cov", cov_lookback_days=20,
-         target_portfolio_vol=[0.03, 0.05, 0.07], labels=_tv),
+         target_portfolio_vol=[0.03, 0.05], labels=_tv),
 
     # build_ewma_covariance_scaling_scenarios()  -> 8
     # vol_scaling_power=0.0 added to match the factory (dead: use_vol_scaling=False).
@@ -83,7 +83,7 @@ STRATEGIES = _registry(
     grid(BASE_V1, name="baseV1_roll20_ewmacov", use_vol_scaling=False,
          vol_scaling_power=0.0,
          use_covariance_scaling=True, cov_method="ewma_cov",
-         cov_ewma_lambda=[0.94, 0.97], target_portfolio_vol=[0.02, 0.03, 0.04, 0.05],
+         cov_ewma_lambda=[0.94, 0.97], target_portfolio_vol=[ 0.03, 0.05],
          labels={**_lam, **_tv}),
 
     # build_legacy_ewma_covariance_scaling_scenarios()  -> 8

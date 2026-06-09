@@ -1,3 +1,12 @@
+"""LEGACY: active-set -> base-weight table allocator.
+
+Moved here from ``src/decision/`` when the TLT-tracking allocator
+(``src/strategy/tlt_tracker.py``) replaced the modern regime-table path. Retained
+(not deleted) as a rollback safety net and still exercised directly by
+``tests/strategy/test_base_allocator.py``. No longer called by the live pipeline
+(see the commented-out block in ``src/decision/pipeline.py``).
+"""
+
 from src.decision.models import Decision
 
 from src.universe import UNIVERSE as TARGET_TICKERS

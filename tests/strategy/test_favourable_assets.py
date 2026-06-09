@@ -1,11 +1,12 @@
 """Exhaustive regime -> favourable-asset direction table
-(src/decision/favourable_asset_selection.py). Locks the strategy lookup.
+(src/legacy/favourable_asset_selection.py). Locks the strategy lookup. (Moved to
+src/legacy/ when the TLT-tracking allocator replaced the modern regime-table path.)
 """
 
 import pytest
 
 from src.decision.models import Decision
-from src.decision.favourable_asset_selection import determine_favourable_assets
+from src.legacy.favourable_asset_selection import determine_favourable_assets
 
 pytestmark = [pytest.mark.unit, pytest.mark.regression]
 

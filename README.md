@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.10.0
+## Current Version: V 1.11.0
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -638,3 +638,25 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - Old code (the `run_engine` config fork, the `run_backtest.py` scenario list, and the five factory builders) is commented out rather than deleted, per the repo's refactor convention, as a rollback safety net; `build_scenario` / `BacktestScenario` remain as the back-compat path
   - Added `tests/strategy/test_strategy_config.py` and `tests/strategy/test_presets.py`; full suite green (210 passed)
   - Clarified that `base_allocation_profile` is an inert identifier label (the functional base-allocation switch is `starting_weight_source`); left in place, slated for later cleanup
+
+  ## V 1.11.0
+
+- **New TLT-Tracking Base Strategy (`src/strategy/tlt_tracker.py`)**:
+  - Replaced the modern regime-table allocator with a TLT-chasing strategy: it follows TLT on confirmed uptrends (with a deliberate lag) and buffers into AGG/SHY on confirmed downtrends, to capture duration upside while cutting the left tail
+  - Stateful machine: a Schmitt-trigger hysteresis band on TLT's `ma_slope_z`, an `entry_confirm_days` confirmation lag (slower in) with a faster asymmetric `exit_confirm_days` (faster out), a `min_hold_days` dwell floor, and weight ramps (`ramp_step` up, `ramp_step_down` down) toward per-state targets (`tlt_max` / `tlt_neutral` / `tlt_min`, `agg_defensive`, `shy_min`). All knobs live in a frozen `TltTrackerConfig`
+  - Reuses the existing macro/monetary signals as confirmation/veto: a stagflation/hawkish regime caps TLT (`macro_veto`), relaxed when `macro_supports_duration` confirms (`macro_confirm`)
+  - Look-ahead-safe and deterministic: the state machine is *replayed* over the point-in-time TLT signal history each day (the backtest only exposes rows dated `< current_date`), carrying no mutable cross-day state. Trend detection reuses the engine's precomputed `ma_slope_z` / `trend_up` / `ret_lookback`
+  - Writes both `base_weights` and `conviction_weights`, so the position sizer (`starting_weight_source="conviction"`) consumes the tracker's directional weights with no sizer changes; the conviction tilt is bypassed (the tracker *is* the directional layer). The vol/cov/constraint risk overlay still runs on top
+
+- **Behaviour change (live + default path)**:
+  - The base strategy for every `starting_weight_source="conviction"` registry entry — including the live book `baseV1_roll20_ewmacov_lam94_tv05` and `default` — now runs the TLT tracker instead of the old regime→direction→table→conviction path; allocation behaviour on these scenarios changes by design. `legacyBase_*` entries (`starting_weight_source="legacy"`) are unchanged and still use the legacy signal table
+
+- **Legacy Relocation & Pipeline Rewire**:
+  - Moved `favourable_asset_selection.py` and `base_allocator_engine.py` to `src/legacy/` (the old regime-table modern path); `src/decision/pipeline.py` now calls the tracker, with the old `favourable_assets → base table → conviction` sequence commented out as a rollback safety net per the repo convention
+  - The relocated allocators are still exercised directly by `tests/strategy/test_favourable_assets.py` and `test_base_allocator.py` (imports repointed to `src.legacy.*`)
+
+- **Dashboard Benchmark Alignment (`streamlit/home_page_tabs/nav_comparison.py`)**:
+  - The TLT/AGG/SHY buy & hold benchmark lines now start at the actual backtest window (`results["date"].min()`) instead of a hardcoded `2014-01-01`, so the benchmarks line up with the scenario NAVs over the same period
+
+- **Tests**:
+  - Added `tests/strategy/test_tlt_tracker.py` (state-machine units: confirmation lag, hysteresis band, UP ramp, DOWN buffer, faster exit, macro veto/confirm, data fallback, determinism); updated `tests/strategy/test_pipeline_integration.py` to the tracker pipeline (old regime-table assertions preserved, commented). Full suite green (220 passed)
