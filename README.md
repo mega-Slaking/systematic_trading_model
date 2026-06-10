@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.11.0
+## Current Version: V 1.12.0
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -660,3 +660,24 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 
 - **Tests**:
   - Added `tests/strategy/test_tlt_tracker.py` (state-machine units: confirmation lag, hysteresis band, UP ramp, DOWN buffer, faster exit, macro veto/confirm, data fallback, determinism); updated `tests/strategy/test_pipeline_integration.py` to the tracker pipeline (old regime-table assertions preserved, commented). Full suite green (220 passed)
+
+  ## V 1.12.0
+
+- **New FastAPI Analytics Service (`api/`)** — Phases 0-2 of the React/FastAPI migration (`docs/fastapi_react_migration_spec.md`):
+  - Added a read-only REST service that sits between the existing Python analytics core and the browser, **reusing** the existing compute (`src/storage/db_reader.py`, `src/accounting/tearsheet_builder.py`) rather than reimplementing it. Runs alongside Streamlit (does not replace it yet), reading the same `data/database.db`
+  - Endpoints under `/api/v1`: `health` (DB-exists gate), `scenarios`, `backtest-results/nav-comparison`, `backtest-results/returns`, `etf-prices`, `etf-prices/stats`. Thin router → service → schema layering; the only server-side arithmetic not already in `src/` (the NAV/price summaries Streamlit computed in-tab) lives in one place, `api/services/summaries.py`
+  - Serialization boundary (`api/serialization/frames.py`): a single home for the three JSON hazards — NaN/Inf → `null`, heterogeneous DB dates → ISO `YYYY-MM-DD` (the `backtest_results.date` `00:00:00` vs bare-date split is normalized via `format="mixed"`), and DataFrame/Series → typed payloads. `ORJSONResponse` is kept as a NaN-safety net
+  - Config via `pydantic-settings` (`api/config.py`); read-only and imports no secrets/`FRED_API_KEY`. DB path is sourced from `src/storage/paths.py:DB_PATH`; the import-root split (repo-root vs `src/`) is resolved once in `api/_bootstrap.py`
+
+- **New React Analytics SPA (`frontend/`)**:
+  - Vite + TypeScript + TanStack Query single-page app mirroring the Streamlit views, with three live tabs: **NAV Comparison** (scenario lines + dashed buy & hold benchmarks + performance summary), **Returns Analysis** (dense daily-return WebGL scatter), and **ETF Prices** (close lines + statistics). The remaining tabs are present but disabled until their phases land
+  - Charting: Recharts for the light line/table views (ETF Prices); Plotly for the NAV chart and the WebGL returns scatter. Plotly is `React.lazy`-loaded into a single shared, code-split chunk, so the app shell + tables render immediately and Plotly is fetched once
+  - TypeScript types are generated from the live OpenAPI schema (`npm run gen:api`), so the Python ↔ TS contract is enforced at compile time. A `HealthGate` blocks the app until the DB is reachable; an `ErrorBoundary` contains per-view render errors. All `$`/`%` formatting is client-side (`frontend/src/lib/format.ts`) — the API returns raw, machine-usable numbers
+
+- **No engine / trading behaviour change**:
+  - Read-only analytics plumbing — no change to the decision/sizing/execution core, no new persisted tables or schema migrations. The new stack only reads what `run_backtest.py` already persisted, so backtest/live behaviour is untouched
+
+- **Tests & dependencies**:
+  - Added the `api/tests/` suite (55 passing): `/health`, serialization round-trips (NaN/Inf/date hazards), and per-endpoint shape + reducer unit tests
+  - `requirements.txt` gains `fastapi`, `uvicorn[standard]`, `pydantic-settings`, `orjson`; `requirements-dev.txt` gains `httpx` (FastAPI `TestClient`). No change to the `src/` tree
+  - Deprecated the historical-grid assertions in `tests/strategy/test_presets.py` (skipped, not deleted, per the repo convention): the persisted scenario registry evolves, so pinning the exact `baseV1_*` names no longer holds after the V1.11.0 base-strategy swap
