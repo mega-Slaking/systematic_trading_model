@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.9.5
+## Current Version: V 1.12.0
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -613,3 +613,71 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 
 - **Execution Boundary Cleanup (no behaviour change)**:
   - Removed weight re-normalisation from `Portfolio.rebalance_v2`; the execution layer now trusts the decision layer's canonical weights (`apply_constraints` owns shaping). This is behaviour-preserving today, and unblocks future sub-1.0 cash buffers and signed/short weights that the old normalisation would have silently flattened
+
+  ## V 1.10.0
+
+- **Unified, Selectable Strategy Configuration (`src/strategy/`)**:
+  - Added `StrategyConfig` (`src/strategy/config.py`) — a single, frozen config that composes the five existing sub-configs (`VolatilityConfig`, `CovarianceConfig`, `PositionSizingConfig`, `ConvictionConfig`, `WeightConstraints`) into one source of truth shared by backtest and live. This is the config-side peer to V1.9.5's `EngineContext` Protocol (the Protocol unified the *interface*; this unifies the *config*)
+  - Added a `.with_(**overrides)` helper that flips any knob by name (e.g. `use_covariance_scaling`, `target_portfolio_vol`, `shy_floor`) without the caller knowing which nested sub-config owns it, returning a new immutable config. Toggling a risk feature on/off is now a one-liner instead of a factory edit
+  - Design spec: `docs/strategy_config_design_spec.md`
+
+- **Named Strategy Registry (`src/strategy/presets.py`)**:
+  - Added `STRATEGIES`, a flat dict of concrete, named configs built from `grid(...)` sweep helpers, replacing the five `src/scenarios/factory.py` builder functions
+  - Reproduces all 22 historical scenarios with their exact prior names (so `scenario_id`-tagged history is preserved) and adds `default` (the live-equivalent config that was never previously backtested) → 23 entries; `run_backtest.py` now iterates the registry, so adding a scenario is a one-line registry edit with no run-script changes
+  - Adding a new knob now costs one line in the `_FIELD_OWNERS` map instead of editing the factory signature, body, and every builder
+
+- **Conviction + Constraints Now Configurable Per Run**:
+  - `run_engine` now forwards `conviction_config` and `constraints` into the decision pipeline; previously both were accepted by `orchestrate_decision_pipeline` but never passed, so they were silently pinned to defaults on every run. Conviction parameters and the SHY floor / eligibility are now sweepable
+  - Behaviour-preserving: forwarding the explicit defaults is byte-identical to the old implicit `None` (verified by the backtest determinism/NAV and live regression tests)
+
+- **Live Strategy Selection**:
+  - Added `LIVE_STRATEGY` + `live_strategy()` in `src/strategy/presets.py`; `main.py` now trades exactly one selected registry entry (`run_engine(context, strategy=live_strategy())`). Switching the live book is a one-line change, and a bad name fails fast with the list of valid names
+  - The live run was moved off the previous implicit default onto a validated registry entry (currently `baseV1_roll20_ewmacov_lam94_tv05`). Email notification and DB persistence are unchanged
+
+- **Migration & Safety**:
+  - Old code (the `run_engine` config fork, the `run_backtest.py` scenario list, and the five factory builders) is commented out rather than deleted, per the repo's refactor convention, as a rollback safety net; `build_scenario` / `BacktestScenario` remain as the back-compat path
+  - Added `tests/strategy/test_strategy_config.py` and `tests/strategy/test_presets.py`; full suite green (210 passed)
+  - Clarified that `base_allocation_profile` is an inert identifier label (the functional base-allocation switch is `starting_weight_source`); left in place, slated for later cleanup
+
+  ## V 1.11.0
+
+- **New TLT-Tracking Base Strategy (`src/strategy/tlt_tracker.py`)**:
+  - Replaced the modern regime-table allocator with a TLT-chasing strategy: it follows TLT on confirmed uptrends (with a deliberate lag) and buffers into AGG/SHY on confirmed downtrends, to capture duration upside while cutting the left tail
+  - Stateful machine: a Schmitt-trigger hysteresis band on TLT's `ma_slope_z`, an `entry_confirm_days` confirmation lag (slower in) with a faster asymmetric `exit_confirm_days` (faster out), a `min_hold_days` dwell floor, and weight ramps (`ramp_step` up, `ramp_step_down` down) toward per-state targets (`tlt_max` / `tlt_neutral` / `tlt_min`, `agg_defensive`, `shy_min`). All knobs live in a frozen `TltTrackerConfig`
+  - Reuses the existing macro/monetary signals as confirmation/veto: a stagflation/hawkish regime caps TLT (`macro_veto`), relaxed when `macro_supports_duration` confirms (`macro_confirm`)
+  - Look-ahead-safe and deterministic: the state machine is *replayed* over the point-in-time TLT signal history each day (the backtest only exposes rows dated `< current_date`), carrying no mutable cross-day state. Trend detection reuses the engine's precomputed `ma_slope_z` / `trend_up` / `ret_lookback`
+  - Writes both `base_weights` and `conviction_weights`, so the position sizer (`starting_weight_source="conviction"`) consumes the tracker's directional weights with no sizer changes; the conviction tilt is bypassed (the tracker *is* the directional layer). The vol/cov/constraint risk overlay still runs on top
+
+- **Behaviour change (live + default path)**:
+  - The base strategy for every `starting_weight_source="conviction"` registry entry — including the live book `baseV1_roll20_ewmacov_lam94_tv05` and `default` — now runs the TLT tracker instead of the old regime→direction→table→conviction path; allocation behaviour on these scenarios changes by design. `legacyBase_*` entries (`starting_weight_source="legacy"`) are unchanged and still use the legacy signal table
+
+- **Legacy Relocation & Pipeline Rewire**:
+  - Moved `favourable_asset_selection.py` and `base_allocator_engine.py` to `src/legacy/` (the old regime-table modern path); `src/decision/pipeline.py` now calls the tracker, with the old `favourable_assets → base table → conviction` sequence commented out as a rollback safety net per the repo convention
+  - The relocated allocators are still exercised directly by `tests/strategy/test_favourable_assets.py` and `test_base_allocator.py` (imports repointed to `src.legacy.*`)
+
+- **Dashboard Benchmark Alignment (`streamlit/home_page_tabs/nav_comparison.py`)**:
+  - The TLT/AGG/SHY buy & hold benchmark lines now start at the actual backtest window (`results["date"].min()`) instead of a hardcoded `2014-01-01`, so the benchmarks line up with the scenario NAVs over the same period
+
+- **Tests**:
+  - Added `tests/strategy/test_tlt_tracker.py` (state-machine units: confirmation lag, hysteresis band, UP ramp, DOWN buffer, faster exit, macro veto/confirm, data fallback, determinism); updated `tests/strategy/test_pipeline_integration.py` to the tracker pipeline (old regime-table assertions preserved, commented). Full suite green (220 passed)
+
+  ## V 1.12.0
+
+- **New FastAPI Analytics Service (`api/`)** — Phases 0-2 of the React/FastAPI migration (`docs/fastapi_react_migration_spec.md`):
+  - Added a read-only REST service that sits between the existing Python analytics core and the browser, **reusing** the existing compute (`src/storage/db_reader.py`, `src/accounting/tearsheet_builder.py`) rather than reimplementing it. Runs alongside Streamlit (does not replace it yet), reading the same `data/database.db`
+  - Endpoints under `/api/v1`: `health` (DB-exists gate), `scenarios`, `backtest-results/nav-comparison`, `backtest-results/returns`, `etf-prices`, `etf-prices/stats`. Thin router → service → schema layering; the only server-side arithmetic not already in `src/` (the NAV/price summaries Streamlit computed in-tab) lives in one place, `api/services/summaries.py`
+  - Serialization boundary (`api/serialization/frames.py`): a single home for the three JSON hazards — NaN/Inf → `null`, heterogeneous DB dates → ISO `YYYY-MM-DD` (the `backtest_results.date` `00:00:00` vs bare-date split is normalized via `format="mixed"`), and DataFrame/Series → typed payloads. `ORJSONResponse` is kept as a NaN-safety net
+  - Config via `pydantic-settings` (`api/config.py`); read-only and imports no secrets/`FRED_API_KEY`. DB path is sourced from `src/storage/paths.py:DB_PATH`; the import-root split (repo-root vs `src/`) is resolved once in `api/_bootstrap.py`
+
+- **New React Analytics SPA (`frontend/`)**:
+  - Vite + TypeScript + TanStack Query single-page app mirroring the Streamlit views, with three live tabs: **NAV Comparison** (scenario lines + dashed buy & hold benchmarks + performance summary), **Returns Analysis** (dense daily-return WebGL scatter), and **ETF Prices** (close lines + statistics). The remaining tabs are present but disabled until their phases land
+  - Charting: Recharts for the light line/table views (ETF Prices); Plotly for the NAV chart and the WebGL returns scatter. Plotly is `React.lazy`-loaded into a single shared, code-split chunk, so the app shell + tables render immediately and Plotly is fetched once
+  - TypeScript types are generated from the live OpenAPI schema (`npm run gen:api`), so the Python ↔ TS contract is enforced at compile time. A `HealthGate` blocks the app until the DB is reachable; an `ErrorBoundary` contains per-view render errors. All `$`/`%` formatting is client-side (`frontend/src/lib/format.ts`) — the API returns raw, machine-usable numbers
+
+- **No engine / trading behaviour change**:
+  - Read-only analytics plumbing — no change to the decision/sizing/execution core, no new persisted tables or schema migrations. The new stack only reads what `run_backtest.py` already persisted, so backtest/live behaviour is untouched
+
+- **Tests & dependencies**:
+  - Added the `api/tests/` suite (55 passing): `/health`, serialization round-trips (NaN/Inf/date hazards), and per-endpoint shape + reducer unit tests
+  - `requirements.txt` gains `fastapi`, `uvicorn[standard]`, `pydantic-settings`, `orjson`; `requirements-dev.txt` gains `httpx` (FastAPI `TestClient`). No change to the `src/` tree
+  - Deprecated the historical-grid assertions in `tests/strategy/test_presets.py` (skipped, not deleted, per the repo convention): the persisted scenario registry evolves, so pinning the exact `baseV1_*` names no longer holds after the V1.11.0 base-strategy swap

@@ -31,7 +31,11 @@ def render_nav_comparison_tab():
 
     # Add buy & hold benchmarks
     etf_prices = load_etf_prices()
-    start_date = pd.to_datetime("2014-01-01")
+    # Align benchmarks to the actual backtest window so they don't drift from the
+    # scenario lines (the backtest start floor is set in run_backtest.py). The old
+    # hardcoded clip is kept commented as a rollback reference.
+    # start_date = pd.to_datetime("2014-01-01")
+    start_date = results["date"].min()
     initial_nav = (
         results[results["scenario_id"] == scenarios[0]]["nav"].iloc[0]
         if scenarios

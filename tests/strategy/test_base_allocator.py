@@ -1,11 +1,12 @@
-"""Exhaustive active-set -> base-weight table (src/decision/base_allocator_engine.py).
-Locks the base allocation rules and rule_ids.
+"""Exhaustive active-set -> base-weight table (src/legacy/base_allocator_engine.py).
+Locks the base allocation rules and rule_ids. (Moved to src/legacy/ when the
+TLT-tracking allocator replaced the modern regime-table path.)
 """
 
 import pytest
 
 from src.decision.models import Decision
-from src.decision.base_allocator_engine import allocate_base_weights
+from src.legacy.base_allocator_engine import allocate_base_weights
 
 pytestmark = [pytest.mark.unit, pytest.mark.regression]
 

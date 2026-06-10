@@ -54,166 +54,172 @@ def build_scenario(
     )
 
 
-def build_vol_power_scenarios() -> list[BacktestScenario]:
-    vol_powers = [0.01]
-
-    scenarios: list[BacktestScenario] = []
-
-    for power in vol_powers:
-        power_label = f"p{int(round(power * 100)):03d}"
-
-        scenario = build_scenario(
-            scenario_id=f"baseV1_roll20_{power_label}",
-            vol_method="rolling_std",
-            lookback_days=20,
-            vol_scaling_power=power,
-            use_vol_scaling=True,
-            base_allocation_profile="baseV1",
-            description=f"Base V1, rolling 20-day vol, vol power {power}",
-        )
-        scenarios.append(scenario)
-
-    return scenarios
-
-def build_covariance_scaling_scenarios() -> list[BacktestScenario]:
-    target_vols = [0.03, 0.05, 0.07]
-
-    scenarios: list[BacktestScenario] = []
-
-    for target_vol in target_vols:
-        vol_label = f"tv{int(round(target_vol * 100)):02d}"
-
-        scenario = build_scenario(
-            scenario_id=f"baseV1_roll20_covlb20_{vol_label}",
-            vol_method="rolling_std",
-            lookback_days=20,
-            annualization_factor=252,
-            min_history=20,
-            vol_scaling_power=0.00,
-            use_vol_scaling=False,
-            cov_method="sample_cov",
-            cov_lookback_days=20,
-            cov_annualization_factor=252,
-            cov_min_history=20,
-            use_covariance_scaling=True,
-            target_portfolio_vol=target_vol,
-            base_allocation_profile="baseV1",
-            description=(
-                f"Base V1, rolling 20-day vol, sample covariance 20-day, "
-                f"target portfolio vol {target_vol:.2f}, conviction off"
-            ),
-        )
-        scenarios.append(scenario)
-
-    return scenarios
-
-
-def build_ewma_covariance_scaling_scenarios() -> list[BacktestScenario]:
-    ewma_lambdas = [0.94, 0.97]
-    target_vols = [0.02, 0.03, 0.04, 0.05]
-
-    scenarios: list[BacktestScenario] = []
-
-    for ewma_lambda in ewma_lambdas:
-        lambda_label = f"lam{int(round(ewma_lambda * 100)):02d}"
-
-        for target_vol in target_vols:
-            vol_label = f"tv{int(round(target_vol * 100)):02d}"
-
-            scenario = build_scenario(
-                scenario_id=f"baseV1_roll20_ewmacov_{lambda_label}_{vol_label}",
-                vol_method="rolling_std",
-                lookback_days=20,
-                annualization_factor=252,
-                min_history=20,
-                vol_scaling_power=0.00,
-                use_vol_scaling=False,
-                cov_method="ewma_cov",
-                cov_annualization_factor=252,
-                cov_min_history=20,
-                ewma_lambda=ewma_lambda,
-                use_covariance_scaling=True,
-                target_portfolio_vol=target_vol,
-                base_allocation_profile="baseV1",
-                description=(
-                    f"Base V1, rolling 20-day asset vol, EWMA covariance "
-                    f"(lambda {ewma_lambda:.2f}), target portfolio vol {target_vol:.2f}, "
-                    f"conviction off"
-                ),
-            )
-            scenarios.append(scenario)
-
-    return scenarios
-
-
-def build_legacy_ewma_covariance_scaling_scenarios() -> list[BacktestScenario]:
-    ewma_lambdas = [0.94, 0.97]
-    target_vols = [0.02, 0.03, 0.04, 0.05]
-
-    scenarios: list[BacktestScenario] = []
-
-    for ewma_lambda in ewma_lambdas:
-        lambda_label = f"lam{int(round(ewma_lambda * 100)):02d}"
-
-        for target_vol in target_vols:
-            vol_label = f"tv{int(round(target_vol * 100)):02d}"
-
-            scenario = build_scenario(
-                scenario_id=f"legacyBase_roll20_ewmacov_{lambda_label}_{vol_label}",
-                vol_method="rolling_std",
-                lookback_days=20,
-                annualization_factor=252,
-                min_history=20,
-                vol_scaling_power=0.00,
-                use_vol_scaling=False,
-                cov_method="ewma_cov",
-                cov_annualization_factor=252,
-                cov_min_history=20,
-                ewma_lambda=ewma_lambda,
-                use_covariance_scaling=True,
-                target_portfolio_vol=target_vol,
-                starting_weight_source="legacy",
-                base_allocation_profile="legacy_signal_weighted",
-                description=(
-                    f"Legacy signal-weighted base allocation, rolling 20-day asset vol, "
-                    f"EWMA covariance lambda {ewma_lambda:.2f}, "
-                    f"target portfolio vol {target_vol:.2f}"
-                ),
-            )
-            scenarios.append(scenario)
-
-    return scenarios
-
-
-def build_legacy_covariance_scaling_scenarios() -> list[BacktestScenario]:
-    target_vols = [0.03, 0.05]
-
-    scenarios: list[BacktestScenario] = []
-
-    for target_vol in target_vols:
-        vol_label = f"tv{int(round(target_vol * 100)):02d}"
-
-        scenario = build_scenario(
-            scenario_id=f"legacyBase_roll20_covlb20_{vol_label}",
-            vol_method="rolling_std",
-            lookback_days=20,
-            annualization_factor=252,
-            min_history=20,
-            vol_scaling_power=0.00,
-            use_vol_scaling=False,
-            cov_method="sample_cov",
-            cov_lookback_days=20,
-            cov_annualization_factor=252,
-            cov_min_history=20,
-            use_covariance_scaling=True,
-            target_portfolio_vol=target_vol,
-            starting_weight_source="legacy",
-            base_allocation_profile="legacy_signal_weighted",
-            description=(
-                f"Legacy signal-weighted base allocation, rolling 20-day asset vol, "
-                f"sample covariance 20-day, target portfolio vol {target_vol:.2f}"
-            ),
-        )
-        scenarios.append(scenario)
-
-    return scenarios
+# --- OLD scenario grid builders (commented out per project convention; replaced
+# --- by src/strategy/presets.py STRATEGIES registry + grid()). build_scenario
+# --- above is intentionally kept (back-compat scenario path used by the e2e test
+# --- and lifted into a StrategyConfig by resolve_strategy). These builders are
+# --- the rollback safety net.
+#
+# def build_vol_power_scenarios() -> list[BacktestScenario]:
+#     vol_powers = [0.01]
+#
+#     scenarios: list[BacktestScenario] = []
+#
+#     for power in vol_powers:
+#         power_label = f"p{int(round(power * 100)):03d}"
+#
+#         scenario = build_scenario(
+#             scenario_id=f"baseV1_roll20_{power_label}",
+#             vol_method="rolling_std",
+#             lookback_days=20,
+#             vol_scaling_power=power,
+#             use_vol_scaling=True,
+#             base_allocation_profile="baseV1",
+#             description=f"Base V1, rolling 20-day vol, vol power {power}",
+#         )
+#         scenarios.append(scenario)
+#
+#     return scenarios
+#
+# def build_covariance_scaling_scenarios() -> list[BacktestScenario]:
+#     target_vols = [0.03, 0.05, 0.07]
+#
+#     scenarios: list[BacktestScenario] = []
+#
+#     for target_vol in target_vols:
+#         vol_label = f"tv{int(round(target_vol * 100)):02d}"
+#
+#         scenario = build_scenario(
+#             scenario_id=f"baseV1_roll20_covlb20_{vol_label}",
+#             vol_method="rolling_std",
+#             lookback_days=20,
+#             annualization_factor=252,
+#             min_history=20,
+#             vol_scaling_power=0.00,
+#             use_vol_scaling=False,
+#             cov_method="sample_cov",
+#             cov_lookback_days=20,
+#             cov_annualization_factor=252,
+#             cov_min_history=20,
+#             use_covariance_scaling=True,
+#             target_portfolio_vol=target_vol,
+#             base_allocation_profile="baseV1",
+#             description=(
+#                 f"Base V1, rolling 20-day vol, sample covariance 20-day, "
+#                 f"target portfolio vol {target_vol:.2f}, conviction off"
+#             ),
+#         )
+#         scenarios.append(scenario)
+#
+#     return scenarios
+#
+#
+# def build_ewma_covariance_scaling_scenarios() -> list[BacktestScenario]:
+#     ewma_lambdas = [0.94, 0.97]
+#     target_vols = [0.02, 0.03, 0.04, 0.05]
+#
+#     scenarios: list[BacktestScenario] = []
+#
+#     for ewma_lambda in ewma_lambdas:
+#         lambda_label = f"lam{int(round(ewma_lambda * 100)):02d}"
+#
+#         for target_vol in target_vols:
+#             vol_label = f"tv{int(round(target_vol * 100)):02d}"
+#
+#             scenario = build_scenario(
+#                 scenario_id=f"baseV1_roll20_ewmacov_{lambda_label}_{vol_label}",
+#                 vol_method="rolling_std",
+#                 lookback_days=20,
+#                 annualization_factor=252,
+#                 min_history=20,
+#                 vol_scaling_power=0.00,
+#                 use_vol_scaling=False,
+#                 cov_method="ewma_cov",
+#                 cov_annualization_factor=252,
+#                 cov_min_history=20,
+#                 ewma_lambda=ewma_lambda,
+#                 use_covariance_scaling=True,
+#                 target_portfolio_vol=target_vol,
+#                 base_allocation_profile="baseV1",
+#                 description=(
+#                     f"Base V1, rolling 20-day asset vol, EWMA covariance "
+#                     f"(lambda {ewma_lambda:.2f}), target portfolio vol {target_vol:.2f}, "
+#                     f"conviction off"
+#                 ),
+#             )
+#             scenarios.append(scenario)
+#
+#     return scenarios
+#
+#
+# def build_legacy_ewma_covariance_scaling_scenarios() -> list[BacktestScenario]:
+#     ewma_lambdas = [0.94, 0.97]
+#     target_vols = [0.02, 0.03, 0.04, 0.05]
+#
+#     scenarios: list[BacktestScenario] = []
+#
+#     for ewma_lambda in ewma_lambdas:
+#         lambda_label = f"lam{int(round(ewma_lambda * 100)):02d}"
+#
+#         for target_vol in target_vols:
+#             vol_label = f"tv{int(round(target_vol * 100)):02d}"
+#
+#             scenario = build_scenario(
+#                 scenario_id=f"legacyBase_roll20_ewmacov_{lambda_label}_{vol_label}",
+#                 vol_method="rolling_std",
+#                 lookback_days=20,
+#                 annualization_factor=252,
+#                 min_history=20,
+#                 vol_scaling_power=0.00,
+#                 use_vol_scaling=False,
+#                 cov_method="ewma_cov",
+#                 cov_annualization_factor=252,
+#                 cov_min_history=20,
+#                 ewma_lambda=ewma_lambda,
+#                 use_covariance_scaling=True,
+#                 target_portfolio_vol=target_vol,
+#                 starting_weight_source="legacy",
+#                 base_allocation_profile="legacy_signal_weighted",
+#                 description=(
+#                     f"Legacy signal-weighted base allocation, rolling 20-day asset vol, "
+#                     f"EWMA covariance lambda {ewma_lambda:.2f}, "
+#                     f"target portfolio vol {target_vol:.2f}"
+#                 ),
+#             )
+#             scenarios.append(scenario)
+#
+#     return scenarios
+#
+#
+# def build_legacy_covariance_scaling_scenarios() -> list[BacktestScenario]:
+#     target_vols = [0.03, 0.05]
+#
+#     scenarios: list[BacktestScenario] = []
+#
+#     for target_vol in target_vols:
+#         vol_label = f"tv{int(round(target_vol * 100)):02d}"
+#
+#         scenario = build_scenario(
+#             scenario_id=f"legacyBase_roll20_covlb20_{vol_label}",
+#             vol_method="rolling_std",
+#             lookback_days=20,
+#             annualization_factor=252,
+#             min_history=20,
+#             vol_scaling_power=0.00,
+#             use_vol_scaling=False,
+#             cov_method="sample_cov",
+#             cov_lookback_days=20,
+#             cov_annualization_factor=252,
+#             cov_min_history=20,
+#             use_covariance_scaling=True,
+#             target_portfolio_vol=target_vol,
+#             starting_weight_source="legacy",
+#             base_allocation_profile="legacy_signal_weighted",
+#             description=(
+#                 f"Legacy signal-weighted base allocation, rolling 20-day asset vol, "
+#                 f"sample covariance 20-day, target portfolio vol {target_vol:.2f}"
+#             ),
+#         )
+#         scenarios.append(scenario)
+#
+#     return scenarios

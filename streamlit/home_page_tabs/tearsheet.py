@@ -449,7 +449,7 @@ def _display_raw_data(scenario_data):
             "fee_cost",
             "slippage_cost",
             "total_cost",
-            "gross_notional",
+            "gross_trade_notional",
             "n_positions",
             "top_asset",
             "top_weight",

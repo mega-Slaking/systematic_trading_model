@@ -1,0 +1,31 @@
+{
+  "name": "systematic-trading-frontend",
+  "private": true,
+  "version": "1.12.0",
+  "type": "module",
+  "description": "React SPA analytics frontend for the systematic trading model. Replaces the Streamlit dashboard; talks to the FastAPI service in ../api over REST. See docs/fastapi_react_migration_spec.md.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "gen:api": "openapi-typescript http://127.0.0.1:8000/openapi.json -o src/api/schema.d.ts"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.101.0",
+    "plotly.js": "3.0.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-plotly.js": "3.0.0",
+    "recharts": "3.8.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@types/react-plotly.js": "2.6.4",
+    "@vitejs/plugin-react": "6.0.2",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3",
+    "vite": "8.0.16"
+  }
+}
