@@ -19,7 +19,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 
 from api.config import get_settings
-from api.routers import backtest_results, etf_prices, health, scenarios
+from api.routers import (
+    backtest_results,
+    etf_prices,
+    health,
+    macro,
+    scenarios,
+    strategies,
+    tearsheet,
+    volatility,
+)
 from api.schemas.common import ErrorResponse
 
 
@@ -71,7 +80,11 @@ def create_app() -> FastAPI:
     app.include_router(health.router, prefix=settings.api_v1_prefix)
     app.include_router(scenarios.router, prefix=settings.api_v1_prefix)
     app.include_router(backtest_results.router, prefix=settings.api_v1_prefix)
+    app.include_router(tearsheet.router, prefix=settings.api_v1_prefix)
     app.include_router(etf_prices.router, prefix=settings.api_v1_prefix)
+    app.include_router(volatility.router, prefix=settings.api_v1_prefix)
+    app.include_router(macro.router, prefix=settings.api_v1_prefix)
+    app.include_router(strategies.router, prefix=settings.api_v1_prefix)
 
     return app
 

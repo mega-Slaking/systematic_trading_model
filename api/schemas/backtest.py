@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from api.schemas.common import NamedSeries
+from api.schemas.common import NamedSeries, TableModel
 
 
 class ScenarioSummaryRow(BaseModel):
@@ -50,3 +50,17 @@ class ReturnsResponse(BaseModel):
     """Tab 2: one columnar return series per scenario (rendered via Plotly WebGL)."""
 
     series: list[ReturnsScatterSeries]
+
+
+class BacktestDailyResponse(BaseModel):
+    """Endpoint 4 (Tab 3 raw table): one scenario's daily rows, paginated.
+
+    ``table`` carries the requested columns (default: the scalar display set the
+    Streamlit tab shows). ``total_rows`` is the unpaginated count for the scenario.
+    """
+
+    scenario_id: str
+    total_rows: int
+    offset: int
+    limit: int | None
+    table: TableModel

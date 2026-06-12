@@ -87,6 +87,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/backtest-results/{scenario_id}/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daily rows for a scenario
+         * @description Raw daily rows for one scenario (Tab 3 table).
+         */
+        get: operations["daily_api_v1_backtest_results__scenario_id__daily_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tearsheet/{scenario_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Full tearsheet for a scenario
+         * @description Metrics + equity/drawdown/rolling curves + exposure/regime/benchmark tables.
+         */
+        get: operations["tearsheet_api_v1_tearsheet__scenario_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/etf-prices": {
         parameters: {
             query?: never;
@@ -127,10 +167,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/volatility-features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vol estimate lines for a ticker
+         * @description Per-method annualized-vol lines for one ticker (Tab 5 chart).
+         */
+        get: operations["volatility_features_api_v1_volatility_features_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest vol per ticker
+         * @description Latest annualized vol per method per ticker (Tab 5 table).
+         */
+        get: operations["volatility_latest_api_v1_volatility_features_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/macro": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Macro indicator series
+         * @description One series per requested macro indicator (each on its own date axis).
+         */
+        get: operations["macro_api_v1_macro_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/macro/yield-curve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 10Y/2Y yields + spread
+         * @description 10Y and 2Y yields plus the 10Y-2Y spread.
+         */
+        get: operations["yield_curve_api_v1_macro_yield_curve_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/strategies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Strategy registry introspection
+         * @description Flatten the ``STRATEGIES`` registry so the UI can decode scenario names.
+         */
+        get: operations["strategies_api_v1_strategies_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * BacktestDailyResponse
+         * @description Endpoint 4 (Tab 3 raw table): one scenario's daily rows, paginated.
+         *
+         *     ``table`` carries the requested columns (default: the scalar display set the
+         *     Streamlit tab shows). ``total_rows`` is the unpaginated count for the scenario.
+         */
+        BacktestDailyResponse: {
+            /** Scenario Id */
+            scenario_id: string;
+            /** Total Rows */
+            total_rows: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number | null;
+            table: components["schemas"]["TableModel"];
+        };
         /**
          * EtfPriceStatsResponse
          * @description The price-statistics table as a list of typed rows.
@@ -168,6 +326,14 @@ export interface components {
             db_path: string;
             /** Api Version */
             api_version: string;
+        };
+        /**
+         * MacroResponse
+         * @description One :class:`NamedSeries` per requested indicator (name = indicator key).
+         */
+        MacroResponse: {
+            /** Series */
+            series: components["schemas"]["NamedSeries"][];
         };
         /**
          * NamedSeries
@@ -276,6 +442,126 @@ export interface components {
             /** Value */
             value: number | null;
         };
+        /**
+         * StrategiesResponse
+         * @description The whole registry plus the currently-selected live strategy name.
+         */
+        StrategiesResponse: {
+            /** Live Strategy */
+            live_strategy: string;
+            /** Strategies */
+            strategies: components["schemas"]["StrategySummary"][];
+        };
+        /**
+         * StrategySummary
+         * @description A flattened view of one ``StrategyConfig`` (selected knobs from its sub-configs).
+         */
+        StrategySummary: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Starting Weight Source */
+            starting_weight_source: string;
+            /** Use Vol Scaling */
+            use_vol_scaling: boolean;
+            /** Vol Scaling Power */
+            vol_scaling_power: number;
+            /** Use Covariance Scaling */
+            use_covariance_scaling: boolean;
+            /** Target Portfolio Vol */
+            target_portfolio_vol: number;
+            /** Cov Method */
+            cov_method: string;
+            /** Is Live */
+            is_live: boolean;
+        };
+        /**
+         * TableModel
+         * @description A generic table: column order plus list-of-records rows (values JSON scalars or null).
+         */
+        TableModel: {
+            /** Columns */
+            columns: string[];
+            /** Rows */
+            rows: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * TearsheetMetricsModel
+         * @description Flat view of ``TearsheetMetrics`` (all 26 fields).
+         */
+        TearsheetMetricsModel: {
+            /** Scenario Id */
+            scenario_id: string;
+            /** Start Date */
+            start_date: string;
+            /** End Date */
+            end_date: string;
+            /** Total Return */
+            total_return: number | null;
+            /** Cagr */
+            cagr: number | null;
+            /** Annualized Volatility */
+            annualized_volatility: number | null;
+            /** Sharpe */
+            sharpe: number | null;
+            /** Sortino */
+            sortino: number | null;
+            /** Max Drawdown */
+            max_drawdown: number | null;
+            /** Calmar */
+            calmar: number | null;
+            /** Var 95 */
+            var_95: number | null;
+            /** Cvar 95 */
+            cvar_95: number | null;
+            /** Worst Day */
+            worst_day: number | null;
+            /** Best Day */
+            best_day: number | null;
+            /** Skew */
+            skew: number | null;
+            /** Excess Kurtosis */
+            excess_kurtosis: number | null;
+            /** Avg Turnover */
+            avg_turnover: number | null;
+            /** Annualized Turnover */
+            annualized_turnover: number | null;
+            /** Total Cost */
+            total_cost: number | null;
+            /** Cost Drag */
+            cost_drag: number | null;
+            /** Daily Hit Rate */
+            daily_hit_rate: number | null;
+            /** Avg Win */
+            avg_win: number | null;
+            /** Avg Loss */
+            avg_loss: number | null;
+            /** Payoff Ratio */
+            payoff_ratio: number | null;
+            /** Profit Factor */
+            profit_factor: number | null;
+            /** Parametric Var 95 */
+            parametric_var_95: number | null;
+        };
+        /**
+         * TearsheetResponse
+         * @description Full tearsheet: metrics + equity/drawdown/rolling curves + summary tables.
+         */
+        TearsheetResponse: {
+            summary: components["schemas"]["TearsheetMetricsModel"];
+            equity_curve: components["schemas"]["NamedSeries"];
+            drawdown_curve: components["schemas"]["NamedSeries"];
+            /** Rolling Metrics */
+            rolling_metrics: components["schemas"]["NamedSeries"][];
+            exposure_summary: components["schemas"]["TableModel"] | null;
+            regime_summary: components["schemas"]["TableModel"] | null;
+            benchmark_summary: components["schemas"]["TableModel"] | null;
+            /** Regime Match Rate */
+            regime_match_rate: number | null;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -288,6 +574,59 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * VolLatestRow
+         * @description Latest annualized vol per method for one ticker (Tab 5 table).
+         */
+        VolLatestRow: {
+            /** Ticker */
+            ticker: string;
+            /** Date */
+            date: string | null;
+            /** Rolling 20 */
+            rolling_20: number | null;
+            /** Rolling 60 */
+            rolling_60: number | null;
+            /** Ewma 94 */
+            ewma_94: number | null;
+            /** Ewma 97 */
+            ewma_97: number | null;
+            /** Garch */
+            garch: number | null;
+        };
+        /**
+         * VolatilityFeaturesResponse
+         * @description Vol estimate lines for one ticker (Tab 5 chart). Series names are display
+         *     labels; ``meta.method`` carries the raw key. ``available_methods`` lists the
+         *     method keys that are non-empty for this ticker.
+         */
+        VolatilityFeaturesResponse: {
+            /** Ticker */
+            ticker: string;
+            /** Series */
+            series: components["schemas"]["NamedSeries"][];
+            /** Available Methods */
+            available_methods: string[];
+        };
+        /**
+         * VolatilityLatestResponse
+         * @description Latest-values table across all tickers.
+         */
+        VolatilityLatestResponse: {
+            /** Methods */
+            methods: string[];
+            /** Rows */
+            rows: components["schemas"]["VolLatestRow"][];
+        };
+        /**
+         * YieldCurveResponse
+         * @description 10Y/2Y yields and the 10Y-2Y spread (spread carries meta={'fill':'tozeroy'}).
+         */
+        YieldCurveResponse: {
+            gs10: components["schemas"]["NamedSeries"];
+            gs2: components["schemas"]["NamedSeries"];
+            spread: components["schemas"]["NamedSeries"];
         };
     };
     responses: never;
@@ -404,6 +743,80 @@ export interface operations {
             };
         };
     };
+    daily_api_v1_backtest_results__scenario_id__daily_get: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated column subset. Default: scalar display set. */
+                columns?: string | null;
+                /** @description Max rows to return (pagination). */
+                limit?: number | null;
+                /** @description Row offset (pagination). */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BacktestDailyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tearsheet_api_v1_tearsheet__scenario_id__get: {
+        parameters: {
+            query?: {
+                /** @description Annual risk-free rate (decimal). */
+                risk_free_rate?: number;
+                /** @description Trading periods per year. */
+                periods_per_year?: number;
+            };
+            header?: never;
+            path: {
+                scenario_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TearsheetResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     etf_prices_api_v1_etf_prices_get: {
         parameters: {
             query?: {
@@ -464,6 +877,132 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_features_api_v1_volatility_features_get: {
+        parameters: {
+            query: {
+                /** @description Ticker, e.g. TLT (required). */
+                ticker: string;
+                /** @description Comma-separated method keys. Default: all available. */
+                methods?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolatilityFeaturesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_latest_api_v1_volatility_features_latest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolatilityLatestResponse"];
+                };
+            };
+        };
+    };
+    macro_api_v1_macro_get: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated indicator keys. Default: all. */
+                indicators?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MacroResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    yield_curve_api_v1_macro_yield_curve_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YieldCurveResponse"];
+                };
+            };
+        };
+    };
+    strategies_api_v1_strategies_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrategiesResponse"];
                 };
             };
         };

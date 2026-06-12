@@ -8,9 +8,9 @@ overlays to draw.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
-from api.schemas.backtest import NavComparisonResponse, ReturnsResponse
+from api.schemas.backtest import BacktestDailyResponse, NavComparisonResponse, ReturnsResponse
 from api.services import backtest_results as service
 
 router = APIRouter(prefix="/backtest-results", tags=["backtest-results"])
@@ -49,3 +49,17 @@ def nav_comparison(
 def returns(scenario_ids: str | None = _SCENARIO_IDS_QUERY) -> ReturnsResponse:
     """Columnar daily-return series per scenario for the WebGL scatter (Tab 2)."""
     return service.get_returns(_split_csv(scenario_ids))
+
+
+@router.get("/{scenario_id}/daily", response_model=BacktestDailyResponse, summary="Daily rows for a scenario")
+def daily(
+    scenario_id: str,
+    columns: str | None = Query(None, description="Comma-separated column subset. Default: scalar display set."),
+    limit: int | None = Query(None, ge=1, description="Max rows to return (pagination)."),
+    offset: int = Query(0, ge=0, description="Row offset (pagination)."),
+) -> BacktestDailyResponse:
+    """Raw daily rows for one scenario (Tab 3 table)."""
+    try:
+        return service.get_daily_rows(scenario_id, _split_csv(columns), limit, offset)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=f"Scenario '{scenario_id}' not found")

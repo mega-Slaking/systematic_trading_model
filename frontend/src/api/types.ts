@@ -38,6 +38,36 @@ export type ReturnsResponse = components["schemas"]["ReturnsResponse"];
 /** One scenario's columnar daily-return series (Tab 2). */
 export type ReturnsScatterSeries = components["schemas"]["ReturnsScatterSeries"];
 
+/** Response of `GET /api/v1/tearsheet/{scenario_id}` (Tab 3). */
+export type TearsheetResponse = components["schemas"]["TearsheetResponse"];
+
+/** The flat 26-field tearsheet metrics object. */
+export type TearsheetMetricsModel = components["schemas"]["TearsheetMetricsModel"];
+
+/** Response of `GET /api/v1/backtest-results/{scenario_id}/daily` (Tab 3 raw table). */
+export type BacktestDailyResponse = components["schemas"]["BacktestDailyResponse"];
+
+/** Response of `GET /api/v1/volatility-features` (Tab 5 chart). */
+export type VolatilityFeaturesResponse = components["schemas"]["VolatilityFeaturesResponse"];
+
+/** Response of `GET /api/v1/volatility-features/latest` (Tab 5 table). */
+export type VolatilityLatestResponse = components["schemas"]["VolatilityLatestResponse"];
+
+/** One latest-vol row (Tab 5 table). */
+export type VolLatestRow = components["schemas"]["VolLatestRow"];
+
+/** Response of `GET /api/v1/macro` (Page 6). */
+export type MacroResponse = components["schemas"]["MacroResponse"];
+
+/** Response of `GET /api/v1/macro/yield-curve` (Page 6). */
+export type YieldCurveResponse = components["schemas"]["YieldCurveResponse"];
+
+/** Response of `GET /api/v1/strategies` (registry introspection). */
+export type StrategiesResponse = components["schemas"]["StrategiesResponse"];
+
+/** One flattened strategy summary. */
+export type StrategySummary = components["schemas"]["StrategySummary"];
+
 /** A single (x, y) chart point; `value` is `null` for NaN/Inf (API §6). */
 export interface SeriesPoint {
   date: string; // "YYYY-MM-DD"

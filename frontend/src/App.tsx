@@ -12,8 +12,12 @@ import { useHealth } from "./api/hooks";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { HealthGate } from "./components/HealthGate";
 import { EtfPricesPage } from "./pages/EtfPricesPage";
+import { MacroPage } from "./pages/MacroPage";
 import { NavComparisonPage } from "./pages/NavComparisonPage";
 import { ReturnsPage } from "./pages/ReturnsPage";
+import { StrategiesPage } from "./pages/StrategiesPage";
+import { TearsheetPage } from "./pages/TearsheetPage";
+import { VolatilityPage } from "./pages/VolatilityPage";
 
 const TABS = [
   "NAV Comparison",
@@ -22,15 +26,20 @@ const TABS = [
   "ETF Prices",
   "Volatility Features",
   "ETFs vs Macro",
+  "Strategies",
 ] as const;
 
 type Tab = (typeof TABS)[number];
 
-// Tabs with a built page (grows each phase).
+// Tabs with a built page (all of them as of Phase 4).
 const ENABLED_TABS: ReadonlySet<Tab> = new Set<Tab>([
   "NAV Comparison",
   "Returns Analysis",
+  "Tearsheet",
   "ETF Prices",
+  "Volatility Features",
+  "ETFs vs Macro",
+  "Strategies",
 ]);
 
 export default function App() {
@@ -87,8 +96,16 @@ function Shell() {
             <NavComparisonPage />
           ) : active === "Returns Analysis" ? (
             <ReturnsPage />
+          ) : active === "Tearsheet" ? (
+            <TearsheetPage />
           ) : active === "ETF Prices" ? (
             <EtfPricesPage />
+          ) : active === "Volatility Features" ? (
+            <VolatilityPage />
+          ) : active === "ETFs vs Macro" ? (
+            <MacroPage />
+          ) : active === "Strategies" ? (
+            <StrategiesPage />
           ) : (
             <ComingSoon tab={active} />
           )}
