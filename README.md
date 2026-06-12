@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.14.0
+## Current Version: V 1.15.0
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -169,6 +169,47 @@ Examples of configurable experiments include:
   - Future macro/price confidence models
 
 The goal is to make strategy development empirical. Instead of relying on a single backtest result, the system can compare multiple strategy configurations under the same data, execution, cost, and portfolio assumptions.
+
+# Running the App
+
+## Analytics dashboard (FastAPI + React)
+
+The dashboard is a **React single-page app served data by a FastAPI service** (see
+`docs/fastapi_react_migration_spec.md`). It reads the persisted results in
+`data/database.db` and reuses the existing Python compute behind a read-only REST
+API. Run two processes from the repo root:
+
+- **API**: `uvicorn api.main:app --reload --port 8000` — serves `/api/v1`, plus
+  `/docs` (Swagger UI) and `/openapi.json`.
+- **SPA**: `npm --prefix frontend run dev` — Vite dev server on
+  `http://localhost:5173`, which proxies `/api` → `:8000`.
+
+Then open **http://localhost:5173**. One-time dependency setup:
+`pip install -r requirements.txt` (API) and `npm --prefix frontend install` (SPA).
+The seven tabs cover NAV comparison, returns, the tearsheet, ETF prices,
+volatility features, ETFs vs macro, and the strategy registry.
+
+## Running a backtest
+
+- From the shell: `python run_backtest.py` — runs the whole strategy registry and
+  persists the results to `data/database.db`.
+- Or from the dashboard: the **Strategies** tab has a "Run backtest" button (the
+  same engine, behind the `/api/v1/jobs` endpoints).
+
+## Legacy Streamlit dashboard (retired in V1.15.0)
+
+The original Streamlit dashboard under `streamlit/` is **retired but not deleted**
+— it is kept as a reference / rollback and still runs against the same
+`data/database.db`:
+
+```
+streamlit run streamlit/app.py
+```
+
+It is now **frozen**: new analytics (e.g. the Strategies tab and the
+backtest-from-UI trigger) land only in the FastAPI + React stack, so Streamlit
+will drift behind over time. The React app reached parity with all six Streamlit
+views in V1.13.0.
 
 # Testing
 
@@ -714,3 +755,11 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - React: a "Run backtest" panel on the Strategies page (`useMutation` to trigger, poll via TanStack Query `refetchInterval` until `done`/`error`) that invalidates the analytics queries on completion, so every view picks up the fresh data
 
 - **Tests**: 77 `api/` tests pass — the job lifecycle / 202 / 409 / 422 / error / 404 suite runs against a stubbed runner, so no real (minutes-long) backtest runs in CI; `npm run build` clean
+
+  ## V 1.15.0
+
+- **Streamlit retired to legacy; FastAPI + React is the dashboard (Phase 6)** — the parity sign-off that closes the React/FastAPI migration (`docs/fastapi_react_migration_spec.md`):
+  - The React SPA + FastAPI service reached parity with all six Streamlit views in V1.13.0 and went beyond them (a Strategies registry tab and the V1.14.0 backtest-from-UI trigger). It is now the documented way to run the dashboard
+  - Added a **"Running the App"** section to this README: the two-process dev model (`uvicorn api.main:app` + `npm --prefix frontend run dev`), how to trigger a backtest, and how to launch the legacy Streamlit app
+  - The `streamlit/` app is **retired but kept** (repo convention: comment/retire, don't delete) — still launchable via `streamlit run streamlit/app.py` against the same `data/database.db`, but frozen: new analytics land only in the React stack. No `streamlit/` files were changed or removed, and nothing launches Streamlit automatically (it was always a manual `streamlit run`)
+  - Documentation / run-instructions only — no code or engine change
