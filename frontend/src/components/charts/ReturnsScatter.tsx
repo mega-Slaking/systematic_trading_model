@@ -36,7 +36,18 @@ export default function ReturnsScatter({ series, height = 560 }: ReturnsScatterP
     yaxis: { title: { text: "Daily Return" }, tickformat: ".1%" },
     hovermode: "closest",
     showlegend: true,
-    legend: { orientation: "h", y: -0.2 },
+    // Compact multi-column legend above the chart (doubles as the scenario toggle).
+    legend: {
+      orientation: "h",
+      x: 0,
+      xanchor: "left",
+      y: 1.02,
+      yanchor: "bottom",
+      font: { size: 10 },
+      entrywidthmode: "pixels",
+      entrywidth: 185,
+      // ^ valid Plotly 3.x props; cast past the stale @types/plotly.js Legend type.
+    } as Layout["legend"],
   };
 
   return (

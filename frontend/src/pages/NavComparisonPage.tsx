@@ -1,20 +1,17 @@
 /**
- * NAV Comparison page (spec Tab 1, Phase 2): per-scenario NAV lines + dashed
- * buy-and-hold benchmark lines (one `SeriesLineChart`) plus the performance
- * summary table (`DataTable`).
+ * NAV Comparison page (spec Tab 1): per-scenario NAV lines + dashed buy-and-hold
+ * benchmarks (Plotly `NavChart`) + the performance summary table.
  *
- * Perf: the full nav-comparison payload (all scenarios + benchmarks) is fetched
- * ONCE; the `ScenarioSelect` filters which series/rows show **client-side**, so
- * toggling a scenario is instant -- no refetch, no loading flash. (Earlier this
- * keyed the query on the selection, refetching the whole payload on every click.)
+ * Curve visibility is driven by the chart legend itself (single-click toggles a
+ * curve, double-click isolates one), so there's no separate scenario picker. The
+ * full payload is fetched once.
  */
 
-import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 
 import { ApiError } from "../api/client";
-import { useNavComparison, useScenarios } from "../api/hooks";
+import { useNavComparison } from "../api/hooks";
 import type { ScenarioSummaryRow } from "../api/types";
-import { ScenarioSelect } from "../components/ScenarioSelect";
 import { DataTable, type Column } from "../components/tables/DataTable";
 import { formatCurrency, formatPercent } from "../lib/format";
 
@@ -31,47 +28,22 @@ const SUMMARY_COLUMNS: Column<ScenarioSummaryRow>[] = [
 ];
 
 export function NavComparisonPage() {
-  const scenariosQuery = useScenarios();
-  const allScenarios = scenariosQuery.data?.scenarios ?? [];
-
-  // Fetch the complete payload once; toggling filters it client-side.
   const nav = useNavComparison();
-
-  // `null` = "all" (default); an array = an explicit selection.
-  const [selected, setSelected] = useState<string[] | null>(null);
-  const effective = selected ?? allScenarios;
-
-  const { chartSeries, summary } = useMemo(() => {
-    const shownNames = new Set(effective.map((id) => `Scenario: ${id}`));
-    const shownIds = new Set(effective);
-    const scenarioSeries = (nav.data?.scenario_series ?? []).filter((s) => shownNames.has(s.name));
-    return {
-      chartSeries: [...scenarioSeries, ...(nav.data?.benchmark_series ?? [])],
-      summary: (nav.data?.summary ?? []).filter((r) => shownIds.has(r.scenario_id)),
-    };
-  }, [nav.data, effective]);
-
-  const loading = nav.isLoading || scenariosQuery.isLoading;
-  const noneSelected = selected !== null && selected.length === 0;
+  const chartSeries = nav.data ? [...nav.data.scenario_series, ...nav.data.benchmark_series] : [];
 
   return (
     <div>
       <h2 style={{ marginTop: 0 }}>NAV Comparison</h2>
       <p style={{ color: "#666", marginTop: "0.25rem" }}>
-        Scenario NAV curves vs. buy &amp; hold benchmarks (dashed), with a performance summary.
+        Scenario NAV curves vs. buy &amp; hold benchmarks (dashed). Click a legend entry to toggle a curve;
+        double-click to isolate one.
       </p>
 
-      {allScenarios.length > 0 && (
-        <ScenarioSelect scenarios={allScenarios} selected={effective} onChange={setSelected} />
-      )}
-
       <section style={{ marginBottom: "2rem" }}>
-        {loading ? (
+        {nav.isLoading ? (
           <Status>Loading NAV curves…</Status>
         ) : nav.isError ? (
           <Status tone="error">{errorMessage(nav.error)}</Status>
-        ) : noneSelected ? (
-          <Status>Select at least one scenario.</Status>
         ) : (
           <Suspense fallback={<Status>Loading chart…</Status>}>
             <NavChart series={chartSeries} />
@@ -80,12 +52,12 @@ export function NavComparisonPage() {
       </section>
 
       <h3 style={{ marginBottom: "0.5rem" }}>Scenario Performance Summary</h3>
-      {loading ? (
+      {nav.isLoading ? (
         <Status>Loading summary…</Status>
       ) : nav.isError ? (
         <Status tone="error">{errorMessage(nav.error)}</Status>
       ) : (
-        <DataTable columns={SUMMARY_COLUMNS} rows={summary} />
+        <DataTable columns={SUMMARY_COLUMNS} rows={nav.data?.summary ?? []} />
       )}
     </div>
   );

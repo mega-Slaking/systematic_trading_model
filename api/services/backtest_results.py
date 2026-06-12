@@ -14,11 +14,35 @@ from api import _bootstrap  # noqa: F401
 
 import pandas as pd
 
+from accounting.tearsheet_calculator import parse_weights
 from src.storage.db_reader import get_backtest_results, get_etf_history
 
-from api.schemas.backtest import NavComparisonResponse, ReturnsResponse, ReturnsScatterSeries
-from api.serialization.frames import df_to_series, nan_to_none, to_iso
+from api.schemas.backtest import (
+    BacktestDailyResponse,
+    NavComparisonResponse,
+    ReturnsResponse,
+    ReturnsScatterSeries,
+)
+from api.serialization.frames import df_to_series, df_to_table, nan_to_none, to_iso
 from api.services import summaries
+
+# Scalar columns the Streamlit raw-data table shows (the daily-rows default; weights
+# is excluded by default since it's an object, but parsed if explicitly requested).
+_DEFAULT_DAILY_COLUMNS: tuple[str, ...] = (
+    "date",
+    "scenario_id",
+    "nav_pre",
+    "nav",
+    "ret",
+    "turnover",
+    "fee_cost",
+    "slippage_cost",
+    "total_cost",
+    "gross_trade_notional",
+    "n_positions",
+    "top_asset",
+    "top_weight",
+)
 
 # Benchmarks the NAV chart overlays (matches nav_comparison.py).
 BENCHMARK_TICKERS = ("TLT", "AGG", "SHY")
@@ -105,3 +129,33 @@ def get_returns(scenario_ids: list[str] | None = None) -> ReturnsResponse:
         series.append(ReturnsScatterSeries(scenario_id=str(sid), dates=dates, returns=returns))
 
     return ReturnsResponse(series=series)
+
+
+def get_daily_rows(
+    scenario_id: str,
+    columns: list[str] | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> BacktestDailyResponse:
+    """One scenario's daily rows, paginated (endpoint 4, Tab 3 raw table)."""
+    df = get_backtest_results(scenario_id).sort_values("date").reset_index(drop=True)
+    if df.empty:
+        raise LookupError(scenario_id)
+    total = len(df)
+
+    requested = columns if columns else list(_DEFAULT_DAILY_COLUMNS)
+    keep = [c for c in requested if c in df.columns] or list(df.columns)
+
+    out = df[keep].copy()
+    if "weights" in out.columns:
+        # Parse the JSON-string weights back to an object so React gets a dict (§6).
+        out["weights"] = out["weights"].map(parse_weights)
+
+    sliced = out.iloc[offset : offset + limit] if limit is not None else out.iloc[offset:]
+    return BacktestDailyResponse(
+        scenario_id=scenario_id,
+        total_rows=total,
+        offset=offset,
+        limit=limit,
+        table=df_to_table(sliced),
+    )

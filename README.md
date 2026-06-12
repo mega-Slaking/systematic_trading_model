@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.12.0
+## Current Version: V 1.13.0
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -681,3 +681,27 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - Added the `api/tests/` suite (55 passing): `/health`, serialization round-trips (NaN/Inf/date hazards), and per-endpoint shape + reducer unit tests
   - `requirements.txt` gains `fastapi`, `uvicorn[standard]`, `pydantic-settings`, `orjson`; `requirements-dev.txt` gains `httpx` (FastAPI `TestClient`). No change to the `src/` tree
   - Deprecated the historical-grid assertions in `tests/strategy/test_presets.py` (skipped, not deleted, per the repo convention): the persisted scenario registry evolves, so pinning the exact `baseV1_*` names no longer holds after the V1.11.0 base-strategy swap
+
+  ## V 1.13.0
+
+- **Tearsheet view + daily rows (`api/` + `frontend/`)** — Phase 3 of the React/FastAPI migration, the one real compute path:
+  - Added `GET /api/v1/tearsheet/{scenario_id}` — serializes `accounting.tearsheet_builder.build_tearsheet` **unchanged** (`api/services/tearsheet.py`): loads the same three frames the Streamlit tab loads, reproduces the regime-match-rate caption, and TTL-caches the result on `(scenario_id, risk_free_rate, periods_per_year)` (deterministic pure function of immutable DB state)
+  - `api/serialization/dataclasses.py:tearsheet_to_response` walks the `TearsheetResult` into the response: equity/drawdown/rolling curves → `NamedSeries`, the three summary frames → `TableModel | None` (branching on `.empty`, since the builders return an *empty* frame not `None`), the 26-field metrics → a flat nullable model. Unknown scenario → 404; `build_tearsheet`'s ValueError (empty / missing-column / >1 scenario) → 422
+  - Added `GET /api/v1/backtest-results/{scenario_id}/daily` — paginated raw rows (`weights` parsed back to an object via `tearsheet_calculator.parse_weights`)
+  - React `TearsheetPage`: a `MetricGrid` of the ~20 meaningful metrics + equity/drawdown/rolling charts + exposure/regime/benchmark tables + a collapsible raw-rows table
+
+- **Volatility, Macro, and Strategies views (`api/` + `frontend/`)** — Phase 4, completing read parity with all six Streamlit views:
+  - `GET /api/v1/volatility-features` + `/latest` (Tab 5): per-ticker annualized-vol lines (`rolling_20/60`, `ewma_94/97`, `garch`) + the latest-per-ticker table
+  - `GET /api/v1/macro` + `/macro/yield-curve` (Page 6): macro indicator series (each NaN-dropped onto its own monthly axis) + the 10Y/2Y yields and the `gs10 − gs2` spread
+  - `GET /api/v1/strategies` (new capability): flattens the live `STRATEGIES` registry (`src/strategy/presets.py`) so the UI can decode the opaque scenario names; the live book is flagged. Read-only introspection — it does not let the UI change the live strategy
+  - React `VolatilityPage`, `MacroPage` (the dual-axis ETF-vs-indicator charts), and a new **Strategies** tab (a 7th tab, beyond the six Streamlit views)
+
+- **Charting refinements (`frontend/`)**:
+  - The NAV, Returns, and Tearsheet charts now render with Plotly via a reusable `PlotlyLineChart` (secondary y-axis for the rolling vol/Sharpe and the macro dual-axis charts, `fill` for the yield spread), lazy-loaded into a single shared, code-split chunk so Plotly's ~4.5 MB is fetched once. The CJS↔ESM interop (`react-plotly.js` default-importing as `{default}` under Vite) is unwrapped once in `components/charts/plotlyComponent.ts`
+  - Removed the per-chart scenario-toggle UI — the Plotly legend itself toggles curves (single-click hide, double-click isolate), reshaped into a compact multi-column legend; full payloads are fetched once and filtered client-side (no refetch on toggle)
+  - Hover shows only the curve under the cursor (`hovermode: "closest"`), not every series at once
+
+- **No engine / trading behaviour change**:
+  - Read-only analytics plumbing — `build_tearsheet` and all readers are called unchanged; no new persisted tables or schema migrations
+
+- **Tests**: 72 `api/` tests pass (the new tearsheet/daily, volatility, macro, and strategies suites on top of the existing ones); `npm run build` clean with Plotly code-split

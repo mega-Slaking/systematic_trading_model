@@ -1,0 +1,82 @@
+/**
+ * PlotlyLineChart: a reusable Plotly line chart over the `NamedSeries[]` contract,
+ * with optional secondary y-axis (for the tearsheet's rolling vol/Sharpe dual-axis).
+ * Closest hover (single curve, per the user's preference), dashed lines from
+ * meta.dash, configurable d3 tick formats. Default export so it's `React.lazy`-able,
+ * keeping Plotly's bundle code-split (shared with the other Plotly charts).
+ */
+
+import type { Data, Layout } from "plotly.js";
+
+import type { NamedSeries } from "../../api/types";
+import { Plot } from "./plotlyComponent";
+
+interface PlotlyLineChartProps {
+  series: readonly NamedSeries[];
+  yLabel?: string;
+  yTickFormat?: string; // d3 format, e.g. "$,.0f" or ".1%"
+  secondaryNames?: string[]; // series rendered against the secondary y-axis
+  y2Label?: string;
+  y2TickFormat?: string;
+  height?: number;
+}
+
+export default function PlotlyLineChart({
+  series,
+  yLabel,
+  yTickFormat,
+  secondaryNames,
+  y2Label,
+  y2TickFormat,
+  height = 400,
+}: PlotlyLineChartProps) {
+  const secondary = new Set(secondaryNames ?? []);
+
+  const data: Data[] = series.map((s) => {
+    const onY2 = secondary.has(s.name);
+    const fmt = onY2 ? y2TickFormat : yTickFormat;
+    const yTmpl = fmt ? `%{y:${fmt}}` : "%{y}";
+    return {
+      type: "scatter",
+      mode: "lines",
+      name: s.name,
+      x: s.points.map((p) => p.date),
+      y: s.points.map((p) => p.value),
+      yaxis: onY2 ? "y2" : "y",
+      line: { width: 1.5, dash: s.meta?.["dash"] ? "dash" : "solid" },
+      fill: s.meta?.["fill"] ? (s.meta["fill"] as string) : undefined, // e.g. spread "tozeroy"
+      connectgaps: false, // null (a NaN at the API boundary, §6) renders as a gap
+      hovertemplate: `%{fullData.name}<br>%{x|%Y-%m-%d}: ${yTmpl}<extra></extra>`,
+    };
+  }) as Data[];
+
+  const layout: Partial<Layout> = {
+    autosize: true,
+    height,
+    margin: { t: 28, r: secondary.size > 0 ? 60 : 16, b: 40, l: 64 },
+    xaxis: { title: { text: "Date" } },
+    yaxis: { title: { text: yLabel }, tickformat: yTickFormat },
+    hovermode: "closest",
+    showlegend: series.length > 1,
+    legend: { orientation: "h", x: 0, xanchor: "left", y: 1.02, yanchor: "bottom", font: { size: 10 } },
+  };
+  if (secondary.size > 0) {
+    // yaxis2 is loosely typed in the bundled @types; assign via a cast.
+    (layout as Record<string, unknown>).yaxis2 = {
+      title: { text: y2Label },
+      tickformat: y2TickFormat,
+      overlaying: "y",
+      side: "right",
+    };
+  }
+
+  return (
+    <Plot
+      data={data}
+      layout={layout}
+      style={{ width: "100%", height }}
+      useResizeHandler
+      config={{ responsive: true, displaylogo: false }}
+    />
+  );
+}

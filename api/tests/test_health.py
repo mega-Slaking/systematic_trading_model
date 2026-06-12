@@ -67,7 +67,14 @@ def test_expected_endpoints_registered(client: TestClient) -> None:
         "/api/v1/scenarios",
         "/api/v1/backtest-results/nav-comparison",
         "/api/v1/backtest-results/returns",
+        "/api/v1/backtest-results/{scenario_id}/daily",
+        "/api/v1/tearsheet/{scenario_id}",
         "/api/v1/etf-prices",
         "/api/v1/etf-prices/stats",
+        "/api/v1/volatility-features",
+        "/api/v1/volatility-features/latest",
+        "/api/v1/macro",
+        "/api/v1/macro/yield-curve",
+        "/api/v1/strategies",
     ):
         assert path in paths, f"missing endpoint: {path}"
