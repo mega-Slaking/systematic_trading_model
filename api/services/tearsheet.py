@@ -35,6 +35,11 @@ def _tearsheet_cache() -> TTLCache:
     return _cache
 
 
+def flush_cache() -> None:
+    """Drop all cached tearsheets (invalidation hook the backtest job calls, §5.2)."""
+    _tearsheet_cache().flush()
+
+
 def _regime_match_rate(results: pd.DataFrame, regime: pd.DataFrame) -> float | None:
     """Fraction of scenario rows that matched a regime row (the tab's debug caption).
 

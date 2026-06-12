@@ -23,6 +23,7 @@ from api.routers import (
     backtest_results,
     etf_prices,
     health,
+    jobs,
     macro,
     scenarios,
     strategies,
@@ -85,6 +86,7 @@ def create_app() -> FastAPI:
     app.include_router(volatility.router, prefix=settings.api_v1_prefix)
     app.include_router(macro.router, prefix=settings.api_v1_prefix)
     app.include_router(strategies.router, prefix=settings.api_v1_prefix)
+    app.include_router(jobs.router, prefix=settings.api_v1_prefix)
 
     return app
 

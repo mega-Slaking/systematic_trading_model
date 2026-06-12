@@ -1,13 +1,16 @@
 /**
- * Strategies page (spec endpoint 12, Phase 4): read-only registry introspection —
- * decodes what each opaque scenario name means (knobs from the StrategyConfig).
- * The live strategy is starred. This is a new capability beyond the Streamlit views.
+ * Strategies page (spec endpoint 12 + the Phase 5 backtest trigger): read-only
+ * registry introspection — decodes what each opaque scenario name means — plus a
+ * "Run backtest" panel that triggers a run (endpoint 13), polls it (endpoint 14),
+ * and invalidates the analytics queries on completion so every view refreshes.
  */
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+
+import { useQueryClient } from "@tanstack/react-query";
 
 import { ApiError } from "../api/client";
-import { useStrategies } from "../api/hooks";
+import { useJob, useStrategies, useTriggerBacktest } from "../api/hooks";
 import type { StrategySummary } from "../api/types";
 import { DataTable, type Column } from "../components/tables/DataTable";
 import { formatPercent } from "../lib/format";
@@ -55,6 +58,8 @@ export function StrategiesPage() {
         ) : null}
       </p>
 
+      <BacktestRunner />
+
       {query.isLoading ? (
         <Muted>Loading registry…</Muted>
       ) : query.isError ? (
@@ -64,6 +69,75 @@ export function StrategiesPage() {
       )}
     </div>
   );
+}
+
+function BacktestRunner() {
+  const queryClient = useQueryClient();
+  const trigger = useTriggerBacktest();
+  const [jobId, setJobId] = useState<string | undefined>(undefined);
+  const job = useJob(jobId);
+
+  const status = job.data?.status;
+  const active = trigger.isPending || status === "queued" || status === "running";
+
+  // On the first transition to "done", refetch every analytics query so the new
+  // backtest data shows up everywhere.
+  const prevStatus = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (status === "done" && prevStatus.current !== "done") {
+      void queryClient.invalidateQueries();
+    }
+    prevStatus.current = status;
+  }, [status, queryClient]);
+
+  function run() {
+    trigger.mutate(undefined, { onSuccess: (created) => setJobId(created.job_id) });
+  }
+
+  return (
+    <div style={{ border: "1px solid #e5e5e5", borderRadius: 8, padding: "0.85rem 1rem", marginBottom: "1.25rem", background: "#fafafa" }}>
+      <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={run}
+          disabled={active}
+          style={{
+            padding: "0.45rem 0.9rem",
+            borderRadius: 6,
+            border: "1px solid #1f77b4",
+            background: active ? "#cdd9e5" : "#1f77b4",
+            color: "#fff",
+            fontWeight: 600,
+            cursor: active ? "not-allowed" : "pointer",
+          }}
+        >
+          {active ? "Running…" : "Run backtest"}
+        </button>
+        <span style={{ color: "#666", fontSize: "0.85rem" }}>
+          Re-runs the full strategy registry (~minutes) and rewrites the persisted results.
+        </span>
+      </div>
+
+      {(status || trigger.isError) && (
+        <div style={{ marginTop: "0.6rem" }}>
+          {trigger.isError && <StatusLine tone="error">{errorMessage(trigger.error)}</StatusLine>}
+          {status === "queued" && <StatusLine>Queued…</StatusLine>}
+          {status === "running" && <StatusLine>Running… (this can take a few minutes)</StatusLine>}
+          {status === "done" && (
+            <StatusLine tone="ok">
+              Done — {job.data?.scenario_ids_written?.length ?? 0} scenarios written. Views refreshed.
+            </StatusLine>
+          )}
+          {status === "error" && <StatusLine tone="error">Failed: {job.data?.detail}</StatusLine>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusLine({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "ok" | "error" }) {
+  const color = tone === "error" ? "#b00020" : tone === "ok" ? "#1a7f37" : "#555";
+  return <div style={{ color, fontSize: "0.9rem" }}>{children}</div>;
 }
 
 function errorMessage(error: unknown): string {

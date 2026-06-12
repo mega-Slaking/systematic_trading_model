@@ -267,6 +267,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs/backtest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger a backtest run
+         * @description Launch a backtest over the registry (or a subset); returns 202 + the job.
+         */
+        post: operations["trigger_backtest_api_v1_jobs_backtest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List backtest jobs
+         * @description All jobs this process has seen (in-process registry).
+         */
+        get: operations["list_jobs_api_v1_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Poll a backtest job
+         * @description Status of one job; 404 if the id is unknown to this process.
+         */
+        get: operations["job_status_api_v1_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -288,6 +348,14 @@ export interface components {
             /** Limit */
             limit: number | null;
             table: components["schemas"]["TableModel"];
+        };
+        /**
+         * BacktestJobRequest
+         * @description Trigger body: an optional subset of strategy names (``None`` = whole registry).
+         */
+        BacktestJobRequest: {
+            /** Strategy Names */
+            strategy_names?: string[] | null;
         };
         /**
          * EtfPriceStatsResponse
@@ -326,6 +394,26 @@ export interface components {
             db_path: string;
             /** Api Version */
             api_version: string;
+        };
+        /**
+         * JobStatus
+         * @description A backtest job's state (polled via ``GET /jobs/{job_id}``).
+         */
+        JobStatus: {
+            /** Job Id */
+            job_id: string;
+            /** Status */
+            status: string;
+            /** Strategy Names */
+            strategy_names: string[] | null;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Scenario Ids Written */
+            scenario_ids_written: string[] | null;
+            /** Detail */
+            detail: string | null;
         };
         /**
          * MacroResponse
@@ -1003,6 +1091,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StrategiesResponse"];
+                };
+            };
+        };
+    };
+    trigger_backtest_api_v1_jobs_backtest_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BacktestJobRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_jobs_api_v1_jobs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStatus"][];
+                };
+            };
+        };
+    };
+    job_status_api_v1_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

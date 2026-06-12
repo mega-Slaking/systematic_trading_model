@@ -76,5 +76,7 @@ def test_expected_endpoints_registered(client: TestClient) -> None:
         "/api/v1/macro",
         "/api/v1/macro/yield-curve",
         "/api/v1/strategies",
+        "/api/v1/jobs/backtest",
+        "/api/v1/jobs/{job_id}",
     ):
         assert path in paths, f"missing endpoint: {path}"

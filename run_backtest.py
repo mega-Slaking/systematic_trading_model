@@ -15,13 +15,22 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-conn = sqlite3.connect(DB_PATH)
+# Module-level connection removed: the DB connection is now opened per-run inside
+# run_backtests() so the engine can be triggered repeatedly (e.g. by the analytics
+# API job endpoint) instead of once per process. Kept commented per convention.
+# conn = sqlite3.connect(DB_PATH)
 
-def main():
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+
+def run_backtests(strategy_names: list[str] | None = None) -> list[str]:
+    """Run + persist the backtest for the selected strategies; return the written ids.
+
+    This is main()'s former body, extracted into a callable so the analytics API
+    can trigger a run (the single prerequisite for the backtest-from-UI job, spec
+    §5.1). Behaviour is identical to the previous ``main()`` when called with no
+    arguments (all strategies); the only change is that the DB connection is opened
+    here per-run rather than once at module import. ``strategy_names`` (a subset of
+    ``STRATEGIES`` keys) restricts the run; ``None`` runs the whole registry.
+    """
     logger.debug("Running backtest. Please be patient...")
     etf_history = get_etf_history()
 
@@ -76,11 +85,18 @@ def main():
         lag_features_days=1,
     )
 
-    # Persist the surface once (scenario-independent): one row per (date, ticker).
+    # Build the (scenario-independent) volatility surface rows once; persisted below.
     volatility_feature_rows = volatility_feature_surface.values.assign(
         config_key=str(volatility_feature_surface.config.cache_key())
     ).to_dict("records")
-    insert_volatility_features(conn, volatility_feature_rows)
+
+    # Select the strategies to run: an explicit subset (validated by the caller) or
+    # the whole registry by default.
+    selected = (
+        [STRATEGIES[name] for name in strategy_names]
+        if strategy_names
+        else list(STRATEGIES.values())
+    )
 
     #portfolio = Portfolio(initial_capital=1_000_000)
     #context = run_backtest(etf_history, macro_history, portfolio)
@@ -125,39 +141,57 @@ def main():
     #     insert_backtest_decision_trace(conn, context.decision_trace)
     #     insert_backtest_regime_trace(conn, context.regime_trace)
 
-    for strategy in STRATEGIES.values():
-        logger.debug("Running strategy: %s", strategy.name)
+    written: list[str] = []
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        # Persist the (scenario-independent) volatility surface once per run.
+        insert_volatility_features(conn, volatility_feature_rows)
 
-        portfolio = Portfolio(initial_capital=1_000_000)
+        for strategy in selected:
+            logger.debug("Running strategy: %s", strategy.name)
 
-        context = run_backtest(
-            etf_history,
-            macro_history,
-            portfolio,
-            strategy=strategy,
-            returns_view=returns_view,
-            volatility_feature_surface=volatility_feature_surface,
-        )
-        # strategy.name now plays the scenario_id role (the DB column/key is unchanged).
-        for r in context.daily_metrics:
-            r["scenario_id"] = strategy.name
+            portfolio = Portfolio(initial_capital=1_000_000)
 
-        for r in context.decision_trace:
-            r["scenario_id"] = strategy.name
+            context = run_backtest(
+                etf_history,
+                macro_history,
+                portfolio,
+                strategy=strategy,
+                returns_view=returns_view,
+                volatility_feature_surface=volatility_feature_surface,
+            )
+            # strategy.name now plays the scenario_id role (the DB column/key is unchanged).
+            for r in context.daily_metrics:
+                r["scenario_id"] = strategy.name
 
-        for r in context.regime_trace:
-            r["scenario_id"] = strategy.name
+            for r in context.decision_trace:
+                r["scenario_id"] = strategy.name
 
-        insert_backtest_results(conn, context.daily_metrics)
-        insert_backtest_decision_trace(conn, context.decision_trace)
-        insert_backtest_regime_trace(conn, context.regime_trace)
+            for r in context.regime_trace:
+                r["scenario_id"] = strategy.name
+
+            insert_backtest_results(conn, context.daily_metrics)
+            insert_backtest_decision_trace(conn, context.decision_trace)
+            insert_backtest_regime_trace(conn, context.regime_trace)
+            written.append(strategy.name)
+
+        conn.commit()
+    finally:
+        conn.close()
 
     logger.debug("Backtest complete.")
     logger.debug("Covariance cache size: %s", len(returns_view.covariance_cache))
     logger.debug("Covariance cache hits: %s", returns_view.covariance_cache_hits)
     logger.debug("Covariance cache misses: %s", returns_view.covariance_cache_misses)
-    conn.commit()
-    conn.close()
+    return written
+
+
+def main():
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    run_backtests()
 
 
 if __name__ == "__main__":
