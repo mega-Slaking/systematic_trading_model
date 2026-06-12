@@ -7,14 +7,15 @@
  * their phases.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { apiGet } from "./client";
+import { apiGet, apiPost } from "./client";
 import type {
   BacktestDailyResponse,
   EtfPricesResponse,
   EtfPriceStatsResponse,
   HealthResponse,
+  JobStatus,
   MacroResponse,
   NavComparisonResponse,
   ReturnsResponse,
@@ -200,5 +201,26 @@ export function useStrategies() {
     queryKey: queryKeys.strategies,
     queryFn: () => apiGet<StrategiesResponse>("/strategies"),
     staleTime: 300_000,
+  });
+}
+
+/** Trigger a backtest run (endpoint 13); returns the created job. */
+export function useTriggerBacktest() {
+  return useMutation<JobStatus, Error, string[] | undefined>({
+    mutationFn: (strategyNames) =>
+      apiPost<JobStatus>("/jobs/backtest", { strategy_names: strategyNames ?? null }),
+  });
+}
+
+/** Poll a backtest job (endpoint 14); auto-refetches while queued/running. */
+export function useJob(jobId: string | undefined) {
+  return useQuery<JobStatus>({
+    queryKey: ["job", jobId ?? null],
+    queryFn: () => apiGet<JobStatus>(`/jobs/${jobId}`),
+    enabled: Boolean(jobId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "queued" || status === "running" ? 1500 : false;
+    },
   });
 }

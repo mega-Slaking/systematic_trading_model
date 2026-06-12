@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.13.0
+## Current Version: V 1.14.0
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -705,3 +705,12 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - Read-only analytics plumbing — `build_tearsheet` and all readers are called unchanged; no new persisted tables or schema migrations
 
 - **Tests**: 72 `api/` tests pass (the new tearsheet/daily, volatility, macro, and strategies suites on top of the existing ones); `npm run build` clean with Plotly code-split
+
+  ## V 1.14.0
+
+- **Backtest-from-UI trigger (`api/` + `run_backtest.py`)** — Phase 5 of the React/FastAPI migration: the one *write* path, behind an unchanged two-endpoint contract (§5.1). The read-only stack stays read-only; this is the first thing that writes:
+  - `POST /api/v1/jobs/backtest` launches a run (optionally a subset of strategy names) and returns `202` with the job; `GET /api/v1/jobs/{job_id}` polls it. An in-process job registry + a single-slot `ThreadPoolExecutor` (`api/services/jobs.py`) serialize runs so there is only ever **one SQLite writer** — a second trigger while one is active is rejected with `409`; unknown strategy names → `422`. The tearsheet cache is flushed on completion (§5.2). No Celery/Redis — single-analyst, single-node, with a documented upgrade path behind the same two endpoints
+  - `run_backtest.py` refactored (behaviour-preserving): `main()`'s body is extracted into a callable `run_backtests(strategy_names=None) -> list[str]` the job worker invokes, and the DB connection is opened per-run (was module-level) so the engine can be triggered repeatedly. `main()` and the `python run_backtest.py` entry point are unchanged — running the whole registry is the same path as before
+  - React: a "Run backtest" panel on the Strategies page (`useMutation` to trigger, poll via TanStack Query `refetchInterval` until `done`/`error`) that invalidates the analytics queries on completion, so every view picks up the fresh data
+
+- **Tests**: 77 `api/` tests pass — the job lifecycle / 202 / 409 / 422 / error / 404 suite runs against a stubbed runner, so no real (minutes-long) backtest runs in CI; `npm run build` clean

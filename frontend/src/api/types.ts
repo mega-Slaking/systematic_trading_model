@@ -68,6 +68,9 @@ export type StrategiesResponse = components["schemas"]["StrategiesResponse"];
 /** One flattened strategy summary. */
 export type StrategySummary = components["schemas"]["StrategySummary"];
 
+/** A backtest job's state (`POST /jobs/backtest`, `GET /jobs/{id}`). */
+export type JobStatus = components["schemas"]["JobStatus"];
+
 /** A single (x, y) chart point; `value` is `null` for NaN/Inf (API §6). */
 export interface SeriesPoint {
   date: string; // "YYYY-MM-DD"
