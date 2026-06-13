@@ -224,3 +224,10 @@ export function useJob(jobId: string | undefined) {
     },
   });
 }
+
+/** Cancel a running backtest (terminates its subprocess). */
+export function useCancelBacktest() {
+  return useMutation<JobStatus, Error, string>({
+    mutationFn: (jobId) => apiPost<JobStatus>(`/jobs/${encodeURIComponent(jobId)}/cancel`),
+  });
+}

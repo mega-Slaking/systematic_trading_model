@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.15.0
+## Current Version: V 1.15.1
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -763,3 +763,11 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - Added a **"Running the App"** section to this README: the two-process dev model (`uvicorn api.main:app` + `npm --prefix frontend run dev`), how to trigger a backtest, and how to launch the legacy Streamlit app
   - The `streamlit/` app is **retired but kept** (repo convention: comment/retire, don't delete) — still launchable via `streamlit run streamlit/app.py` against the same `data/database.db`, but frozen: new analytics land only in the React stack. No `streamlit/` files were changed or removed, and nothing launches Streamlit automatically (it was always a manual `streamlit run`)
   - Documentation / run-instructions only — no code or engine change
+
+  ## V 1.15.1
+
+- **Backtest jobs: subprocess execution, live progress, and cancellation (`api/` + `run_backtest.py` + `frontend/`)** — refining the V1.14.0 trigger:
+  - The backtest now runs in a **subprocess** (`api/backtest_worker.py`, spawned by `api/services/jobs.py`) instead of an API thread, so the CPU-bound run no longer GIL-starves the event loop — the dashboard stays responsive while a backtest runs (a full ~45-min registry run previously made the UI laggy)
+  - **Live progress**: `run_backtests` gained an optional `on_progress(completed, total, strategy)` callback (additive / behaviour-preserving — `None` keeps it identical). The worker streams `@@JOB@@`-prefixed JSON over the subprocess's stdout, which the service parses into new `progress_current` / `progress_total` / `progress_strategy` fields on `JobStatus`; the Strategies-tab "Run backtest" panel renders a per-strategy progress bar
+  - **Cancellation**: `POST /api/v1/jobs/{job_id}/cancel` terminates the subprocess (new `cancelled` status), surfaced as a "Cancel" button while a run is in flight. Safe by construction — `run_backtests` only commits at the very end, so a cancelled run rolls back to the DB's pre-run state with no partial data
+  - Tests drive a fast fake worker (overriding the spawn command), so the real spawn / stream / terminate machinery is exercised without a minutes-long backtest — **78 `api/` tests pass**; `npm run build` clean
