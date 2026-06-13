@@ -327,6 +327,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs/{job_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a running backtest
+         * @description Terminate a queued/running job's subprocess; a no-op if it already finished.
+         */
+        post: operations["cancel_job_api_v1_jobs__job_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -414,6 +434,12 @@ export interface components {
             scenario_ids_written: string[] | null;
             /** Detail */
             detail: string | null;
+            /** Progress Current */
+            progress_current: number | null;
+            /** Progress Total */
+            progress_total: number | null;
+            /** Progress Strategy */
+            progress_strategy: string | null;
         };
         /**
          * MacroResponse
@@ -1149,6 +1175,37 @@ export interface operations {
         };
     };
     job_status_api_v1_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_job_api_v1_jobs__job_id__cancel_post: {
         parameters: {
             query?: never;
             header?: never;

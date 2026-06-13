@@ -12,6 +12,7 @@ from src.storage.paths import DB_PATH
 import sqlite3
 import logging
 import pandas as pd
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,10 @@ logger = logging.getLogger(__name__)
 # conn = sqlite3.connect(DB_PATH)
 
 
-def run_backtests(strategy_names: list[str] | None = None) -> list[str]:
+def run_backtests(
+    strategy_names: list[str] | None = None,
+    on_progress: Callable[[int, int, str], None] | None = None,
+) -> list[str]:
     """Run + persist the backtest for the selected strategies; return the written ids.
 
     This is main()'s former body, extracted into a callable so the analytics API
@@ -30,6 +34,8 @@ def run_backtests(strategy_names: list[str] | None = None) -> list[str]:
     arguments (all strategies); the only change is that the DB connection is opened
     here per-run rather than once at module import. ``strategy_names`` (a subset of
     ``STRATEGIES`` keys) restricts the run; ``None`` runs the whole registry.
+    ``on_progress(completed, total, strategy_name)``, if given, is called before
+    each strategy (the job subprocess uses it to stream progress).
     """
     logger.debug("Running backtest. Please be patient...")
     etf_history = get_etf_history()
@@ -147,7 +153,9 @@ def run_backtests(strategy_names: list[str] | None = None) -> list[str]:
         # Persist the (scenario-independent) volatility surface once per run.
         insert_volatility_features(conn, volatility_feature_rows)
 
-        for strategy in selected:
+        for index, strategy in enumerate(selected):
+            if on_progress is not None:
+                on_progress(index, len(selected), strategy.name)
             logger.debug("Running strategy: %s", strategy.name)
 
             portfolio = Portfolio(initial_capital=1_000_000)

@@ -19,9 +19,13 @@ class JobStatus(BaseModel):
     """A backtest job's state (polled via ``GET /jobs/{job_id}``)."""
 
     job_id: str
-    status: str  # queued | running | done | error
+    status: str  # queued | running | done | error | cancelled
     strategy_names: list[str] | None
     started_at: str | None
     finished_at: str | None
     scenario_ids_written: list[str] | None
     detail: str | None
+    # Per-strategy progress streamed from the subprocess (null until it starts).
+    progress_current: int | None
+    progress_total: int | None
+    progress_strategy: str | None

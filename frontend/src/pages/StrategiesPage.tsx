@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { ApiError } from "../api/client";
-import { useJob, useStrategies, useTriggerBacktest } from "../api/hooks";
+import { useCancelBacktest, useJob, useStrategies, useTriggerBacktest } from "../api/hooks";
 import type { StrategySummary } from "../api/types";
 import { DataTable, type Column } from "../components/tables/DataTable";
 import { formatPercent } from "../lib/format";
@@ -74,10 +74,12 @@ export function StrategiesPage() {
 function BacktestRunner() {
   const queryClient = useQueryClient();
   const trigger = useTriggerBacktest();
+  const cancel = useCancelBacktest();
   const [jobId, setJobId] = useState<string | undefined>(undefined);
   const job = useJob(jobId);
 
-  const status = job.data?.status;
+  const data = job.data;
+  const status = data?.status;
   const active = trigger.isPending || status === "queued" || status === "running";
 
   // On the first transition to "done", refetch every analytics query so the new
@@ -94,9 +96,13 @@ function BacktestRunner() {
     trigger.mutate(undefined, { onSuccess: (created) => setJobId(created.job_id) });
   }
 
+  const total = data?.progress_total ?? null;
+  const current = data?.progress_current ?? null;
+  const pct = total && total > 0 && current != null ? Math.round((current / total) * 100) : null;
+
   return (
     <div style={{ border: "1px solid #e5e5e5", borderRadius: 8, padding: "0.85rem 1rem", marginBottom: "1.25rem", background: "#fafafa" }}>
-      <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
         <button
           type="button"
           onClick={run}
@@ -113,22 +119,55 @@ function BacktestRunner() {
         >
           {active ? "Running…" : "Run backtest"}
         </button>
+
+        {active && jobId && (
+          <button
+            type="button"
+            onClick={() => cancel.mutate(jobId)}
+            disabled={cancel.isPending}
+            style={{
+              padding: "0.45rem 0.8rem",
+              borderRadius: 6,
+              border: "1px solid #b00020",
+              background: "#fff",
+              color: "#b00020",
+              fontWeight: 600,
+              cursor: cancel.isPending ? "not-allowed" : "pointer",
+            }}
+          >
+            {cancel.isPending ? "Cancelling…" : "Cancel"}
+          </button>
+        )}
+
         <span style={{ color: "#666", fontSize: "0.85rem" }}>
-          Re-runs the full strategy registry (~minutes) and rewrites the persisted results.
+          Re-runs the full strategy registry (~minutes, runs in a subprocess) and rewrites the persisted results.
         </span>
       </div>
 
-      {(status || trigger.isError) && (
+      {status === "running" && (
+        <div style={{ marginTop: "0.7rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "#555", marginBottom: "0.25rem" }}>
+            <span>{data?.progress_strategy ? `Running: ${data.progress_strategy}` : "Preparing… (building volatility surface)"}</span>
+            <span>{total != null && current != null ? `${current} / ${total}` : ""}</span>
+          </div>
+          <div style={{ height: 8, background: "#e5e7eb", borderRadius: 4, overflow: "hidden" }}>
+            <div style={{ width: pct != null ? `${pct}%` : "12%", height: "100%", background: "#1f77b4", transition: "width 0.4s ease" }} />
+          </div>
+        </div>
+      )}
+
+      {(status === "queued" || status === "done" || status === "cancelled" || status === "error" || trigger.isError || cancel.isError) && (
         <div style={{ marginTop: "0.6rem" }}>
           {trigger.isError && <StatusLine tone="error">{errorMessage(trigger.error)}</StatusLine>}
+          {cancel.isError && <StatusLine tone="error">{errorMessage(cancel.error)}</StatusLine>}
           {status === "queued" && <StatusLine>Queued…</StatusLine>}
-          {status === "running" && <StatusLine>Running… (this can take a few minutes)</StatusLine>}
           {status === "done" && (
             <StatusLine tone="ok">
-              Done — {job.data?.scenario_ids_written?.length ?? 0} scenarios written. Views refreshed.
+              Done — {data?.scenario_ids_written?.length ?? 0} scenarios written. Views refreshed.
             </StatusLine>
           )}
-          {status === "error" && <StatusLine tone="error">Failed: {job.data?.detail}</StatusLine>}
+          {status === "cancelled" && <StatusLine>Cancelled.</StatusLine>}
+          {status === "error" && <StatusLine tone="error">Failed: {data?.detail}</StatusLine>}
         </div>
       )}
     </div>
