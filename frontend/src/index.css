@@ -1,0 +1,35 @@
+/**
+ * Global typography for the dashboard.
+ *
+ * The whole UI uses Metaluna Medium; only the top title ("Scenario Testing
+ * Dashboard") uses Metaluna Inline. The two faces are registered as distinct
+ * families so weight never picks Inline by accident -- each face covers the full
+ * weight range, so a bold heading just renders the same OTF (no faux-bold swap).
+ */
+
+@font-face {
+  font-family: "Metaluna Medium";
+  src: url("/metaluna-medium-1781299064-0/Metaluna-Medium.otf") format("opentype");
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Metaluna Inline";
+  src: url("/metaluna-inline-1781299036-0/Metaluna-Inline.otf") format("opentype");
+  font-weight: 1 1000;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-dashboard: "Metaluna Medium", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-title: "Metaluna Inline", "Metaluna Medium", system-ui, sans-serif;
+}
+
+html,
+body {
+  margin: 0;
+  font-family: var(--font-dashboard);
+}

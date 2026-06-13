@@ -38,6 +38,30 @@ export type ReturnsResponse = components["schemas"]["ReturnsResponse"];
 /** One scenario's columnar daily-return series (Tab 2). */
 export type ReturnsScatterSeries = components["schemas"]["ReturnsScatterSeries"];
 
+/** Response of `GET /api/v1/backtest-results/returns-diagnostic` (Returns Analysis redesign). */
+export type ReturnsDiagnosticResponse = components["schemas"]["ReturnsDiagnosticResponse"];
+
+/** One selected scenario's enriched scatter points + per-point hover (diagnostic). */
+export type ReturnsDiagnosticSeries = components["schemas"]["ReturnsDiagnosticSeries"];
+
+/** One scenario's full date-range return distribution (boxplot input). */
+export type ReturnsDistributionSeries = components["schemas"]["ReturnsDistributionSeries"];
+
+/** Rich single-point diagnostic detail (click drilldown), fetched on demand. */
+export type ReturnsPointDetail = components["schemas"]["ReturnsPointDetail"];
+
+/** A scenario's readable label + parsed metadata (Returns Analysis filters/picker). */
+export type ScenarioMeta = components["schemas"]["ScenarioMeta"];
+
+/** The six return-filter modes the Returns Analysis scatter offers. */
+export type ReturnsFilterMode =
+  | "all"
+  | "abs_gt_1pct"
+  | "abs_gt_2pct"
+  | "worst_1pct"
+  | "best_1pct"
+  | "extremes_20";
+
 /** Response of `GET /api/v1/tearsheet/{scenario_id}` (Tab 3). */
 export type TearsheetResponse = components["schemas"]["TearsheetResponse"];
 
