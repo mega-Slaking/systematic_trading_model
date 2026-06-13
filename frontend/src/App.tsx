@@ -55,7 +55,7 @@ function Shell() {
   const [active, setActive] = useState<Tab>("NAV Comparison");
 
   return (
-    <div style={{ fontFamily: "var(--font-dashboard)", maxWidth: 1200, margin: "0 auto", padding: "1.5rem" }}>
+    <div style={{ fontFamily: "var(--font-dashboard)", maxWidth: "min(2000px, 95vw)", margin: "0 auto", padding: "1.5rem 2rem" }}>
       <header style={{ borderBottom: "1px solid #e5e5e5", paddingBottom: "0.75rem", marginBottom: "1rem" }}>
         <h1 style={{ margin: 0, fontFamily: "var(--font-title)" }}>Scenario Testing Dashboard</h1>
         <p style={{ margin: "0.25rem 0 0", color: "#666" }}>

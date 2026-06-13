@@ -47,7 +47,13 @@ export function MetricGrid({ metrics }: { metrics: Metric[] }) {
             {metric.label}
           </div>
           <div
-            style={{ fontSize: "1.15rem", fontWeight: 600, marginTop: "0.2rem", fontVariantNumeric: "tabular-nums" }}
+            style={{
+              fontSize: "1.15rem",
+              fontWeight: 400,
+              marginTop: "0.2rem",
+              fontVariantNumeric: "tabular-nums",
+              fontFamily: "var(--font-data)", // Play (regular weight) for the numeric value
+            }}
           >
             {formatMetric(metric)}
           </div>

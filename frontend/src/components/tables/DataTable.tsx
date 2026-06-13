@@ -98,6 +98,7 @@ export function DataTable<T>({ columns, rows }: DataTableProps<T>) {
                   textAlign: col.align ?? "left",
                   padding: "0.35rem 0.6rem",
                   fontVariantNumeric: "tabular-nums",
+                  fontFamily: "var(--font-data)", // Play for table body (headers excluded)
                 }}
               >
                 {col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? "")}
