@@ -18,6 +18,9 @@ import type {
   JobStatus,
   MacroResponse,
   NavComparisonResponse,
+  ReturnsDiagnosticResponse,
+  ReturnsFilterMode,
+  ReturnsPointDetail,
   ReturnsResponse,
   ScenariosResponse,
   StrategiesResponse,
@@ -35,6 +38,15 @@ export const queryKeys = {
   navComparison: (scenarioIds?: string[], benchmarks?: string[]) =>
     ["nav-comparison", scenarioIds ?? null, benchmarks ?? null] as const,
   returns: (scenarioIds?: string[]) => ["returns", scenarioIds ?? null] as const,
+  returnsDiagnostic: (params: ReturnsDiagnosticParams) =>
+    [
+      "returns-diagnostic",
+      params.scenarioIds ?? null,
+      params.start ?? null,
+      params.end ?? null,
+      params.filterMode ?? "all",
+      params.tableLimit ?? null,
+    ] as const,
   tearsheet: (scenarioId: string | null, rfr: number, ppy: number) =>
     ["tearsheet", scenarioId, rfr, ppy] as const,
   dailyRows: (scenarioId: string | null, options: object) => ["daily", scenarioId, options] as const,
@@ -123,6 +135,60 @@ export function useReturns(scenarioIds?: string[], options?: QueryOptions) {
     queryFn: () =>
       apiGet<ReturnsResponse>(`/backtest-results/returns${buildQuery({ scenario_ids: scenarioIds })}`),
     enabled: options?.enabled ?? true,
+  });
+}
+
+export interface ReturnsDiagnosticParams {
+  /** Selected scenarios; omit for the server's representative default (~3-5). */
+  scenarioIds?: string[];
+  /** ISO clamps (the server clips to the data range). */
+  start?: string;
+  end?: string;
+  /** Return-filter applied to the scatter only (boxplot + tables span the full range). */
+  filterMode?: ReturnsFilterMode;
+  tableLimit?: number;
+}
+
+/**
+ * Returns Analysis diagnostic payload (scatter + boxplot + worst/best/dispersion
+ * tables). Keyed on the full param set so each (scenarios, date range, filter)
+ * combination is cached independently; legend toggles + display options stay
+ * client-side and never refetch.
+ */
+export function useReturnsDiagnostic(params: ReturnsDiagnosticParams = {}) {
+  return useQuery<ReturnsDiagnosticResponse>({
+    queryKey: queryKeys.returnsDiagnostic(params),
+    queryFn: () => {
+      const search = new URLSearchParams();
+      if (params.scenarioIds?.length) search.set("scenario_ids", params.scenarioIds.join(","));
+      if (params.start) search.set("start", params.start);
+      if (params.end) search.set("end", params.end);
+      if (params.filterMode) search.set("filter_mode", params.filterMode);
+      if (params.tableLimit != null) search.set("table_limit", String(params.tableLimit));
+      const qs = search.toString();
+      return apiGet<ReturnsDiagnosticResponse>(
+        `/backtest-results/returns-diagnostic${qs ? `?${qs}` : ""}`,
+      );
+    },
+    // The whole grid arrives in one payload and scenario visibility is toggled
+    // client-side, so already-fetched (date, filter) combinations should not
+    // background-refetch on revisit.
+    staleTime: 300_000,
+  });
+}
+
+/** Rich single-point diagnostic detail for the click drilldown (fetched on demand). */
+export function useReturnsPointDetail(scenarioId?: string, date?: string) {
+  return useQuery<ReturnsPointDetail>({
+    queryKey: ["returns-point", scenarioId ?? null, date ?? null],
+    queryFn: () =>
+      apiGet<ReturnsPointDetail>(
+        `/backtest-results/returns-diagnostic/point?scenario_id=${encodeURIComponent(
+          scenarioId!,
+        )}&date=${encodeURIComponent(date!)}`,
+      ),
+    enabled: Boolean(scenarioId && date),
+    staleTime: 300_000,
   });
 }
 

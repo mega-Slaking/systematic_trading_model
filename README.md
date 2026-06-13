@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.15.1
+## Current Version: V 1.15.2
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -771,3 +771,17 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - **Live progress**: `run_backtests` gained an optional `on_progress(completed, total, strategy)` callback (additive / behaviour-preserving — `None` keeps it identical). The worker streams `@@JOB@@`-prefixed JSON over the subprocess's stdout, which the service parses into new `progress_current` / `progress_total` / `progress_strategy` fields on `JobStatus`; the Strategies-tab "Run backtest" panel renders a per-strategy progress bar
   - **Cancellation**: `POST /api/v1/jobs/{job_id}/cancel` terminates the subprocess (new `cancelled` status), surfaced as a "Cancel" button while a run is in flight. Safe by construction — `run_backtests` only commits at the very end, so a cancelled run rolls back to the DB's pre-run state with no partial data
   - Tests drive a fast fake worker (overriding the spawn command), so the real spawn / stream / terminate machinery is exercised without a minutes-long backtest — **78 `api/` tests pass**; `npm run build` clean
+
+  ## V 1.15.2
+
+- **Returns Analysis redesigned as a diagnostic tool (`api/` + `frontend/`)** — reworks the dense all-scenario returns scatter into a focused daily-return diagnostic (`docs/returns_analysis_diagnostic_redesign_spec.md`). Read-only; no engine or trading change:
+  - New `api/services/returns_diagnostics.py` + `GET /api/v1/backtest-results/returns-diagnostic`: parses scenario ids into readable labels (`baseV1_roll20_ewmacov_lam94_tv03` → "Base / EWMA λ94 / TV 3%") and metadata, enriches returns with weights / primary holding / regime context (left-joined from `get_backtest_regime_trace` on `["date","scenario_id"]`, the same key `tearsheet.py` uses), and builds the worst-returns / best-returns / largest-scenario-dispersion tables. Pure transforms, unit-tested in `api/tests/test_returns_diagnostics.py`
+  - **Fetch-all-once model**: the endpoint ships the entire scenario grid in a single payload, so showing/hiding a scenario is a pure client-side Plotly legend toggle (click to show/hide, double-click to isolate) with **no refetch** — `default_visible` names the ~3 drawn on load, the rest start `legendonly`. Family / volatility-method / target-vol controls narrow which curves render; date-range presets (Full / COVID / 2022 rate shock / Last 3y / Custom) and the six return-filter modes are server params (cached per combination). The boxplot mirrors the visible curves
+  - `GET /api/v1/backtest-results/returns-diagnostic/point`: rich single-point detail fetched on demand for the click-drilldown panel, so the main scatter payload stays lean (date + return only)
+  - React: `ReturnsScatter` rebuilt (React-owned legend visibility, ±1%/±2% reference lines, on-click selection), new `ReturnsBoxplot`, `ReturnsPage` rewritten with the controls + diagnostic tables, and `useReturnsDiagnostic` / `useReturnsPointDetail` hooks. The legacy `/returns` endpoint, service, and hook are kept (superseded, not removed)
+  - **Performance**: vectorized the dispersion aggregation (was a Python loop over ~4k dates) and the return rounding, enrich only the ~40 rows that land in the tables (not the full ~86k-row grid), and return the large payload via `ORJSONResponse` to skip per-element Pydantic validation — the full-grid response dropped from ~8.7s to ~2.4s (`response_model` still drives the OpenAPI schema/types)
+
+- **Dashboard typography (`frontend/`)**:
+  - Added the Metaluna fonts (`@font-face` in `src/index.css`, served from `public/`): the "Scenario Testing Dashboard" title renders in Metaluna Inline, all other UI text in Metaluna Medium
+
+- **Tests**: **107 `api/` tests pass** (29 new returns-diagnostic tests on top of the existing suites); `npm run build` clean with the Returns charts code-split into the shared Plotly chunk

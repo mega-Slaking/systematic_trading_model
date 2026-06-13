@@ -87,6 +87,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/backtest-results/returns-diagnostic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Returns Analysis diagnostic payload
+         * @description Enriched per-scenario scatter + boxplot distribution + worst/best/dispersion
+         *     tables for the redesigned Returns Analysis view. Ships every scenario at once
+         *     so the page toggles curve visibility client-side (no refetch).
+         *
+         *     Returns an ``ORJSONResponse`` directly: the service builds the (large) payload
+         *     as a plain dict and we skip Pydantic response validation for speed
+         *     (``response_model`` above still drives the OpenAPI schema).
+         */
+        get: operations["returns_diagnostic_api_v1_backtest_results_returns_diagnostic_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backtest-results/returns-diagnostic/point": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Single-point diagnostic detail (click drilldown)
+         * @description Rich per-point context for the Returns Analysis click drilldown (one row).
+         */
+        get: operations["returns_diagnostic_point_api_v1_backtest_results_returns_diagnostic_point_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/backtest-results/{scenario_id}/daily": {
         parameters: {
             query?: never;
@@ -501,6 +547,88 @@ export interface components {
             total_return: number | null;
         };
         /**
+         * ReturnsDiagnosticResponse
+         * @description The full Returns Analysis diagnostic payload (scatter + boxplot + tables).
+         *
+         *     The entire scenario universe is shipped at once (``series`` / ``distribution``
+         *     cover every scenario), so the page toggles curve visibility client-side via
+         *     the Plotly legend with no further fetches. ``default_visible`` names the few
+         *     scenarios drawn visible on first load; the rest start ``legendonly``.
+         */
+        ReturnsDiagnosticResponse: {
+            /** Available Scenarios */
+            available_scenarios: components["schemas"]["ScenarioMeta"][];
+            /** Default Visible */
+            default_visible: string[];
+            /** Date Min */
+            date_min: string | null;
+            /** Date Max */
+            date_max: string | null;
+            /** Filter Mode */
+            filter_mode: string;
+            /** Series */
+            series: components["schemas"]["ReturnsDiagnosticSeries"][];
+            /** Distribution */
+            distribution: components["schemas"]["ReturnsDistributionSeries"][];
+            worst: components["schemas"]["TableModel"];
+            best: components["schemas"]["TableModel"];
+            dispersion: components["schemas"]["TableModel"];
+        };
+        /**
+         * ReturnsDiagnosticSeries
+         * @description One scenario's scatter points (date-range + return-filter scoped).
+         *
+         *     Columnar (parallel arrays) to avoid per-point object allocation, mirroring
+         *     ``ReturnsScatterSeries``. Intentionally lean -- date + return only -- so the
+         *     full grid ships cheaply and legend toggles never refetch. Rich per-point
+         *     context lives in the diagnostic tables and the on-demand click drilldown
+         *     (``ReturnsPointDetail``), not in this array.
+         */
+        ReturnsDiagnosticSeries: {
+            /** Scenario Id */
+            scenario_id: string;
+            /** Scenario Label */
+            scenario_label: string;
+            /** Dates */
+            dates: string[];
+            /** Returns */
+            returns: (number | null)[];
+        };
+        /**
+         * ReturnsDistributionSeries
+         * @description One scenario's full date-range return distribution (for the boxplot).
+         *
+         *     Not restricted by the chart's return-filter mode -- a boxplot of only the
+         *     outliers would be meaningless, so this always spans the selected date range.
+         */
+        ReturnsDistributionSeries: {
+            /** Scenario Id */
+            scenario_id: string;
+            /** Scenario Label */
+            scenario_label: string;
+            /** Returns */
+            returns: (number | null)[];
+        };
+        /**
+         * ReturnsPointDetail
+         * @description Rich diagnostic detail for a single (scenario, date) -- the click drilldown.
+         *
+         *     Fetched on demand (one row) so the main scatter payload stays lean. ``lines``
+         *     are the pre-formatted, missing-field-omitted diagnostic lines the panel renders.
+         */
+        ReturnsPointDetail: {
+            /** Scenario Id */
+            scenario_id: string;
+            /** Scenario Label */
+            scenario_label: string;
+            /** Date */
+            date: string | null;
+            /** Daily Return */
+            daily_return: number | null;
+            /** Lines */
+            lines: string[];
+        };
+        /**
          * ReturnsResponse
          * @description Tab 2: one columnar return series per scenario (rendered via Plotly WebGL).
          */
@@ -519,6 +647,33 @@ export interface components {
             dates: string[];
             /** Returns */
             returns: (number | null)[];
+        };
+        /**
+         * ScenarioMeta
+         * @description A scenario's readable label + parsed metadata, for the UI filters/picker.
+         *
+         *     Shipped for *every* available scenario (not just the selected ones) so the
+         *     family / volatility-method / target-vol filters and the multi-select can be
+         *     populated without a second round-trip. Metadata fields are nullable: an
+         *     unparseable id degrades gracefully rather than failing.
+         */
+        ScenarioMeta: {
+            /** Scenario Id */
+            scenario_id: string;
+            /** Scenario Label */
+            scenario_label: string;
+            /** Family */
+            family: string | null;
+            /** Lookback */
+            lookback: number | null;
+            /** Vol Method */
+            vol_method: string | null;
+            /** Cov Lookback */
+            cov_lookback: number | null;
+            /** Ewma Lambda */
+            ewma_lambda: number | null;
+            /** Target Vol */
+            target_vol: number | null;
         };
         /**
          * ScenarioSummaryRow
@@ -844,6 +999,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReturnsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    returns_diagnostic_api_v1_backtest_results_returns_diagnostic_get: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated scenario ids (case-sensitive). Omit for all. */
+                scenario_ids?: string | null;
+                /** @description ISO start date (clipped to data range). */
+                start?: string | null;
+                /** @description ISO end date (clipped to data range). */
+                end?: string | null;
+                /** @description Return-filter for the scatter: all | abs_gt_1pct | abs_gt_2pct | worst_1pct | best_1pct | extremes_20. */
+                filter_mode?: string;
+                /** @description Rows per diagnostic table. */
+                table_limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnsDiagnosticResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    returns_diagnostic_point_api_v1_backtest_results_returns_diagnostic_point_get: {
+        parameters: {
+            query: {
+                /** @description Scenario id of the clicked point. */
+                scenario_id: string;
+                /** @description ISO date of the clicked point. */
+                date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnsPointDetail"];
                 };
             };
             /** @description Validation Error */
