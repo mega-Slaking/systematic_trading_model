@@ -62,14 +62,14 @@ function FullScreen({
         justifyContent: "center",
         minHeight: "100vh",
         fontFamily: "system-ui, sans-serif",
-        color: tone === "error" ? "#b00020" : "#333",
+        color: tone === "error" ? "var(--danger)" : "var(--text)",
         gap: "0.5rem",
         padding: "2rem",
         textAlign: "center",
       }}
     >
       <h2 style={{ margin: 0 }}>{title}</h2>
-      {detail ? <p style={{ margin: 0, color: "#555", maxWidth: 640 }}>{detail}</p> : null}
+      {detail ? <p style={{ margin: 0, color: "var(--text-3)", maxWidth: 640 }}>{detail}</p> : null}
     </div>
   );
 }

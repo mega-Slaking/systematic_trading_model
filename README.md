@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.15.3
+## Current Version: V 1.16.0
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -793,3 +793,16 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - **Form controls inherit the UI font**: a small reset (`button` / `select` / `input` / `textarea` → `font-family: inherit`) so the tab buttons and the Returns Analysis controls use Metaluna Medium like the rest — `<button>`/`<select>` don't inherit `font-family` by default
   - **Fluid layout**: the app shell is now `maxWidth: min(2000px, 95vw)` (was a fixed 1200px), so the dashboard — and the wide diagnostic tables especially — use more of the screen as the window widens
   - **Returns scatter reference lines** are now bright red (0% solid + thicker, ±1%/±2% dotted) so they stand out against the points
+
+  ## V 1.16.0
+
+- **Colour theme toggle (`frontend/`)** — a 3-mode light / dark / high-contrast theme switch; colour-only, no layout, typography, or logic change:
+  - **Rotating toggle control** in the header top-right (`src/components/ThemeToggle.tsx`): three icons on a circle 120° apart — sun (light), moon (dark), star (high contrast). The active mode's icon sits at the top; clicking one of the other two brings it to the top by rotating the **shorter way**, so the ring spins clockwise or counter-clockwise depending on which icon you click (right icon → CCW, left icon → CW). Rotation is tracked as a continuous accumulating value so each move animates the minimal arc; glyphs counter-rotate to stay upright
+  - **Theme state** (`src/theme/ThemeContext.tsx`): `ThemeProvider` writes the mode to `data-theme` on `<html>` and persists it to `localStorage`; wraps the app above the query client in `main.tsx`
+  - **CSS-variable palettes** (`src/index.css`): every chrome colour is routed through semantic tokens (`--text*`, `--surface*`, `--border*`, `--accent`, `--on-accent`, `--danger*`, `--success`) with three palettes keyed off `:root[data-theme=...]`. The **light palette values are the exact hex literals used before**, so light mode is pixel-identical to the prior design. High-contrast mode uses electric-blue (`#00b3ff`) text on black. All inline hardcoded hex across the 15 page/component files was swapped to `var(--token)`
+  - **Chart canvas theming** (`src/theme/chartTheme.ts` + the five chart components): Plotly and Recharts now read `useChartColors()` (re-renders on mode change) for font / grid / axis / hover / modebar colours; the canvas itself is transparent (`paper_bgcolor`/`plot_bgcolor`) so charts inherit the themed page/card background. **Data-trace colours stay constant** across modes (series identity — TLT/AGG/SHY, the scenario palette, the returns reference line — is not themed)
+
+- **Charts use header labels instead of y-axis titles (`frontend/`)**:
+  - The rotated y-axis title was removed from every chart and replaced with a centred header above the plot (`src/components/charts/ChartHeader.tsx`). Single-axis charts show their old `yLabel`; dual-axis charts join both labels (e.g. "Yield (%) · Spread (%)"). The x-axis "Date" title and all tick formatting ($/%) are unchanged
+
+- **Build**: `npm run build` clean (`tsc -b` + Vite); the new theme module and chart helpers code-split alongside the existing chunks

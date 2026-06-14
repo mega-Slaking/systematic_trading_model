@@ -12,6 +12,8 @@
 import type { Data, Layout } from "plotly.js";
 
 import type { ReturnsDistributionSeries } from "../../api/types";
+import { plotlyAxisTheme, plotlyBaseLayout, useChartColors } from "../../theme/chartTheme";
+import { ChartHeader } from "./ChartHeader";
 import { Plot } from "./plotlyComponent";
 
 interface ReturnsBoxplotProps {
@@ -25,6 +27,8 @@ export default function ReturnsBoxplot({
   useRawLabels = false,
   height = 360,
 }: ReturnsBoxplotProps) {
+  const c = useChartColors();
+  const axis = plotlyAxisTheme(c);
   const data: Data[] = distribution.map((s) => ({
     type: "box",
     name: useRawLabels ? s.scenario_id : s.scenario_label,
@@ -35,22 +39,26 @@ export default function ReturnsBoxplot({
   })) as Data[];
 
   const layout: Partial<Layout> = {
+    ...plotlyBaseLayout(c),
     autosize: true,
     height,
     margin: { t: 10, r: 16, b: 80, l: 64 },
-    yaxis: { title: { text: "Daily Return" }, tickformat: ".1%", zeroline: true },
-    xaxis: { automargin: true },
+    yaxis: { ...axis, tickformat: ".1%", zeroline: true },
+    xaxis: { ...axis, automargin: true },
     hovermode: "closest",
     showlegend: false,
   };
 
   return (
-    <Plot
-      data={data}
-      layout={layout}
-      style={{ width: "100%", height }}
-      useResizeHandler
-      config={{ responsive: true, displaylogo: false }}
-    />
+    <div>
+      <ChartHeader>Daily Return</ChartHeader>
+      <Plot
+        data={data}
+        layout={layout}
+        style={{ width: "100%", height }}
+        useResizeHandler
+        config={{ responsive: true, displaylogo: false }}
+      />
+    </div>
   );
 }

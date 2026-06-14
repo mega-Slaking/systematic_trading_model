@@ -94,11 +94,11 @@ export function TearsheetPage() {
       <h2 style={{ marginTop: 0 }}>Tearsheet</h2>
 
       <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
-        <span style={{ color: "#555", fontSize: "0.9rem" }}>Scenario:</span>
+        <span style={{ color: "var(--text-3)", fontSize: "0.9rem" }}>Scenario:</span>
         <select
           value={active}
           onChange={(e) => setSelected(e.target.value)}
-          style={{ padding: "0.35rem 0.5rem", borderRadius: 6, border: "1px solid #d1d5db", fontFamily: "ui-monospace, monospace" }}
+          style={{ padding: "0.35rem 0.5rem", borderRadius: 6, border: "1px solid var(--border-strong)", fontFamily: "ui-monospace, monospace" }}
         >
           {scenarios.map((s) => (
             <option key={s} value={s}>
@@ -109,7 +109,7 @@ export function TearsheetPage() {
       </label>
 
       {summary && (
-        <p style={{ color: "#666", margin: "0 0 1rem" }}>
+        <p style={{ color: "var(--text-muted)", margin: "0 0 1rem" }}>
           {summary.scenario_id} | {summary.start_date} → {summary.end_date}
           {tearsheet.data?.regime_match_rate != null && (
             <span> | regime match rate {formatPercent(tearsheet.data.regime_match_rate)}</span>
@@ -184,7 +184,7 @@ function TableSection({ title, table }: { title: string; table: TableModel | nul
 
 function ChartCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div style={{ border: "1px solid #eee", borderRadius: 8, padding: "0.75rem" }}>
+    <div style={{ border: "1px solid var(--border-soft)", borderRadius: 8, padding: "0.75rem" }}>
       <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{title}</div>
       {children}
     </div>
@@ -197,5 +197,5 @@ function errorMessage(error: unknown): string {
 }
 
 function Muted({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "error" }) {
-  return <div style={{ padding: "1rem", color: tone === "error" ? "#b00020" : "#777" }}>{children}</div>;
+  return <div style={{ padding: "1rem", color: tone === "error" ? "var(--danger)" : "var(--text-subtle)" }}>{children}</div>;
 }

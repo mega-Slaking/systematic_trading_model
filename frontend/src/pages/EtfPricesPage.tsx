@@ -32,7 +32,7 @@ export function EtfPricesPage() {
   return (
     <div>
       <h2 style={{ marginTop: 0 }}>Historical ETF Prices</h2>
-      <p style={{ color: "#666", marginTop: "0.25rem" }}>Daily closing prices for TLT, AGG, and SHY.</p>
+      <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>Daily closing prices for TLT, AGG, and SHY.</p>
 
       <section style={{ marginBottom: "2rem" }}>
         {prices.isLoading ? (
@@ -67,6 +67,6 @@ function errorMessage(error: unknown): string {
 
 function Status({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "error" }) {
   return (
-    <div style={{ padding: "1.5rem", color: tone === "error" ? "#b00020" : "#666" }}>{children}</div>
+    <div style={{ padding: "1.5rem", color: tone === "error" ? "var(--danger)" : "var(--text-muted)" }}>{children}</div>
   );
 }

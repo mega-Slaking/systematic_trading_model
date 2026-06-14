@@ -58,7 +58,7 @@ export function DataTable<T>({ columns, rows }: DataTableProps<T>) {
   }
 
   if (rows.length === 0) {
-    return <div style={{ padding: "1rem", color: "#777" }}>No rows.</div>;
+    return <div style={{ padding: "1rem", color: "var(--text-subtle)" }}>No rows.</div>;
   }
 
   return (
@@ -74,7 +74,7 @@ export function DataTable<T>({ columns, rows }: DataTableProps<T>) {
                 onClick={() => toggleSort(col.key)}
                 style={{
                   textAlign: col.align ?? "left",
-                  borderBottom: "2px solid #e5e5e5",
+                  borderBottom: "2px solid var(--border)",
                   padding: "0.4rem 0.6rem",
                   cursor: "pointer",
                   userSelect: "none",
@@ -90,7 +90,7 @@ export function DataTable<T>({ columns, rows }: DataTableProps<T>) {
       </thead>
       <tbody>
         {sortedRows.map((row, rowIndex) => (
-          <tr key={rowIndex} style={{ borderBottom: "1px solid #f0f0f0" }}>
+          <tr key={rowIndex} style={{ borderBottom: "1px solid var(--border-faint)" }}>
             {columns.map((col) => (
               <td
                 key={col.key}

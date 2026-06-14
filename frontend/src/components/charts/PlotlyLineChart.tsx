@@ -9,6 +9,8 @@
 import type { Data, Layout } from "plotly.js";
 
 import type { NamedSeries } from "../../api/types";
+import { plotlyAxisTheme, plotlyBaseLayout, useChartColors } from "../../theme/chartTheme";
+import { ChartHeader } from "./ChartHeader";
 import { Plot } from "./plotlyComponent";
 
 interface PlotlyLineChartProps {
@@ -30,6 +32,8 @@ export default function PlotlyLineChart({
   y2TickFormat,
   height = 400,
 }: PlotlyLineChartProps) {
+  const c = useChartColors();
+  const axis = plotlyAxisTheme(c);
   const secondary = new Set(secondaryNames ?? []);
 
   const data: Data[] = series.map((s) => {
@@ -51,11 +55,12 @@ export default function PlotlyLineChart({
   }) as Data[];
 
   const layout: Partial<Layout> = {
+    ...plotlyBaseLayout(c),
     autosize: true,
     height,
     margin: { t: 28, r: secondary.size > 0 ? 60 : 16, b: 40, l: 64 },
-    xaxis: { title: { text: "Date" } },
-    yaxis: { title: { text: yLabel }, tickformat: yTickFormat },
+    xaxis: { ...axis, title: { text: "Date" } },
+    yaxis: { ...axis, tickformat: yTickFormat },
     hovermode: "closest",
     showlegend: series.length > 1,
     legend: { orientation: "h", x: 0, xanchor: "left", y: 1.02, yanchor: "bottom", font: { size: 10 } },
@@ -63,20 +68,26 @@ export default function PlotlyLineChart({
   if (secondary.size > 0) {
     // yaxis2 is loosely typed in the bundled @types; assign via a cast.
     (layout as Record<string, unknown>).yaxis2 = {
-      title: { text: y2Label },
+      ...axis,
       tickformat: y2TickFormat,
       overlaying: "y",
       side: "right",
     };
   }
 
+  // The y-axis label(s) become a header above the chart (dual-axis joins both).
+  const header = [yLabel, secondary.size > 0 ? y2Label : undefined].filter(Boolean).join(" · ");
+
   return (
-    <Plot
-      data={data}
-      layout={layout}
-      style={{ width: "100%", height }}
-      useResizeHandler
-      config={{ responsive: true, displaylogo: false }}
-    />
+    <div>
+      {header ? <ChartHeader>{header}</ChartHeader> : null}
+      <Plot
+        data={data}
+        layout={layout}
+        style={{ width: "100%", height }}
+        useResizeHandler
+        config={{ responsive: true, displaylogo: false }}
+      />
+    </div>
   );
 }

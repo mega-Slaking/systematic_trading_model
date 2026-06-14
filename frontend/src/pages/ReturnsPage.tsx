@@ -123,7 +123,7 @@ export function ReturnsPage() {
   return (
     <div>
       <h2 style={{ marginTop: 0 }}>Returns Analysis</h2>
-      <p style={{ color: "#666", marginTop: "0.25rem" }}>
+      <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>
         Inspect daily return behaviour across scenarios. Toggle curves with the chart legend (click to
         show/hide, double-click to isolate); use the filters to find stress periods and outliers, and
         click a point for its full diagnostic. A microscope, not a ranking — use NAV / Tearsheet for
@@ -161,7 +161,7 @@ export function ReturnsPage() {
           <Toggle label="Reference lines" checked={showRefLines} onChange={setShowRefLines} />
           <Toggle label="Distribution chart" checked={showDist} onChange={setShowDist} />
           <Toggle label="Raw IDs in legend" checked={rawIds} onChange={setRawIds} />
-          <span style={{ color: "#888", fontSize: "0.8rem" }}>
+          <span style={{ color: "var(--text-faint)", fontSize: "0.8rem" }}>
             Tip: click a legend entry to show/hide a scenario; double-click to isolate.
           </span>
         </div>
@@ -290,13 +290,13 @@ function DrilldownPanel({ point, onClose }: { point: ScatterPointSelection; onCl
       </div>
       <div style={{ marginTop: "0.5rem", fontSize: "0.9rem", lineHeight: 1.5, fontVariantNumeric: "tabular-nums" }}>
         {detail.isLoading ? (
-          <span style={{ color: "#777" }}>Loading {point.scenarioLabel} @ {point.date}…</span>
+          <span style={{ color: "var(--text-subtle)" }}>Loading {point.scenarioLabel} @ {point.date}…</span>
         ) : detail.isError ? (
-          <span style={{ color: "#b00020" }}>{errorMessage(detail.error)}</span>
+          <span style={{ color: "var(--danger)" }}>{errorMessage(detail.error)}</span>
         ) : detail.data?.lines.length ? (
           detail.data.lines.map((l, i) => <div key={i}>{l}</div>)
         ) : (
-          <span style={{ color: "#777" }}>No diagnostic detail for this point.</span>
+          <span style={{ color: "var(--text-subtle)" }}>No diagnostic detail for this point.</span>
         )}
       </div>
     </section>
@@ -409,7 +409,7 @@ function DateField({ label, value, onChange }: { label: string; value: string; o
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", fontSize: "0.85rem", color: "#444" }}>
+    <label style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", fontSize: "0.85rem", color: "var(--text-2)" }}>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       {label}
     </label>
@@ -420,19 +420,19 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 // Styles + status
 // --------------------------------------------------------------------------- //
 const controlPanelStyle: React.CSSProperties = {
-  border: "1px solid #e5e5e5",
+  border: "1px solid var(--border)",
   borderRadius: 8,
   padding: "0.75rem",
   marginBottom: "1.25rem",
 };
 const controlRowStyle: React.CSSProperties = { display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" };
 const fieldStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: "0.4rem" };
-const fieldLabelStyle: React.CSSProperties = { color: "#555", fontSize: "0.85rem" };
-const selectStyle: React.CSSProperties = { padding: "0.3rem 0.45rem", borderRadius: 6, border: "1px solid #d1d5db", fontSize: "0.85rem" };
+const fieldLabelStyle: React.CSSProperties = { color: "var(--text-3)", fontSize: "0.85rem" };
+const selectStyle: React.CSSProperties = { padding: "0.3rem 0.45rem", borderRadius: 6, border: "1px solid var(--border-strong)", fontSize: "0.85rem" };
 const sectionTitleStyle: React.CSSProperties = { marginBottom: "0.25rem" };
-const subtitleStyle: React.CSSProperties = { color: "#888", fontSize: "0.8rem", margin: "0 0 0.5rem" };
-const drilldownStyle: React.CSSProperties = { border: "1px solid #cfe0f5", background: "#f5f9ff", borderRadius: 8, padding: "0.75rem 1rem", marginBottom: "1.25rem" };
-const closeButtonStyle: React.CSSProperties = { padding: "0.15rem 0.55rem", borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", fontSize: "0.78rem", cursor: "pointer" };
+const subtitleStyle: React.CSSProperties = { color: "var(--text-faint)", fontSize: "0.8rem", margin: "0 0 0.5rem" };
+const drilldownStyle: React.CSSProperties = { border: "1px solid var(--accent-border)", background: "var(--accent-bg-soft)", borderRadius: 8, padding: "0.75rem 1rem", marginBottom: "1.25rem" };
+const closeButtonStyle: React.CSSProperties = { padding: "0.15rem 0.55rem", borderRadius: 6, border: "1px solid var(--border-strong)", background: "var(--surface)", fontSize: "0.78rem", cursor: "pointer" };
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return `${error.message} (HTTP ${error.status})`;
@@ -440,9 +440,9 @@ function errorMessage(error: unknown): string {
 }
 
 function Status({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "error" }) {
-  return <div style={{ padding: "1.5rem", color: tone === "error" ? "#b00020" : "#666" }}>{children}</div>;
+  return <div style={{ padding: "1.5rem", color: tone === "error" ? "var(--danger)" : "var(--text-muted)" }}>{children}</div>;
 }
 
 function Muted({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "error" }) {
-  return <div style={{ padding: "1rem", color: tone === "error" ? "#b00020" : "#777" }}>{children}</div>;
+  return <div style={{ padding: "1rem", color: tone === "error" ? "var(--danger)" : "var(--text-subtle)" }}>{children}</div>;
 }
