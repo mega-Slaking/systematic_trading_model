@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useHealth } from "./api/hooks";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { HealthGate } from "./components/HealthGate";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { EtfPricesPage } from "./pages/EtfPricesPage";
 import { MacroPage } from "./pages/MacroPage";
 import { NavComparisonPage } from "./pages/NavComparisonPage";
@@ -56,11 +57,14 @@ function Shell() {
 
   return (
     <div style={{ fontFamily: "var(--font-dashboard)", maxWidth: "min(2000px, 95vw)", margin: "0 auto", padding: "1.5rem 2rem" }}>
-      <header style={{ borderBottom: "1px solid #e5e5e5", paddingBottom: "0.75rem", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0, fontFamily: "var(--font-title)" }}>Scenario Testing Dashboard</h1>
-        <p style={{ margin: "0.25rem 0 0", color: "#666" }}>
-          Analyze backtest scenarios. API v{data?.api_version ?? "?"} — connected.
-        </p>
+      <header style={{ borderBottom: "1px solid var(--border)", paddingBottom: "0.75rem", marginBottom: "1rem", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem" }}>
+        <div>
+          <h1 style={{ margin: 0, fontFamily: "var(--font-title)" }}>Scenario Testing Dashboard</h1>
+          <p style={{ margin: "0.25rem 0 0", color: "var(--text-muted)" }}>
+            Analyze backtest scenarios. API v{data?.api_version ?? "?"} — connected.
+          </p>
+        </div>
+        <ThemeToggle />
       </header>
 
       <nav style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
@@ -77,9 +81,9 @@ function Shell() {
               style={{
                 padding: "0.4rem 0.75rem",
                 borderRadius: 6,
-                border: isActive ? "1px solid #1f77b4" : "1px solid transparent",
-                background: isActive ? "#e8f1fb" : "#f3f4f6",
-                color: enabled ? (isActive ? "#1f77b4" : "#374151") : "#9ca3af",
+                border: isActive ? "1px solid var(--accent)" : "1px solid transparent",
+                background: isActive ? "var(--accent-bg)" : "var(--surface-tab)",
+                color: enabled ? (isActive ? "var(--accent)" : "var(--text-tab)") : "var(--text-disabled)",
                 cursor: enabled ? "pointer" : "not-allowed",
                 fontSize: "0.9rem",
               }}
@@ -117,7 +121,7 @@ function Shell() {
 
 function ComingSoon({ tab }: { tab: Tab }) {
   return (
-    <section style={{ border: "1px dashed #d1d5db", borderRadius: 8, padding: "2rem", color: "#555", textAlign: "center" }}>
+    <section style={{ border: "1px dashed var(--border-strong)", borderRadius: 8, padding: "2rem", color: "var(--text-3)", textAlign: "center" }}>
       <strong>{tab}</strong>
       <p style={{ margin: "0.5rem 0 0" }}>This view lands in a later phase.</p>
     </section>

@@ -49,10 +49,136 @@
   --font-data: "Play", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+/*
+ * Colour theming (toggle in the header). Three modes are selected via a
+ * `data-theme` attribute on <html>: "light" (default — the original look),
+ * "dark", and "contrast" (electric-blue text on black).
+ *
+ * Every chrome colour in the app is routed through one of these tokens. The
+ * LIGHT values are exactly the hex literals the components used before this
+ * change, so light mode is pixel-identical to the original design — the toggle
+ * only swaps colour values, nothing else. Chart canvas colours (Plotly/Recharts
+ * data traces, grid, reference lines) are intentionally left as-is.
+ */
+:root,
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-raised: #fafafa;
+  --surface-sunken: #f9fafb;
+  --surface-tab: #f3f4f6;
+
+  --text: #333333;
+  --text-tab: #374151;
+  --text-2: #444444;
+  --text-3: #555555;
+  --text-muted: #666666;
+  --text-subtle: #777777;
+  --text-faint: #888888;
+  --text-disabled: #9ca3af;
+
+  --border: #e5e5e5;
+  --border-strong: #d1d5db;
+  --border-track: #e5e7eb;
+  --border-soft: #eeeeee;
+  --border-faint: #f0f0f0;
+
+  --accent: #1f77b4;
+  --accent-bg: #e8f1fb;
+  --accent-border: #cfe0f5;
+  --accent-bg-soft: #f5f9ff;
+  --accent-disabled: #cdd9e5;
+  --on-accent: #ffffff; /* text/icon sitting on an --accent fill */
+
+  --danger: #b00020;
+  --danger-border: #f3c2c2;
+  --danger-bg: #fdf2f2;
+  --danger-text: #7a1f1f;
+  --danger-text-strong: #992222;
+  --success: #1a7f37;
+}
+
+:root[data-theme="dark"] {
+  --bg: #161616;
+  --surface: #1f1f1f;
+  --surface-raised: #1e1e1e;
+  --surface-sunken: #242424;
+  --surface-tab: #262626;
+
+  --text: #e6e6e6;
+  --text-tab: #cfd3da;
+  --text-2: #cccccc;
+  --text-3: #c0c0c0;
+  --text-muted: #aeaeae;
+  --text-subtle: #9a9a9a;
+  --text-faint: #8c8c8c;
+  --text-disabled: #5a5f66;
+
+  --border: #333333;
+  --border-strong: #3d3d3d;
+  --border-track: #333333;
+  --border-soft: #2c2c2c;
+  --border-faint: #2a2a2a;
+
+  --accent: #4ea3e0;
+  --accent-bg: #1c3343;
+  --accent-border: #2f4a5e;
+  --accent-bg-soft: #18242d;
+  --accent-disabled: #3a4654;
+  --on-accent: #0d1117;
+
+  --danger: #ff6b6b;
+  --danger-border: #5a2a2a;
+  --danger-bg: #2a1a1a;
+  --danger-text: #ffb3b3;
+  --danger-text-strong: #ff9d9d;
+  --success: #4ade80;
+}
+
+/* High contrast: black background, electric-blue text, electric-blue borders. */
+:root[data-theme="contrast"] {
+  --bg: #000000;
+  --surface: #000000;
+  --surface-raised: #0a0a0a;
+  --surface-sunken: #0a0a0a;
+  --surface-tab: #0d0d0d;
+
+  --text: #00b3ff;
+  --text-tab: #00b3ff;
+  --text-2: #00b3ff;
+  --text-3: #00b3ff;
+  --text-muted: #00b3ff;
+  --text-subtle: #00b3ff;
+  --text-faint: #33c4ff;
+  --text-disabled: #0a6b99;
+
+  --border: #00b3ff;
+  --border-strong: #00b3ff;
+  --border-track: #005f87;
+  --border-soft: #00b3ff;
+  --border-faint: #123a4a;
+
+  --accent: #00b3ff;
+  --accent-bg: #002a3d;
+  --accent-border: #00b3ff;
+  --accent-bg-soft: #001520;
+  --accent-disabled: #004763;
+  --on-accent: #000000;
+
+  --danger: #ff5c5c;
+  --danger-border: #ff5c5c;
+  --danger-bg: #1a0000;
+  --danger-text: #ff8a8a;
+  --danger-text-strong: #ff8a8a;
+  --success: #33ff99;
+}
+
 html,
 body {
   margin: 0;
   font-family: var(--font-dashboard);
+  background: var(--bg);
+  color: var(--text);
 }
 
 /*

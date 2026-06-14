@@ -41,9 +41,9 @@ export function MetricGrid({ metrics }: { metrics: Metric[] }) {
       {metrics.map((metric) => (
         <div
           key={metric.label}
-          style={{ border: "1px solid #eee", borderRadius: 8, padding: "0.6rem 0.75rem", background: "#fafafa" }}
+          style={{ border: "1px solid var(--border-soft)", borderRadius: 8, padding: "0.6rem 0.75rem", background: "var(--surface-raised)" }}
         >
-          <div style={{ fontSize: "0.72rem", color: "#777", textTransform: "uppercase", letterSpacing: "0.02em" }}>
+          <div style={{ fontSize: "0.72rem", color: "var(--text-subtle)", textTransform: "uppercase", letterSpacing: "0.02em" }}>
             {metric.label}
           </div>
           <div

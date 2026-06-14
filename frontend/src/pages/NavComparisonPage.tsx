@@ -34,7 +34,7 @@ export function NavComparisonPage() {
   return (
     <div>
       <h2 style={{ marginTop: 0 }}>NAV Comparison</h2>
-      <p style={{ color: "#666", marginTop: "0.25rem" }}>
+      <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>
         Scenario NAV curves vs. buy &amp; hold benchmarks (dashed). Click a legend entry to toggle a curve;
         double-click to isolate one.
       </p>
@@ -69,5 +69,5 @@ function errorMessage(error: unknown): string {
 }
 
 function Status({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "error" }) {
-  return <div style={{ padding: "1.5rem", color: tone === "error" ? "#b00020" : "#666" }}>{children}</div>;
+  return <div style={{ padding: "1.5rem", color: tone === "error" ? "var(--danger)" : "var(--text-muted)" }}>{children}</div>;
 }

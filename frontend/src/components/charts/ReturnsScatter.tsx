@@ -16,6 +16,8 @@
 import type { Data, Layout, LegendClickEvent, PlotMouseEvent } from "plotly.js";
 
 import type { ReturnsDiagnosticSeries } from "../../api/types";
+import { plotlyAxisTheme, plotlyBaseLayout, useChartColors } from "../../theme/chartTheme";
+import { ChartHeader } from "./ChartHeader";
 import { Plot } from "./plotlyComponent";
 
 /** A clicked point, surfaced to the page so it can fetch the drilldown detail. */
@@ -48,6 +50,8 @@ export default function ReturnsScatter({
   onSelectPoint,
   height = 520,
 }: ReturnsScatterProps) {
+  const c = useChartColors();
+  const axis = plotlyAxisTheme(c);
   const data: Data[] = series.map((s) => ({
     type: "scattergl",
     mode: "markers",
@@ -60,11 +64,12 @@ export default function ReturnsScatter({
   })) as Data[];
 
   const layout: Partial<Layout> = {
+    ...plotlyBaseLayout(c),
     autosize: true,
     height,
     margin: { t: 10, r: 16, b: 40, l: 64 },
-    xaxis: { title: { text: "Date" }, type: "date" },
-    yaxis: { title: { text: "Daily Return" }, tickformat: ".1%" },
+    xaxis: { ...axis, title: { text: "Date" }, type: "date" },
+    yaxis: { ...axis, tickformat: ".1%" },
     hovermode: "closest",
     showlegend: true,
     // Compact multi-column legend above the chart (the scenario show/hide control).
@@ -105,16 +110,19 @@ export default function ReturnsScatter({
   }
 
   return (
-    <Plot
-      data={data}
-      layout={layout}
-      style={{ width: "100%", height }}
-      useResizeHandler
-      onClick={handleClick}
-      onLegendClick={handleLegendClick}
-      onLegendDoubleClick={handleLegendDoubleClick}
-      config={{ responsive: true, displaylogo: false }}
-    />
+    <div>
+      <ChartHeader>Daily Return</ChartHeader>
+      <Plot
+        data={data}
+        layout={layout}
+        style={{ width: "100%", height }}
+        useResizeHandler
+        onClick={handleClick}
+        onLegendClick={handleLegendClick}
+        onLegendDoubleClick={handleLegendDoubleClick}
+        config={{ responsive: true, displaylogo: false }}
+      />
+    </div>
   );
 }
 

@@ -21,7 +21,9 @@ import {
 } from "recharts";
 
 import type { NamedSeries } from "../../api/types";
+import { useChartColors } from "../../theme/chartTheme";
 import { theme } from "../../theme";
+import { ChartHeader } from "./ChartHeader";
 
 // Fallback palette for series whose name isn't a known ticker.
 const PALETTE = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"];
@@ -52,6 +54,7 @@ export function SeriesLineChart({
   height = 420,
   valueFormatter,
 }: SeriesLineChartProps) {
+  const c = useChartColors();
   // Merge the per-series points into one date-keyed dataset. Memoized so it only
   // recomputes when the series actually change (e.g. a scenario toggle), not on
   // every unrelated re-render.
@@ -71,26 +74,27 @@ export function SeriesLineChart({
   }, [series]);
 
   if (series.length === 0 || data.length === 0) {
-    return <div style={{ padding: "2rem", textAlign: "center", color: "#777" }}>No data to plot.</div>;
+    return <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-subtle)" }}>No data to plot.</div>;
   }
 
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <div>
+      {yLabel ? <ChartHeader>{yLabel}</ChartHeader> : null}
+      <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
-        <CartesianGrid stroke={theme.grid} strokeDasharray="3 3" />
-        <XAxis dataKey="date" minTickGap={56} tick={{ fontSize: 12 }} />
+        <CartesianGrid stroke={c.grid} strokeDasharray="3 3" />
+        <XAxis dataKey="date" minTickGap={56} tick={{ fontSize: 12, fill: c.font }} stroke={c.axisLine} />
         <YAxis
           width={76}
-          tick={{ fontSize: 12 }}
+          tick={{ fontSize: 12, fill: c.font }}
+          stroke={c.axisLine}
           tickFormatter={valueFormatter ? (v: number) => valueFormatter(Number(v)) : undefined}
-          label={
-            yLabel
-              ? { value: yLabel, angle: -90, position: "insideLeft", style: { fontSize: 12 } }
-              : undefined
-          }
         />
-        <Tooltip />
-        <Legend />
+        <Tooltip
+          contentStyle={{ background: c.hoverBg, border: `1px solid ${c.hoverBorder}`, color: c.font }}
+          labelStyle={{ color: c.font }}
+        />
+        <Legend wrapperStyle={{ color: c.font }} />
         {series.map((s, index) => {
           // Benchmark lines carry meta={"dash":"dash"} (§4.4) -> render dashed.
           const dashed = Boolean(s.meta?.["dash"]);
@@ -109,6 +113,7 @@ export function SeriesLineChart({
           );
         })}
       </LineChart>
-    </ResponsiveContainer>
+      </ResponsiveContainer>
+    </div>
   );
 }

@@ -63,14 +63,14 @@ export function VolatilityPage() {
   return (
     <div>
       <h2 style={{ marginTop: 0 }}>Volatility Features</h2>
-      <p style={{ color: "#666", marginTop: "0.25rem" }}>
+      <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>
         Point-in-time annualized volatility per asset (lagged one day — no lookahead).
       </p>
 
       <div style={{ display: "flex", gap: "1.5rem", alignItems: "center", flexWrap: "wrap", marginBottom: "1rem" }}>
         <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
-          <span style={{ color: "#555", fontSize: "0.9rem" }}>Asset:</span>
-          <select value={activeTicker} onChange={(e) => setTicker(e.target.value)} style={{ padding: "0.35rem 0.5rem", borderRadius: 6, border: "1px solid #d1d5db" }}>
+          <span style={{ color: "var(--text-3)", fontSize: "0.9rem" }}>Asset:</span>
+          <select value={activeTicker} onChange={(e) => setTicker(e.target.value)} style={{ padding: "0.35rem 0.5rem", borderRadius: 6, border: "1px solid var(--border-strong)" }}>
             {tickers.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
@@ -86,8 +86,8 @@ export function VolatilityPage() {
                 onClick={() => toggleMethod(m)}
                 style={{
                   padding: "0.2rem 0.55rem", borderRadius: 6, fontSize: "0.8rem", cursor: "pointer",
-                  border: `1px solid ${on ? "#1f77b4" : "#d1d5db"}`,
-                  background: on ? "#e8f1fb" : "#fff", color: on ? "#1f77b4" : "#666",
+                  border: `1px solid ${on ? "var(--accent)" : "var(--border-strong)"}`,
+                  background: on ? "var(--accent-bg)" : "var(--surface)", color: on ? "var(--accent)" : "var(--text-muted)",
                 }}
               >
                 {VOL_METHODS[m] ?? m}
@@ -127,5 +127,5 @@ function errorMessage(error: unknown): string {
 }
 
 function Muted({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "error" }) {
-  return <div style={{ padding: "1rem", color: tone === "error" ? "#b00020" : "#777" }}>{children}</div>;
+  return <div style={{ padding: "1rem", color: tone === "error" ? "var(--danger)" : "var(--text-subtle)" }}>{children}</div>;
 }

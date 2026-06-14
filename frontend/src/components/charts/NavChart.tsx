@@ -13,6 +13,8 @@
 import type { Data, Layout } from "plotly.js";
 
 import type { NamedSeries } from "../../api/types";
+import { plotlyAxisTheme, plotlyBaseLayout, useChartColors } from "../../theme/chartTheme";
+import { ChartHeader } from "./ChartHeader";
 import { Plot } from "./plotlyComponent";
 
 interface NavChartProps {
@@ -22,6 +24,8 @@ interface NavChartProps {
 }
 
 export default function NavChart({ series, yLabel = "NAV ($)", height = 520 }: NavChartProps) {
+  const c = useChartColors();
+  const axis = plotlyAxisTheme(c);
   const data: Data[] = series.map((s) => {
     const dashed = Boolean(s.meta?.["dash"]);
     return {
@@ -37,11 +41,12 @@ export default function NavChart({ series, yLabel = "NAV ($)", height = 520 }: N
   }) as Data[];
 
   const layout: Partial<Layout> = {
+    ...plotlyBaseLayout(c),
     autosize: true,
     height,
     margin: { t: 10, r: 16, b: 40, l: 72 },
-    xaxis: { title: { text: "Date" } },
-    yaxis: { title: { text: yLabel }, tickformat: "$,.0f" },
+    xaxis: { ...axis, title: { text: "Date" } },
+    yaxis: { ...axis, tickformat: "$,.0f" },
     // Show only the curve under the cursor, not every series at this x.
     hovermode: "closest",
     showlegend: true,
@@ -62,12 +67,15 @@ export default function NavChart({ series, yLabel = "NAV ($)", height = 520 }: N
   };
 
   return (
-    <Plot
-      data={data}
-      layout={layout}
-      style={{ width: "100%", height }}
-      useResizeHandler
-      config={{ responsive: true, displaylogo: false }}
-    />
+    <div>
+      {yLabel ? <ChartHeader>{yLabel}</ChartHeader> : null}
+      <Plot
+        data={data}
+        layout={layout}
+        style={{ width: "100%", height }}
+        useResizeHandler
+        config={{ responsive: true, displaylogo: false }}
+      />
+    </div>
   );
 }

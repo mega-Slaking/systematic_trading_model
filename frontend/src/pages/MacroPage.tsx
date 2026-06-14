@@ -42,7 +42,7 @@ export function MacroPage() {
   return (
     <div>
       <h2 style={{ marginTop: 0 }}>ETFs vs Macro Indicators</h2>
-      <p style={{ color: "#666", marginTop: "0.25rem" }}>
+      <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>
         ETF prices vs macro indicators (dual axis), the yield curve, and a macro dashboard.
       </p>
 
@@ -128,7 +128,7 @@ function Row({ children }: { children: ReactNode }) {
 
 function Card({ title, children }: { title?: string; children: ReactNode }) {
   return (
-    <div style={{ border: "1px solid #eee", borderRadius: 8, padding: "0.75rem" }}>
+    <div style={{ border: "1px solid var(--border-soft)", borderRadius: 8, padding: "0.75rem" }}>
       {title ? <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{title}</div> : null}
       {children}
     </div>
@@ -141,5 +141,5 @@ function errorMessage(error: unknown): string {
 }
 
 function Muted({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "error" }) {
-  return <div style={{ padding: "1rem", color: tone === "error" ? "#b00020" : "#777" }}>{children}</div>;
+  return <div style={{ padding: "1rem", color: tone === "error" ? "var(--danger)" : "var(--text-subtle)" }}>{children}</div>;
 }

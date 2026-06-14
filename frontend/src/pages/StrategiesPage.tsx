@@ -48,7 +48,7 @@ export function StrategiesPage() {
   return (
     <div>
       <h2 style={{ marginTop: 0 }}>Strategies</h2>
-      <p style={{ color: "#666", marginTop: "0.25rem" }}>
+      <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>
         The strategy registry — what each scenario name means.
         {query.data ? (
           <>
@@ -101,7 +101,7 @@ function BacktestRunner() {
   const pct = total && total > 0 && current != null ? Math.round((current / total) * 100) : null;
 
   return (
-    <div style={{ border: "1px solid #e5e5e5", borderRadius: 8, padding: "0.85rem 1rem", marginBottom: "1.25rem", background: "#fafafa" }}>
+    <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "0.85rem 1rem", marginBottom: "1.25rem", background: "var(--surface-raised)" }}>
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
         <button
           type="button"
@@ -110,9 +110,9 @@ function BacktestRunner() {
           style={{
             padding: "0.45rem 0.9rem",
             borderRadius: 6,
-            border: "1px solid #1f77b4",
-            background: active ? "#cdd9e5" : "#1f77b4",
-            color: "#fff",
+            border: "1px solid var(--accent)",
+            background: active ? "var(--accent-disabled)" : "var(--accent)",
+            color: "var(--on-accent)",
             fontWeight: 600,
             cursor: active ? "not-allowed" : "pointer",
           }}
@@ -128,9 +128,9 @@ function BacktestRunner() {
             style={{
               padding: "0.45rem 0.8rem",
               borderRadius: 6,
-              border: "1px solid #b00020",
-              background: "#fff",
-              color: "#b00020",
+              border: "1px solid var(--danger)",
+              background: "var(--surface)",
+              color: "var(--danger)",
               fontWeight: 600,
               cursor: cancel.isPending ? "not-allowed" : "pointer",
             }}
@@ -139,19 +139,19 @@ function BacktestRunner() {
           </button>
         )}
 
-        <span style={{ color: "#666", fontSize: "0.85rem" }}>
+        <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>
           Re-runs the full strategy registry (~minutes, runs in a subprocess) and rewrites the persisted results.
         </span>
       </div>
 
       {status === "running" && (
         <div style={{ marginTop: "0.7rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "#555", marginBottom: "0.25rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--text-3)", marginBottom: "0.25rem" }}>
             <span>{data?.progress_strategy ? `Running: ${data.progress_strategy}` : "Preparing… (building volatility surface)"}</span>
             <span>{total != null && current != null ? `${current} / ${total}` : ""}</span>
           </div>
-          <div style={{ height: 8, background: "#e5e7eb", borderRadius: 4, overflow: "hidden" }}>
-            <div style={{ width: pct != null ? `${pct}%` : "12%", height: "100%", background: "#1f77b4", transition: "width 0.4s ease" }} />
+          <div style={{ height: 8, background: "var(--border-track)", borderRadius: 4, overflow: "hidden" }}>
+            <div style={{ width: pct != null ? `${pct}%` : "12%", height: "100%", background: "var(--accent)", transition: "width 0.4s ease" }} />
           </div>
         </div>
       )}
@@ -175,7 +175,7 @@ function BacktestRunner() {
 }
 
 function StatusLine({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "ok" | "error" }) {
-  const color = tone === "error" ? "#b00020" : tone === "ok" ? "#1a7f37" : "#555";
+  const color = tone === "error" ? "var(--danger)" : tone === "ok" ? "var(--success)" : "var(--text-3)";
   return <div style={{ color, fontSize: "0.9rem" }}>{children}</div>;
 }
 
@@ -185,5 +185,5 @@ function errorMessage(error: unknown): string {
 }
 
 function Muted({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "error" }) {
-  return <div style={{ padding: "1rem", color: tone === "error" ? "#b00020" : "#777" }}>{children}</div>;
+  return <div style={{ padding: "1rem", color: tone === "error" ? "var(--danger)" : "var(--text-subtle)" }}>{children}</div>;
 }

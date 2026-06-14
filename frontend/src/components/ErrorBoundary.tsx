@@ -34,11 +34,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return (
       <div
         style={{
-          border: "1px solid #f3c2c2",
-          background: "#fdf2f2",
+          border: "1px solid var(--danger-border)",
+          background: "var(--danger-bg)",
           borderRadius: 8,
           padding: "1.25rem",
-          color: "#7a1f1f",
+          color: "var(--danger-text)",
         }}
       >
         <strong>This view failed to render.</strong>
@@ -48,7 +48,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             wordBreak: "break-word",
             marginTop: "0.75rem",
             fontSize: "0.8rem",
-            color: "#922",
+            color: "var(--danger-text-strong)",
           }}
         >
           {error.message}
@@ -60,8 +60,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             marginTop: "0.5rem",
             padding: "0.3rem 0.7rem",
             borderRadius: 6,
-            border: "1px solid #d1d5db",
-            background: "#fff",
+            border: "1px solid var(--border-strong)",
+            background: "var(--surface)",
             cursor: "pointer",
           }}
         >

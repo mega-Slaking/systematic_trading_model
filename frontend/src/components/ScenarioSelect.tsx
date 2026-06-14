@@ -27,11 +27,11 @@ export function ScenarioSelect({ scenarios, selected, onChange, label = "Scenari
   }
 
   return (
-    <div style={{ border: "1px solid #e5e5e5", borderRadius: 8, padding: "0.75rem", marginBottom: "1rem" }}>
+    <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "0.75rem", marginBottom: "1rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
         <strong style={{ fontSize: "0.9rem" }}>
           {label}{" "}
-          <span style={{ color: "#888", fontWeight: 400 }}>
+          <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>
             ({selected.length}/{scenarios.length})
           </span>
         </strong>
@@ -52,9 +52,9 @@ export function ScenarioSelect({ scenarios, selected, onChange, label = "Scenari
                 gap: "0.35rem",
                 padding: "0.2rem 0.5rem",
                 borderRadius: 6,
-                border: `1px solid ${on ? "#1f77b4" : "#d1d5db"}`,
-                background: on ? "#e8f1fb" : "#fff",
-                color: on ? "#1f77b4" : "#555",
+                border: `1px solid ${on ? "var(--accent)" : "var(--border-strong)"}`,
+                background: on ? "var(--accent-bg)" : "var(--surface)",
+                color: on ? "var(--accent)" : "var(--text-3)",
                 fontSize: "0.8rem",
                 cursor: "pointer",
                 fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
@@ -78,8 +78,8 @@ function SmallButton({ children, onClick }: { children: ReactNode; onClick: () =
       style={{
         padding: "0.2rem 0.6rem",
         borderRadius: 6,
-        border: "1px solid #d1d5db",
-        background: "#f9fafb",
+        border: "1px solid var(--border-strong)",
+        background: "var(--surface-sunken)",
         fontSize: "0.8rem",
         cursor: "pointer",
       }}
