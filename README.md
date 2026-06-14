@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.15.2
+## Current Version: V 1.15.3
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -785,3 +785,11 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - Added the Metaluna fonts (`@font-face` in `src/index.css`, served from `public/`): the "Scenario Testing Dashboard" title renders in Metaluna Inline, all other UI text in Metaluna Medium
 
 - **Tests**: **107 `api/` tests pass** (29 new returns-diagnostic tests on top of the existing suites); `npm run build` clean with the Returns charts code-split into the shared Plotly chunk
+
+  ## V 1.15.3
+
+- **Dashboard typography + UI polish (`frontend/`)** — presentation only, no behaviour change:
+  - **Play font for tabular data**: table body cells (headers excluded) and the tearsheet metric-card numeric values now render in Play (`@font-face` in `src/index.css`, served from `public/Play/`), exposed via a `--font-data` CSS variable so the family lives in one place. The metric-card values were also dropped from semibold to regular weight
+  - **Form controls inherit the UI font**: a small reset (`button` / `select` / `input` / `textarea` → `font-family: inherit`) so the tab buttons and the Returns Analysis controls use Metaluna Medium like the rest — `<button>`/`<select>` don't inherit `font-family` by default
+  - **Fluid layout**: the app shell is now `maxWidth: min(2000px, 95vw)` (was a fixed 1200px), so the dashboard — and the wide diagnostic tables especially — use more of the screen as the window widens
+  - **Returns scatter reference lines** are now bright red (0% solid + thicker, ±1%/±2% dotted) so they stand out against the points

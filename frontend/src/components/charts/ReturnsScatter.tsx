@@ -131,8 +131,9 @@ function referenceLineShapes(): NonNullable<Layout["shapes"]> {
       y0: level,
       y1: level,
       line: {
-        color: isZero ? "#555" : "#d0d0d0",
-        width: isZero ? 1.4 : 1,
+        // Bright red so the 0 / ±1% / ±2% guides stand out; zero is the strongest.
+        color: "#ff1a1a",
+        width: isZero ? 1.8 : 1,
         dash: isZero ? ("solid" as const) : ("dot" as const),
       },
       layer: "below" as const,
