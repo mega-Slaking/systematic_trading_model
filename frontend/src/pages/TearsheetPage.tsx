@@ -62,11 +62,21 @@ function formatTableCell(column: string, value: unknown): string {
   return String(value);
 }
 
+// Friendlier display names for verbose raw column keys (the benchmark summary's
+// `benchmark_*` columns make that table too wide). Display-only; sort/format keep
+// using the raw column key.
+const COLUMN_HEADER_LABELS: Record<string, string> = {
+  benchmark_total_return: "Total Return",
+  benchmark_cagr: "CAGR",
+  benchmark_volatility: "Volatility",
+  benchmark_max_drawdown: "Max Drawdown",
+};
+
 function TableModelView({ table }: { table: TableModel }) {
   if (table.rows.length === 0) return <Muted>No rows.</Muted>;
   const columns: Column<Record<string, unknown>>[] = table.columns.map((col) => ({
     key: col,
-    header: col,
+    header: COLUMN_HEADER_LABELS[col] ?? col,
     align: typeof table.rows[0]?.[col] === "number" ? "right" : "left",
     render: (row) => formatTableCell(col, row[col]),
     sortValue: (row) => {
@@ -110,9 +120,14 @@ export function TearsheetPage() {
 
       {summary && (
         <p style={{ color: "var(--text-muted)", margin: "0 0 1rem" }}>
-          {summary.scenario_id} | {summary.start_date} → {summary.end_date}
+          {summary.scenario_id}
+          <Separator />
+          {summary.start_date} → {summary.end_date}
           {tearsheet.data?.regime_match_rate != null && (
-            <span> | regime match rate {formatPercent(tearsheet.data.regime_match_rate)}</span>
+            <>
+              <Separator />
+              regime match rate {formatPercent(tearsheet.data.regime_match_rate)}
+            </>
           )}
         </p>
       )}
@@ -171,6 +186,11 @@ export function TearsheetPage() {
       ) : null}
     </div>
   );
+}
+
+/** A spaced "|" separator for the tearsheet summary line. */
+function Separator() {
+  return <span style={{ margin: "0 0.7rem", color: "var(--text-faint)" }}>|</span>;
 }
 
 function TableSection({ title, table }: { title: string; table: TableModel | null | undefined }) {

@@ -17,6 +17,7 @@ import { ApiError } from "../api/client";
 import { useReturnsDiagnostic, useReturnsPointDetail } from "../api/hooks";
 import type { ReturnsFilterMode, ScenarioMeta, TableModel } from "../api/types";
 import type { ScatterPointSelection } from "../components/charts/ReturnsScatter";
+import { InfoTooltip } from "../components/InfoTooltip";
 import { DataTable, type Column } from "../components/tables/DataTable";
 import { formatPercent } from "../lib/format";
 
@@ -122,13 +123,15 @@ export function ReturnsPage() {
 
   return (
     <div>
-      <h2 style={{ marginTop: 0 }}>Returns Analysis</h2>
-      <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>
-        Inspect daily return behaviour across scenarios. Toggle curves with the chart legend (click to
-        show/hide, double-click to isolate); use the filters to find stress periods and outliers, and
-        click a point for its full diagnostic. A microscope, not a ranking — use NAV / Tearsheet for
-        overall performance.
-      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: 0 }}>
+        <h2 style={{ margin: 0 }}>Returns Analysis</h2>
+        <InfoTooltip label="About the Returns Analysis view" width={380}>
+          Inspect daily return behaviour across scenarios. Toggle curves with the chart legend (click to
+          show/hide, double-click to isolate); use the filters to find stress periods and outliers, and
+          click a point for its full diagnostic. A microscope, not a ranking — use NAV / Tearsheet for
+          overall performance.
+        </InfoTooltip>
+      </div>
 
       {/* ---- Controls ---- */}
       <div style={controlPanelStyle}>
@@ -216,7 +219,12 @@ export function ReturnsPage() {
       {/* ---- Distribution boxplot (mirrors the visible curves) ---- */}
       {showDist && visibleDistribution.length > 0 && (
         <section style={{ marginTop: "1.5rem" }}>
-          <h3 style={sectionTitleStyle}>Return Distribution by Scenario</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", ...sectionTitleStyle }}>
+            <h3 style={{ margin: 0 }}>Return Distribution by Scenario</h3>
+            <InfoTooltip label="How to read the return distribution" width={380}>
+              <DistributionHelp />
+            </InfoTooltip>
+          </div>
           <p style={subtitleStyle}>One box per visible scenario; toggle curves in the chart legend above.</p>
           <Suspense fallback={<Muted>Loading chart…</Muted>}>
             <ReturnsBoxplot distribution={visibleDistribution} useRawLabels={rawIds} />
@@ -371,6 +379,58 @@ function DiagnosticSection({ title, subtitle, table }: { title: string; subtitle
         <DataTable columns={columns} rows={table.rows as Row[]} />
       </div>
     </section>
+  );
+}
+
+// --------------------------------------------------------------------------- //
+// Help content for the return-distribution tooltip
+// --------------------------------------------------------------------------- //
+function DistributionHelp() {
+  const ul: React.CSSProperties = { margin: "0.35rem 0 0", paddingLeft: "1.1rem" };
+  const li: React.CSSProperties = { marginBottom: "0.3rem" };
+  return (
+    <div>
+      <strong>Reading the box plot</strong>
+      <p style={{ margin: "0.3rem 0 0" }}>
+        Each box summarises the spread of one scenario's <em>daily</em> returns over the selected date
+        range (the full range, not the chart's outlier filter), so the boxes stay comparable.
+      </p>
+
+      <strong style={{ display: "block", marginTop: "0.6rem" }}>Anatomy of a box</strong>
+      <ul style={ul}>
+        <li style={li}>
+          <strong>Centre line</strong> — the <em>median</em> daily return (a typical day). Where the box
+          sits vertically is the scenario's day-to-day "normal".
+        </li>
+        <li style={li}>
+          <strong>Box</strong> — the middle 50% of days (25th–75th percentile, the interquartile range).
+          A <em>taller</em> box means more day-to-day variability.
+        </li>
+        <li style={li}>
+          <strong>Whiskers</strong> — the span of ordinary days (out to ~1.5× the box height). Longer
+          whiskers = a wider range of normal moves.
+        </li>
+        <li style={li}>
+          <strong>Dots beyond the whiskers</strong> — outliers: unusually large gains or losses (tail
+          events). Click a point on the scatter above to drill into one.
+        </li>
+      </ul>
+
+      <strong style={{ display: "block", marginTop: "0.6rem" }}>Comparing scenarios</strong>
+      <ul style={ul}>
+        <li style={li}>A box sitting <strong>higher</strong> with a higher median = better typical daily return.</li>
+        <li style={li}>A <strong>narrower</strong> box with <strong>shorter</strong> whiskers = steadier, lower-volatility behaviour.</li>
+        <li style={li}>
+          A long <strong>lower</strong> whisker or a cluster of low outliers = downside / crash risk
+          (negative skew) — even if the median looks fine.
+        </li>
+      </ul>
+
+      <p style={{ margin: "0.6rem 0 0", color: "var(--text-muted)" }}>
+        This shows the <em>shape</em> of daily returns, not cumulative growth — pair it with the NAV and
+        Tearsheet views for overall performance.
+      </p>
+    </div>
   );
 }
 

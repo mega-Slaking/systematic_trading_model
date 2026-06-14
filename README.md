@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.16.0
+## Current Version: V 1.16.1
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -806,3 +806,11 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - The rotated y-axis title was removed from every chart and replaced with a centred header above the plot (`src/components/charts/ChartHeader.tsx`). Single-axis charts show their old `yLabel`; dual-axis charts join both labels (e.g. "Yield (%) · Spread (%)"). The x-axis "Date" title and all tick formatting ($/%) are unchanged
 
 - **Build**: `npm run build` clean (`tsc -b` + Vite); the new theme module and chart helpers code-split alongside the existing chunks
+
+  ## V 1.16.1
+
+- **Tooltips + table polish (`frontend/`)** — presentation only, no behaviour change:
+  - **Reusable info tooltip** (`src/components/InfoTooltip.tsx`): a small "ⓘ" trigger that reveals an explanatory panel on hover or keyboard focus, themed via the CSS variable tokens so it reads in all three colour modes
+  - **Returns Analysis** — the descriptive blurb under the title was moved into an info tooltip on the title; the **Return Distribution by Scenario** section gained a detailed tooltip explaining how to read the box plot (median / IQR box / whiskers / outliers and how to compare scenarios)
+  - **Tearsheet benchmark summary table**: the verbose `benchmark_*` column headers now display as "Total Return" / "CAGR" / "Volatility" / "Max Drawdown" (display-only via a header-label map; sort + `$`/`%` formatting still key off the raw column names) so the table stops overflowing
+  - **Tearsheet summary line**: the `scenario | dates | regime match rate` separators are now spaced out via a small `Separator` element (tinted with `--text-faint`) instead of bare pipes
