@@ -21,6 +21,10 @@ interface PlotlyLineChartProps {
   y2Label?: string;
   y2TickFormat?: string;
   height?: number;
+  // Horizontal dashed guides (e.g. CFNAI neutral 0, zero yield-curve spread).
+  referenceLines?: { value: number; axis?: "y" | "y2" }[];
+  // Shaded vertical date bands with their own fill colour (inversion, regimes).
+  bands?: { start: string; end: string; color: string }[];
 }
 
 export default function PlotlyLineChart({
@@ -31,6 +35,8 @@ export default function PlotlyLineChart({
   y2Label,
   y2TickFormat,
   height = 400,
+  referenceLines,
+  bands,
 }: PlotlyLineChartProps) {
   const c = useChartColors();
   const axis = plotlyAxisTheme(c);
@@ -74,6 +80,21 @@ export default function PlotlyLineChart({
       side: "right",
     };
   }
+  const shapes: NonNullable<Layout["shapes"]> = [];
+  for (const b of bands ?? []) {
+    // Vertical date bands (constant data-meaning colours, not theme chrome).
+    shapes.push({
+      type: "rect", xref: "x", x0: b.start, x1: b.end, yref: "paper", y0: 0, y1: 1,
+      fillcolor: b.color, line: { width: 0 }, layer: "below",
+    });
+  }
+  for (const r of referenceLines ?? []) {
+    shapes.push({
+      type: "line", xref: "paper", x0: 0, x1: 1, yref: r.axis ?? "y", y0: r.value, y1: r.value,
+      line: { color: c.axisLine, width: 1, dash: "dot" }, layer: "below",
+    });
+  }
+  if (shapes.length) layout.shapes = shapes;
 
   // The y-axis label(s) become a header above the chart (dual-axis joins both).
   const header = [yLabel, secondary.size > 0 ? y2Label : undefined].filter(Boolean).join(" · ");

@@ -16,7 +16,11 @@ import type {
   EtfPriceStatsResponse,
   HealthResponse,
   JobStatus,
+  ConditionalReturnsResponse,
+  ForwardReturnScatterResponse,
   MacroResponse,
+  MacroSnapshotResponse,
+  RegimeTimelineResponse,
   NavComparisonResponse,
   ReturnsDiagnosticResponse,
   ReturnsFilterMode,
@@ -55,6 +59,12 @@ export const queryKeys = {
   volatilityLatest: ["vol-latest"] as const,
   macro: (indicators?: string[]) => ["macro", indicators ?? null] as const,
   yieldCurve: ["yield-curve"] as const,
+  macroSnapshot: ["macro-snapshot"] as const,
+  regimeTimeline: ["regime-timeline"] as const,
+  conditionalReturns: (etf?: string, minObservations?: number) =>
+    ["conditional-returns", etf ?? null, minObservations ?? null] as const,
+  forwardReturnScatter: (etf: string, indicator: string, horizon: string) =>
+    ["forward-return-scatter", etf, indicator, horizon] as const,
   strategies: ["strategies"] as const,
 };
 
@@ -258,6 +268,52 @@ export function useYieldCurve() {
     queryKey: queryKeys.yieldCurve,
     queryFn: () => apiGet<YieldCurveResponse>("/macro/yield-curve"),
     staleTime: 60_000,
+  });
+}
+
+/** Latest macro snapshot cards (Page 6 snapshot row). */
+export function useMacroSnapshot() {
+  return useQuery<MacroSnapshotResponse>({
+    queryKey: queryKeys.macroSnapshot,
+    queryFn: () => apiGet<MacroSnapshotResponse>("/macro/snapshot"),
+    staleTime: 60_000,
+  });
+}
+
+/** Macro-regime timeline + engine duration-support overlay (Page 6). */
+export function useRegimeTimeline() {
+  return useQuery<RegimeTimelineResponse>({
+    queryKey: queryKeys.regimeTimeline,
+    queryFn: () => apiGet<RegimeTimelineResponse>("/macro/regime-timeline"),
+    staleTime: 60_000,
+  });
+}
+
+/** Conditional forward-return table by macro regime (Page 6, Phase 5). */
+export function useConditionalReturns(etf?: string, minObservations?: number) {
+  return useQuery<ConditionalReturnsResponse>({
+    queryKey: queryKeys.conditionalReturns(etf, minObservations),
+    queryFn: () =>
+      apiGet<ConditionalReturnsResponse>(
+        `/macro/conditional-returns${buildQuery({
+          etf: etf ? [etf] : undefined,
+          min_observations: minObservations != null ? [String(minObservations)] : undefined,
+        })}`,
+      ),
+    staleTime: 60_000,
+  });
+}
+
+/** Δ-macro vs forward-ETF-return scatter (explorer scatter mode); fetched only when `enabled`. */
+export function useForwardReturnScatter(etf: string, indicator: string, horizon: string, enabled = true) {
+  return useQuery<ForwardReturnScatterResponse>({
+    queryKey: queryKeys.forwardReturnScatter(etf, indicator, horizon),
+    queryFn: () =>
+      apiGet<ForwardReturnScatterResponse>(
+        `/macro/forward-return-scatter${buildQuery({ etf: [etf], indicator: [indicator], horizon: [horizon] })}`,
+      ),
+    staleTime: 60_000,
+    enabled,
   });
 }
 

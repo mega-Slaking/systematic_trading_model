@@ -1,5 +1,7 @@
 import pandas as pd
 
+from src.signals_macro import macro_features as mf
+
 
 def compute_macro_signals(macro_df: pd.DataFrame) -> pd.DataFrame:
     df = macro_df.copy()
@@ -8,21 +10,35 @@ def compute_macro_signals(macro_df: pd.DataFrame) -> pd.DataFrame:
 
     # ------------------------------------------------------------
     # Core derived macro fields
+    #
+    # The base derivations (YoY inflation, the 10Y-2Y spread, the real policy
+    # rate) are now sourced from src/signals_macro/macro_features.py so the
+    # formulas live in ONE place (refactor "D"): the dashboard's API service and
+    # this decision pipeline import the same definitions instead of each keeping
+    # a copy. Behaviour is byte-identical to the old inline formulas (kept
+    # commented below as a rollback safety net) and locked by
+    # tests/strategy/test_signals.py + test_macro_features.py.
     # ------------------------------------------------------------
 
-    df["cpi_yoy"] = df["cpi"].pct_change(periods=12, fill_method=None)
-    df["core_cpi_yoy"] = df["core_cpi"].pct_change(periods=12, fill_method=None)
+    # df["cpi_yoy"] = df["cpi"].pct_change(periods=12, fill_method=None)
+    # df["core_cpi_yoy"] = df["core_cpi"].pct_change(periods=12, fill_method=None)
+    df["cpi_yoy"] = mf.compute_cpi_features(df["cpi"])["cpi_yoy"]
+    df["core_cpi_yoy"] = mf.compute_cpi_features(df["core_cpi"])["cpi_yoy"]
 
+    # Direction / acceleration are first/second differences of the (now
+    # single-sourced) YoY series -- engine-local signal-prep, unchanged.
     df["cpi_yoy_direction"] = df["cpi_yoy"].diff()
     df["cpi_yoy_acceleration"] = df["cpi_yoy_direction"].diff()
 
     df["core_cpi_direction"] = df["core_cpi_yoy"].diff()
     df["core_cpi_acceleration"] = df["core_cpi_direction"].diff()
 
-    df["yield_curve"] = df["gs10"] - df["gs2"]
+    # df["yield_curve"] = df["gs10"] - df["gs2"]
+    df["yield_curve"] = mf.compute_yield_curve_features(df["gs2"], df["gs10"])["curve_spread"]
 
     # FEDFUNDS is in percent, CPI YoY is decimal, so multiply CPI by 100
-    df["real_policy_rate"] = df["fed_funds"] - (df["core_cpi_yoy"] * 100)
+    # df["real_policy_rate"] = df["fed_funds"] - (df["core_cpi_yoy"] * 100)
+    df["real_policy_rate"] = mf.compute_policy_features(df["fed_funds"], df["core_cpi_yoy"])["real_policy_rate"]
 
     # ------------------------------------------------------------
     # Inflation signals

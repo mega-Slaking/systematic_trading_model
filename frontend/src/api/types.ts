@@ -86,6 +86,24 @@ export type MacroResponse = components["schemas"]["MacroResponse"];
 /** Response of `GET /api/v1/macro/yield-curve` (Page 6). */
 export type YieldCurveResponse = components["schemas"]["YieldCurveResponse"];
 
+/** A categorical-over-time trace (regime ribbons / curve states): code + label per point. */
+export type CategoricalSeries = components["schemas"]["CategoricalSeries"];
+
+/** Response of `GET /api/v1/macro/snapshot`: latest-reading cards + the newest macro date. */
+export type MacroSnapshotResponse = components["schemas"]["MacroSnapshotResponse"];
+
+/** One latest-reading snapshot card (per-card observation date + 3m change). */
+export type MacroSnapshotCard = components["schemas"]["MacroSnapshotCard"];
+
+/** Response of `GET /api/v1/macro/regime-timeline`: dashboard regime + engine overlay + legend. */
+export type RegimeTimelineResponse = components["schemas"]["RegimeTimelineResponse"];
+
+/** Response of `GET /api/v1/macro/conditional-returns`: regime × ETF forward-return table + caveats. */
+export type ConditionalReturnsResponse = components["schemas"]["ConditionalReturnsResponse"];
+
+/** Response of `GET /api/v1/macro/forward-return-scatter`: (Δmacro, forward-return) points. */
+export type ForwardReturnScatterResponse = components["schemas"]["ForwardReturnScatterResponse"];
+
 /** Response of `GET /api/v1/strategies` (registry introspection). */
 export type StrategiesResponse = components["schemas"]["StrategiesResponse"];
 

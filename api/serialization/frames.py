@@ -27,7 +27,7 @@ from typing import Any
 
 import pandas as pd
 
-from api.schemas.common import NamedSeries, SeriesPoint, TableModel
+from api.schemas.common import CategoricalPoint, CategoricalSeries, NamedSeries, SeriesPoint, TableModel
 
 
 def nan_to_none(value: Any) -> Any:
@@ -138,6 +138,37 @@ def df_to_series(
     return NamedSeries(
         name=name,
         points=series_to_points(frame, x=x, y=y, round_to=round_to),
+        meta=meta,
+    )
+
+
+def df_to_categorical_series(
+    frame: pd.DataFrame,
+    *,
+    name: str,
+    value_col: str,
+    label_col: str,
+    categories: dict[int, str],
+    x: str = "date",
+    meta: dict | None = None,
+) -> CategoricalSeries:
+    """Build a :class:`CategoricalSeries` from a code column + a label column.
+
+    ``x`` is ISO-normalized; ``value_col`` carries the ordinal code (NaN -> None),
+    ``label_col`` the display label (NaN/None -> None). ``categories`` is the
+    code->label map shipped for the legend/colour scale.
+    """
+    dates = to_iso(frame[x]).tolist()
+    codes = frame[value_col].tolist()
+    labels = frame[label_col].tolist()
+    points = [
+        CategoricalPoint(date=d, value=nan_to_none(code), label=nan_to_none(label))
+        for d, code, label in zip(dates, codes, labels)
+    ]
+    return CategoricalSeries(
+        name=name,
+        points=points,
+        categories={str(code): label for code, label in categories.items()},
         meta=meta,
     )
 
