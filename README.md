@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.16.1
+## Current Version: V 1.17.0
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -814,3 +814,23 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - **Returns Analysis** — the descriptive blurb under the title was moved into an info tooltip on the title; the **Return Distribution by Scenario** section gained a detailed tooltip explaining how to read the box plot (median / IQR box / whiskers / outliers and how to compare scenarios)
   - **Tearsheet benchmark summary table**: the verbose `benchmark_*` column headers now display as "Total Return" / "CAGR" / "Volatility" / "Max Drawdown" (display-only via a header-label map; sort + `$`/`%` formatting still key off the raw column names) so the table stops overflowing
   - **Tearsheet summary line**: the `scenario | dates | regime match rate` separators are now spaced out via a small `Separator` element (tinted with `--text-faint`) instead of bare pipes
+
+  ## V 1.17.0
+
+- **Macro data interpretability — correct & redesign the ETFs-vs-Macro dashboard** (`docs/macro_data_interpretability.md`, all 5 phases). Read-only analytics; **no strategy / decision / sizing / backtest change**. The macro feature derivations are single-sourced (see the engine refactor below) and every pure transform is unit-tested.
+
+- **Single source of truth for macro derivations (`src/signals_macro/macro_features.py`, new)** — the base formulas (`cpi_yoy`, `core_cpi_yoy`, `yield_curve`/`curve_spread`, `real_policy_rate`) previously duplicated in `macro_signal_engine.py` and `fetch_macro_data.py` now live in one pandas-only module that both import (old inline formulas commented out as a rollback safety net). Behaviour is byte-identical — locked by `tests/strategy/test_signals.py` (engine columns) and `test_macro_features.py` (equality pin); no existing test modified.
+
+- **Phase 1 — data correctness (`api/` + `frontend/`)**: the headline mislabel is fixed at the source. The API now serves derived series (`cpi_yoy`, momentum/change features, real policy rate, yield-curve changes) alongside the raw columns, each with a `meta` carrying its true `source`/`unit`/`frequency`. `MacroPage` plots **CPI YoY** (a decimal fraction rendered `.1%`), not the CPI index mislabelled as YoY; **CFNAI** is named correctly (neutral 0) instead of "PMI"; ETF prices are labelled **Adjusted Close**. Units vocabulary: `level` / `pct` / `pct_frac` / `pp`.
+
+- **Phase 2 — yield-curve interpretation**: `classify_curve_regime` (bull/bear × steepening/flattening + mixed) over the 2y/10y changes; endpoint 11 also returns the curve-regime series, inversion intervals, and the current regime. React adds inversion shading + a current-regime badge + interpretation note. Categorical-over-time series use a new `CategoricalSeries` wire model (numeric code + label + `categories` map) so the dense numeric series never pay for a per-point label.
+
+- **Phase 3 — snapshot cards + ETF/macro explorer + display modes**: `GET /api/v1/macro/snapshot` returns latest-reading cards (each with its **own** observation date, 3-month change/direction, unit, stale flag). The six fixed ETF×macro charts are replaced by an **Explorer** (ETF / macro-indicator / date-range selectors) with **Dual axis**, **Indexed to 100**, and **Scatter vs forward return** display modes.
+
+- **Phase 4 — macro-regime classifier + timeline**: `classify_macro_regime` → five transparent, **dashboard-only** regimes (Stable Growth / Inflationary Tightening / Disinflationary Slowdown / Stagflation Risk / Easing Transition), explicitly distinct from the engine's allocation regimes. `GET /api/v1/macro/regime-timeline` returns the regime ribbon + an **engine comparison overlay** (the persisted `macro_supports_duration` signal) + a legend of per-regime bond-preference *priors*. React shades an ETF chart by regime with an overlay switch (dashboard ⇄ engine) and a colour legend.
+
+- **Phase 5 — conditional forward returns**: `GET /api/v1/macro/conditional-returns` → a regime × ETF `TableModel` of forward-return statistics (1/3/6/12-month mean, 3M hit rate / median, observation count), with **look-ahead discipline** (macro lagged to a reference-month-end + 1 month availability proxy; forward returns measured strictly after via `merge_asof`) and honesty caveats (descriptive-not-predictive, overlapping-horizon non-independence, thin-regime flags). `GET /api/v1/macro/forward-return-scatter` powers the Explorer's scatter mode (Δ-macro vs subsequent ETF return).
+
+- **Accepted debt**: the macro availability lag is a flat "reference month-end + 1 month" proxy (not point-in-time vintage data), kept behind `macro_availability_dates` to be superseded by a future forecasting/nowcasting system.
+
+- **Tests**: **+30 macro-features unit tests** and **+19 macro API tests** (regimes, forward returns, look-ahead, strict JSON, units). Full suites green (`pytest -m "not slow"` + `api/tests`); `npm run build` clean with the new scatter chart code-split into the shared Plotly chunk.

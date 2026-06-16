@@ -5,6 +5,7 @@ import requests
 import pandas as pd
 
 from config import FRED_API_KEY, RAW_DIR
+from src.signals_macro import macro_features as mf
 from src.storage.db_writer import insert_macro_data
 from src.storage.paths import DB_PATH
 
@@ -94,12 +95,17 @@ def fetch_macro_data() -> pd.DataFrame:
     macro = macro.sort_values("date").reset_index(drop=True)
     macro = macro[macro["date"] >= CUTOFF_DATE].reset_index(drop=True)
 
-    macro["yield_curve"] = macro["gs10"] - macro["gs2"]
-
-    macro["cpi_yoy"] = macro["cpi"].pct_change(periods=12, fill_method=None)
-    macro["core_cpi_yoy"] = macro["core_cpi"].pct_change(periods=12, fill_method=None)
-
-    macro["real_policy_rate"] = macro["fed_funds"] - (macro["core_cpi_yoy"] * 100)
+    # Derived fields (kept on the returned frame; the DB writer drops them). Now
+    # sourced from macro_features so the formulas live in ONE place (refactor
+    # "D") -- byte-identical to the old inline versions kept commented below.
+    # macro["yield_curve"] = macro["gs10"] - macro["gs2"]
+    # macro["cpi_yoy"] = macro["cpi"].pct_change(periods=12, fill_method=None)
+    # macro["core_cpi_yoy"] = macro["core_cpi"].pct_change(periods=12, fill_method=None)
+    # macro["real_policy_rate"] = macro["fed_funds"] - (macro["core_cpi_yoy"] * 100)
+    macro["yield_curve"] = mf.compute_yield_curve_features(macro["gs2"], macro["gs10"])["curve_spread"]
+    macro["cpi_yoy"] = mf.compute_cpi_features(macro["cpi"])["cpi_yoy"]
+    macro["core_cpi_yoy"] = mf.compute_cpi_features(macro["core_cpi"])["cpi_yoy"]
+    macro["real_policy_rate"] = mf.compute_policy_features(macro["fed_funds"], macro["core_cpi_yoy"])["real_policy_rate"]
 
     conn = sqlite3.connect(DB_PATH)
     try:

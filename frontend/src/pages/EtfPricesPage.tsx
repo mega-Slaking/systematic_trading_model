@@ -32,7 +32,9 @@ export function EtfPricesPage() {
   return (
     <div>
       <h2 style={{ marginTop: 0 }}>Historical ETF Prices</h2>
-      <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>Daily closing prices for TLT, AGG, and SHY.</p>
+      <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>
+        Daily adjusted close for TLT, AGG, and SHY (distributions reinvested).
+      </p>
 
       <section style={{ marginBottom: "2rem" }}>
         {prices.isLoading ? (
@@ -42,7 +44,7 @@ export function EtfPricesPage() {
         ) : (
           <SeriesLineChart
             series={prices.data?.series ?? []}
-            yLabel="Close ($)"
+            yLabel="Adjusted Close ($)"
             valueFormatter={(v) => formatCurrency(v, 0)}
           />
         )}

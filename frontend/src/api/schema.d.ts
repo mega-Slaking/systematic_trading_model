@@ -293,6 +293,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/macro/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest macro snapshot cards
+         * @description Latest reading of each headline indicator (per-card observation dates).
+         */
+        get: operations["snapshot_api_v1_macro_snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/macro/regime-timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Macro-regime timeline
+         * @description Dashboard macro-regime over time + optional engine duration-support overlay.
+         */
+        get: operations["regime_timeline_api_v1_macro_regime_timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/macro/conditional-returns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Forward returns by regime
+         * @description Regime × ETF forward-return statistics (descriptive; see response notes).
+         */
+        get: operations["conditional_returns_api_v1_macro_conditional_returns_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/macro/forward-return-scatter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Macro vs forward-return scatter
+         * @description (macro reading, subsequent ETF return) points for the explorer scatter mode.
+         */
+        get: operations["forward_return_scatter_api_v1_macro_forward_return_scatter_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/strategies": {
         parameters: {
             query?: never;
@@ -424,6 +504,62 @@ export interface components {
             strategy_names?: string[] | null;
         };
         /**
+         * CategoricalPoint
+         * @description A point in a categorical-over-time series: an ordinal ``value`` (the code,
+         *     ``None`` where undefined) plus its human-readable ``label`` (spec §12 #5).
+         */
+        CategoricalPoint: {
+            /** Date */
+            date: string;
+            /** Value */
+            value: number | null;
+            /** Label */
+            label?: string | null;
+        };
+        /**
+         * CategoricalSeries
+         * @description A named categorical-over-time trace (regime ribbons, curve states).
+         *
+         *     Kept separate from :class:`NamedSeries` so the dense numeric series never pay
+         *     for a per-point ``label`` field (spec §12 #5 intent, implemented leanly).
+         *     ``categories`` maps each ordinal code (as a string) to its label.
+         */
+        CategoricalSeries: {
+            /** Name */
+            name: string;
+            /** Points */
+            points: components["schemas"]["CategoricalPoint"][];
+            /** Categories */
+            categories: {
+                [key: string]: string;
+            };
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * ConditionalReturnsResponse
+         * @description How TLT/AGG/SHY behaved *after* each macro regime (spec Phase 5).
+         *
+         *     A regime × ETF :class:`TableModel` of forward-return statistics. This is
+         *     **descriptive, not predictive**: ``is_lagged`` records that macro is lagged to
+         *     an availability proxy (no look-ahead); ``point_in_time_release_available`` is
+         *     ``False`` (FRED gives reference months, not release dates); and ``notes``
+         *     carries the overlapping-horizon / small-sample caveats the UI must surface.
+         *     Forward returns are decimal fractions; a ``thin`` row flag marks regimes with
+         *     fewer than the requested minimum observations.
+         */
+        ConditionalReturnsResponse: {
+            table: components["schemas"]["TableModel"];
+            /** Is Lagged */
+            is_lagged: boolean;
+            /** Point In Time Release Available */
+            point_in_time_release_available: boolean;
+            /** Notes */
+            notes: string[];
+        };
+        /**
          * EtfPriceStatsResponse
          * @description The price-statistics table as a list of typed rows.
          */
@@ -438,6 +574,33 @@ export interface components {
         EtfPricesResponse: {
             /** Series */
             series: components["schemas"]["NamedSeries"][];
+        };
+        /**
+         * ForwardReturnScatterResponse
+         * @description Δ-macro vs subsequent-ETF-return scatter (spec §18 explorer display mode).
+         *
+         *     Each point pairs a macro indicator's value at month ``date`` with the ETF's
+         *     forward total return over ``horizon``, measured only *after* the reading was
+         *     knowable (lagged, no look-ahead). Descriptive — association is not causation,
+         *     and overlapping windows make the points non-independent (see ``note``).
+         */
+        ForwardReturnScatterResponse: {
+            /** Points */
+            points: components["schemas"]["ScatterPoint"][];
+            /** Etf */
+            etf: string;
+            /** Horizon */
+            horizon: string;
+            /** X Key */
+            x_key: string;
+            /** X Label */
+            x_label: string;
+            /** X Unit */
+            x_unit: string | null;
+            /** N */
+            n: number;
+            /** Note */
+            note: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -496,6 +659,43 @@ export interface components {
             series: components["schemas"]["NamedSeries"][];
         };
         /**
+         * MacroSnapshotCard
+         * @description The latest reading of one indicator (spec Page 6 snapshot cards).
+         *
+         *     Each card carries its **own** ``observation_date`` -- a monthly series must
+         *     never be shown as if it shared a daily series' date. ``value`` is a number for
+         *     numeric indicators or a label string for categorical ones (e.g. the curve
+         *     regime). ``change_3m`` / ``direction`` summarise 3-month momentum.
+         */
+        MacroSnapshotCard: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: number | string | null;
+            /** Unit */
+            unit: string | null;
+            /** Observation Date */
+            observation_date: string | null;
+            /** Change 3M */
+            change_3m: number | null;
+            /** Direction */
+            direction: string | null;
+            /** Is Stale */
+            is_stale: boolean;
+        };
+        /**
+         * MacroSnapshotResponse
+         * @description Latest-reading snapshot cards + the newest macro date they're measured against.
+         */
+        MacroSnapshotResponse: {
+            /** Cards */
+            cards: components["schemas"]["MacroSnapshotCard"][];
+            /** As Of */
+            as_of: string;
+        };
+        /**
          * NamedSeries
          * @description A named chart trace: a legend label plus its (x, y) points.
          */
@@ -545,6 +745,26 @@ export interface components {
             max_close: number | null;
             /** Total Return */
             total_return: number | null;
+        };
+        /**
+         * RegimeTimelineResponse
+         * @description Macro-regime timeline for shading an ETF chart (spec Phase 4).
+         *
+         *     ``regime`` is the dashboard's transparent rule-based classification over time
+         *     (categorical). ``engine_regime`` is an optional comparison overlay from the
+         *     engine's persisted ``macro_supports_duration`` signal (decision #6: surface
+         *     both; ``None`` if no backtest regime trace exists). ``legend`` maps each
+         *     dashboard regime to its economic-prior bond preference (a prior, not a fitted
+         *     result). The dashboard regimes are explanatory and must NOT be read as the
+         *     engine's allocation regimes.
+         */
+        RegimeTimelineResponse: {
+            regime: components["schemas"]["CategoricalSeries"];
+            engine_regime: components["schemas"]["CategoricalSeries"] | null;
+            /** Legend */
+            legend: {
+                [key: string]: string;
+            };
         };
         /**
          * ReturnsDiagnosticResponse
@@ -647,6 +867,18 @@ export interface components {
             dates: string[];
             /** Returns */
             returns: (number | null)[];
+        };
+        /**
+         * ScatterPoint
+         * @description One month: a macro reading (``x``) vs the ETF's subsequent return (``y``).
+         */
+        ScatterPoint: {
+            /** Date */
+            date: string;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
         };
         /**
          * ScenarioMeta
@@ -890,12 +1122,24 @@ export interface components {
         };
         /**
          * YieldCurveResponse
-         * @description 10Y/2Y yields and the 10Y-2Y spread (spread carries meta={'fill':'tozeroy'}).
+         * @description 10Y/2Y yields, the 10Y-2Y spread, and curve-regime interpretation (Phase 2).
+         *
+         *     ``spread`` carries ``meta={'fill':'tozeroy'}``. ``curve_regime`` is the
+         *     bull/bear steepening/flattening classification over time (categorical);
+         *     ``inverted_intervals`` are the ``[{start, end}]`` spans where the spread is
+         *     inverted (for shading); ``current_regime`` is the latest classified label.
          */
         YieldCurveResponse: {
             gs10: components["schemas"]["NamedSeries"];
             gs2: components["schemas"]["NamedSeries"];
             spread: components["schemas"]["NamedSeries"];
+            curve_regime: components["schemas"]["CategoricalSeries"];
+            /** Inverted Intervals */
+            inverted_intervals: {
+                [key: string]: unknown;
+            }[];
+            /** Current Regime */
+            current_regime: string | null;
         };
     };
     responses: never;
@@ -1281,7 +1525,7 @@ export interface operations {
     macro_api_v1_macro_get: {
         parameters: {
             query?: {
-                /** @description Comma-separated indicator keys. Default: all. */
+                /** @description Comma-separated indicator keys (raw or derived, e.g. cpi_yoy, real_policy_rate). Default: all. */
                 indicators?: string | null;
             };
             header?: never;
@@ -1326,6 +1570,116 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["YieldCurveResponse"];
+                };
+            };
+        };
+    };
+    snapshot_api_v1_macro_snapshot_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MacroSnapshotResponse"];
+                };
+            };
+        };
+    };
+    regime_timeline_api_v1_macro_regime_timeline_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegimeTimelineResponse"];
+                };
+            };
+        };
+    };
+    conditional_returns_api_v1_macro_conditional_returns_get: {
+        parameters: {
+            query?: {
+                /** @description Restrict to one ETF (TLT/AGG/SHY). Default: all. */
+                etf?: string | null;
+                /** @description Below this observation count a regime row is flagged 'thin'. */
+                min_observations?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConditionalReturnsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forward_return_scatter_api_v1_macro_forward_return_scatter_get: {
+        parameters: {
+            query?: {
+                /** @description ETF whose forward return is the Y axis (TLT/AGG/SHY). */
+                etf?: string;
+                /** @description Macro indicator key for the X axis. */
+                indicator?: string;
+                /** @description Forward horizon: 1m / 3m / 6m / 12m. */
+                horizon?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardReturnScatterResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
