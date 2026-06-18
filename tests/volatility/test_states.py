@@ -17,6 +17,9 @@ from src.volatility.states import (
 )
 
 CFG = VolatilityStateConfig()
+# The table tests pin confirmation behaviour explicitly so they don't depend on the
+# production default (which is tuned for regime cadence, not these tiny fixtures).
+TABLE_CFG = VolatilityStateConfig(confirmation_days=3)
 
 
 def _state(percentile, direction, term_ratio):
@@ -168,7 +171,7 @@ def test_build_latest_state_table_multi_asset():
     agg["volatility_level"] = "Normal"
     feats = pd.concat([tlt, agg], ignore_index=True)
 
-    table = build_latest_volatility_state_table(feats, feats["date"].max(), CFG)
+    table = build_latest_volatility_state_table(feats, feats["date"].max(), TABLE_CFG)
     assert set(table["ticker"]) == {"TLT", "AGG"}
     by = table.set_index("ticker")
     assert by.loc["TLT", "confirmed_state"] == "Persistent Stress"
@@ -182,5 +185,5 @@ def test_build_latest_state_table_multi_asset():
 def test_build_latest_state_table_respects_as_of():
     # Before 3 confirming days have elapsed, the confirmed state is still Unknown.
     tlt = _features("TLT", [0.85] * 5, ["Stable"] * 5, [1.0] * 5)
-    early = build_latest_volatility_state_table(tlt, tlt["date"].iloc[1], CFG)
+    early = build_latest_volatility_state_table(tlt, tlt["date"].iloc[1], TABLE_CFG)
     assert early.loc[0, "confirmed_state"] == "Unknown"

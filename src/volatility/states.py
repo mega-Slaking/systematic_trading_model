@@ -50,7 +50,11 @@ class VolatilityStateConfig:
     contraction_ratio: float = 0.85
     rising_change: float = 0.10
     falling_change: float = -0.10
-    confirmation_days: int = 3
+    # Trading days a new state must persist before the confirmed state flips. Tuned
+    # to 10 (~2 weeks) so the confirmed regime changes ~6x/year rather than ~14x at
+    # 3 days — a regime cadence for the shading/markers, not a per-wiggle signal. The
+    # card still surfaces the un-debounced instantaneous state alongside.
+    confirmation_days: int = 10
 
     def level_thresholds(self) -> dict[str, float]:
         """The percentile band edges, in the shape ``classify_volatility_level`` expects."""

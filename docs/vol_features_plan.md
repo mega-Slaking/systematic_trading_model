@@ -497,7 +497,7 @@ Edge cases this resolves explicitly (all covered by tests):
 ```python
 instantaneous_state(t) = classify_volatility_state(...)            # from rules above
 confirmed_state(t)      = the most recent instantaneous_state that has persisted unchanged
-                          for at least `confirmation_days` consecutive trading days (default 3)
+                          for at least `confirmation_days` consecutive trading days (default 10)
 ```
 
 Until a new instantaneous state has persisted `confirmation_days`, `confirmed_state` holds the previous confirmed value (seeded to `Unknown`). This removes the `Extreme`/single-day-crossing flicker from the headline card. The same confirmed series feeds Phase 6's shading.
@@ -515,7 +515,7 @@ class VolatilityStateConfig:
     contraction_ratio: float = 0.85
     rising_change: float = 0.10
     falling_change: float = -0.10
-    confirmation_days: int = 3
+    confirmation_days: int = 10      # ~2 trading weeks -> ~6 regime changes/yr (vs ~14 at 3)
     def version(self) -> str: ...   # stable hash for cache keys (§7.2)
 
 def classify_volatility_state(
