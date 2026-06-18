@@ -80,6 +80,39 @@ export type VolatilityLatestResponse = components["schemas"]["VolatilityLatestRe
 /** One latest-vol row (Tab 5 table). */
 export type VolLatestRow = components["schemas"]["VolLatestRow"];
 
+/** Response of `GET /api/v1/volatility-features/context` (Phase 1 context card). */
+export type VolatilityContextResponse = components["schemas"]["VolatilityContextResponse"];
+
+/** Response of `GET /api/v1/volatility-features/percentile` (Phase 1 percentile view). */
+export type VolatilityPercentileSeriesResponse =
+  components["schemas"]["VolatilityPercentileSeriesResponse"];
+
+/** Response of `GET /api/v1/volatility-features/derived` (Phase 2 ratio/change views). */
+export type VolatilityRatioChangeResponse =
+  components["schemas"]["VolatilityRatioChangeResponse"];
+
+/** Response of `GET /api/v1/volatility-features/state-table` (Phase 3 all-asset states). */
+export type VolatilityStateTableResponse =
+  components["schemas"]["VolatilityStateTableResponse"];
+
+/** One asset's confirmed-state row (Phase 3 table). */
+export type VolatilityStateRow = components["schemas"]["VolatilityStateRow"];
+
+/** Response of `GET /api/v1/volatility-features/agreement` (Phase 4 panel). */
+export type EstimatorAgreementResponse = components["schemas"]["EstimatorAgreementResponse"];
+
+/** One estimator's reading vs the cross-estimator median (Phase 4 panel row). */
+export type EstimatorComparisonRow = components["schemas"]["EstimatorComparisonRow"];
+
+/** Response of `GET /api/v1/volatility-features/chart` (Phase 6 unified chart payload). */
+export type VolatilityChartResponse = components["schemas"]["VolatilityChartResponse"];
+
+/** A contiguous confirmed-state band for shading (Phase 6). */
+export type VolatilityStateRange = components["schemas"]["VolatilityStateRange"];
+
+/** A confirmed, cooldown-gated regime transition for a marker (Phase 6). */
+export type VolatilityTransition = components["schemas"]["VolatilityTransition"];
+
 /** Response of `GET /api/v1/macro` (Page 6). */
 export type MacroResponse = components["schemas"]["MacroResponse"];
 

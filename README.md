@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.17.0
+## Current Version: V 1.18.0
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -834,3 +834,25 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 - **Accepted debt**: the macro availability lag is a flat "reference month-end + 1 month" proxy (not point-in-time vintage data), kept behind `macro_availability_dates` to be superseded by a future forecasting/nowcasting system.
 
 - **Tests**: **+30 macro-features unit tests** and **+19 macro API tests** (regimes, forward returns, look-ahead, strict JSON, units). Full suites green (`pytest -m "not slow"` + `api/tests`); `npm run build` clean with the new scatter chart code-split into the shared Plotly chunk.
+
+  ## V 1.18.0
+
+- **Volatility Features diagnostic dashboard** (`docs/vol_features_plan.md`, Phases 0–6; React/FastAPI). The Tab 5 view grows from a raw five-estimator comparison into an interpretable diagnostic surface. Read-only analytics — **no strategy / sizing / weight / backtest change**; Streamlit untouched. Every derived feature is point-in-time on the already-one-day-lagged surface (never re-shifted), isolated by `config_key`, and cached per the plan's §7 keys (data-version + threshold-config versions so a stale row or a threshold change both invalidate). New pure, UI-agnostic modules under `src/volatility/`, each fully unit-tested under `tests/volatility/` with `lookahead`-marked guards.
+
+- **Phase 0 — data contract (`src/volatility/audit.py`, `constants.py`)**: `validate_volatility_surface` (non-fatal warnings: duplicate keys, negatives, non-monotonic dates, mixed `config_key`, decimals-not-percent) and `normalize_volatility_surface` (single-`config_key`, canonical column order, warm-up `NaN`s preserved). Canonical estimator names (`rolling_20`/`rolling_60`/`ewma_94`/`ewma_97`/`garch`) single-sourced; `surface_data_version` freshness token. Read-only `GET /api/v1/volatility-features/audit`; contract documented in `docs/volatility_data_contract.md`.
+
+- **Phase 1 — historical percentiles (`percentiles.py`)**: point-in-time `compute_rolling_percentile` (vectorised `rolling/expanding.rank`, `method="average"`, inclusive of the as-of observation) over selectable 3Y/5Y/10Y/Full windows, plus a Low/Normal/Elevated/High/Extreme level classifier (upper-edge rule). `GET …/context` (latest vol + percentile + level + as-of/`t-1` dates) and `GET …/percentile` (the 0–100% line with 20/60/80/95 guides). A constant window resolves to `(k+1)/(2k)` — **not** 1.0 — so a flat series reads mid-distribution, not spuriously Extreme (spec corrected to match).
+
+- **Phase 2 — direction + term ratio (`direction.py`)**: 5d/20d **relative** changes and the 20D/60D ratio (`rolling_20/rolling_60`, division-safe), classified Rising/Falling/Stable and Expansion/Balanced/Contraction. `GET …/derived` serves the ratio and change views; the UI carries the required methodology note that the overlapping-window ratio is mechanically mean-reverting and its bands are descriptive, not statistical.
+
+- **Phase 3 — unified diagnostic state (`states.py`)**: a deterministic ordered-precedence classifier (Unknown → Shock → Stress Expansion → Normalisation → Persistent Stress → Early Expansion → Calm) producing **both** an instantaneous and a persistence-**confirmed** state (debounced `confirmation_days`, default 3) so the headline never flickers on a single-day Extreme. Deterministic template explanation; `GET …/state-table` for all assets. Card shows the confirmed state with `now:` instantaneous when they differ.
+
+- **Phase 4 — estimator agreement (`agreement.py`)**: relative dispersion `(max−min)/median` **and** an absolute-spread floor — `Low` agreement requires **both** the relative breach and `absolute_spread > low_agreement_absolute_floor`, so SHY's ~1–2% vol can't read as false disagreement. `GET …/agreement` returns the summary + a per-estimator comparison panel (current vol, percentile, **absolute pp** and **relative %** diff vs median — the old ambiguous "diff vs median" split in two); a `dispersion` chart view added.
+
+- **Phase 5 — price/volatility context (`price_context.py`)**: as-of-`t-1` adjusted-price direction (`prices.shift(1).pct_change(h)`) joined with volatility direction into Adverse Shock / Positive Volatility Expansion / Stable Positive Trend / Controlled Decline / Quiet (the same `t-1` information boundary as the vol surface). **Yield enrichment deliberately deferred** — `gs10`/`gs2` are monthly-ffilled FRED data, so a daily "20-day yield change" would be a misleading staircase.
+
+- **Phase 6 — unified typed chart + shading + markers (`transitions.py`)**: one `GET …/chart` endpoint serves all five views (volatility | percentile | ratio | change | dispersion) as typed `VolatilityChartResponse` (series + `unit` + `reference_lines` + `state_ranges` + `transitions`) — **no `go.Figure` built server-side**. `build_state_ranges` (contiguous confirmed-state bands) and `detect_persistent_state_transitions` (one marker per confirmed change, per-kind `cooldown_days`-gated). React assembles the Plotly traces from the typed payload; `PlotlyLineChart` gained vertical transition `markers`; the page adds **State shading** (notable states only; a colour key renders beneath the chart) and **Transition markers** toggles (markers default off — the diagnostic state changes often, so full-history markers are opt-in).
+
+- **Frontend (`frontend/src/pages/VolatilityPage.tsx`)**: the single diagnostic chart is now driven by `/chart` across all views; a state/context card (level, direction, diagnostic state, estimator agreement, price/vol context), an estimator-comparison panel, and an all-asset confirmed-state table supplement — never replace — the raw latest-values table. Reference estimator + window are selectable. Typed client regenerated (`npm run gen:api`).
+
+- **Tests**: **+115 volatility unit/lookahead tests** (`tests/volatility/`) and **+22 volatility API tests** (`api/tests/test_volatility.py`, 27 total) covering every state, the agreement floor, the percentile constant-series lock, price-context look-ahead, and chart units/ranges/transitions per view. Full backend suite green (512 passed / 5 skipped); `npm run build` clean (Plotly stays code-split).

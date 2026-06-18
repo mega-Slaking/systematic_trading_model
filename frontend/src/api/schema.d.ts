@@ -253,6 +253,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/volatility-features/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Surface data-contract warnings
+         * @description Phase 0 data-contract diagnostics for the persisted surface (read-only).
+         */
+        get: operations["volatility_audit_api_v1_volatility_features_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/chart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Unified chart data (series + shading + transitions)
+         * @description Typed chart payload for the Phase 6 diagnostic chart (no server-built figure).
+         */
+        get: operations["volatility_chart_api_v1_volatility_features_chart_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest percentile context
+         * @description Current vol + historical percentile + level for one ticker (Phase 1 card).
+         */
+        get: operations["volatility_context_api_v1_volatility_features_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/percentile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Historical percentile line
+         * @description The 0.0–1.0 historical-percentile line for the Phase 1 percentile view.
+         */
+        get: operations["volatility_percentile_api_v1_volatility_features_percentile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/state-table": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * All-asset confirmed-state table
+         * @description Latest confirmed diagnostic state per asset (Phase 3 all-asset table).
+         */
+        get: operations["volatility_state_table_api_v1_volatility_features_state_table_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/agreement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Estimator agreement + comparison panel
+         * @description Cross-estimator agreement (relative + absolute) and the per-estimator comparison panel.
+         */
+        get: operations["volatility_agreement_api_v1_volatility_features_agreement_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/derived": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Term-ratio / change / dispersion line
+         * @description 20D/60D term ratio, relative volatility change, or estimator dispersion (Phase 2/4 chart views).
+         */
+        get: operations["volatility_derived_api_v1_volatility_features_derived_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/macro": {
         parameters: {
             query?: never;
@@ -558,6 +698,51 @@ export interface components {
             point_in_time_release_available: boolean;
             /** Notes */
             notes: string[];
+        };
+        /**
+         * EstimatorAgreementResponse
+         * @description Estimator-agreement summary + per-estimator comparison panel (Phase 4).
+         */
+        EstimatorAgreementResponse: {
+            /** Ticker */
+            ticker: string;
+            /** Config Key */
+            config_key: string;
+            /** Agreement */
+            agreement: string;
+            /** Absolute Spread */
+            absolute_spread: number | null;
+            /** Relative Dispersion */
+            relative_dispersion: number | null;
+            /** Highest Estimator */
+            highest_estimator: string | null;
+            /** Lowest Estimator */
+            lowest_estimator: string | null;
+            /** Agreement Config Version */
+            agreement_config_version: string;
+            /** Rows */
+            rows: components["schemas"]["EstimatorComparisonRow"][];
+        };
+        /**
+         * EstimatorComparisonRow
+         * @description One estimator's reading vs the cross-estimator median (Phase 4 panel).
+         *
+         *     The old ambiguous "Difference vs Median" is split into an explicit absolute
+         *     (annualised-vol percentage-point) column and a relative (%) column.
+         */
+        EstimatorComparisonRow: {
+            /** Estimator */
+            estimator: string;
+            /** Method */
+            method: string;
+            /** Current Volatility */
+            current_volatility: number | null;
+            /** Historical Percentile Ordinal */
+            historical_percentile_ordinal: number | null;
+            /** Absolute Diff Vs Median */
+            absolute_diff_vs_median: number | null;
+            /** Relative Diff Vs Median */
+            relative_diff_vs_median: number | null;
         };
         /**
          * EtfPriceStatsResponse
@@ -1097,6 +1282,116 @@ export interface components {
             garch: number | null;
         };
         /**
+         * VolatilityAuditResponse
+         * @description Phase 0 data-contract diagnostics for the persisted surface.
+         *
+         *     ``warnings`` is the (possibly empty) list of non-fatal data-quality findings
+         *     from ``validate_volatility_surface``; an empty list means the surface passed
+         *     every check. ``config_keys`` and ``n_rows`` describe the audited slice. This
+         *     is a read-only diagnostic endpoint and must never break the page.
+         */
+        VolatilityAuditResponse: {
+            /** Warnings */
+            warnings: string[];
+            /** Config Keys */
+            config_keys: string[];
+            /** N Rows */
+            n_rows: number;
+        };
+        /**
+         * VolatilityChartResponse
+         * @description Unified typed chart payload for any view (Phase 6).
+         *
+         *     React assembles the Plotly traces from ``series``; ``state_ranges`` drive
+         *     optional shading, ``transitions`` drive optional markers, ``reference_lines``
+         *     are horizontal guides, and ``unit`` is the axis unit for ``view_mode``. No
+         *     ``go.Figure`` is ever built on the backend.
+         */
+        VolatilityChartResponse: {
+            /** Ticker */
+            ticker: string;
+            /** Config Key */
+            config_key: string;
+            /** View Mode */
+            view_mode: string;
+            /** Unit */
+            unit: string;
+            /** As Of Date */
+            as_of_date: string | null;
+            /** Series */
+            series: components["schemas"]["VolatilitySeries"][];
+            /** State Ranges */
+            state_ranges: components["schemas"]["VolatilityStateRange"][];
+            /** Transitions */
+            transitions: components["schemas"]["VolatilityTransition"][];
+            /** Reference Lines */
+            reference_lines: number[];
+        };
+        /**
+         * VolatilityContextResponse
+         * @description Latest point-in-time percentile context for one ticker/estimator (Phase 1).
+         *
+         *     ``historical_percentile`` is the internal 0.0–1.0 value; ``percentile_ordinal``
+         *     is the 0–100 display form ("24th"). ``as_of_date`` is the snapshot date ``t``;
+         *     ``information_through_date`` is ``t-1`` (the surface is lagged one day, §4.2).
+         */
+        VolatilityContextResponse: {
+            /** Ticker */
+            ticker: string;
+            /** Config Key */
+            config_key: string;
+            /** Reference Estimator */
+            reference_estimator: string;
+            /** Historical Window */
+            historical_window: string;
+            /** As Of Date */
+            as_of_date: string | null;
+            /** Information Through Date */
+            information_through_date: string | null;
+            /** Current Volatility */
+            current_volatility: number | null;
+            /** Historical Percentile */
+            historical_percentile: number | null;
+            /** Percentile Ordinal */
+            percentile_ordinal: number | null;
+            /** Volatility Level */
+            volatility_level: string;
+            /** Insufficient History */
+            insufficient_history: boolean;
+            /** Direction */
+            direction: string;
+            /** Change 5D */
+            change_5d: number | null;
+            /** Change 20D */
+            change_20d: number | null;
+            /** Term Ratio */
+            term_ratio: number | null;
+            /** Term State */
+            term_state: string;
+            /** Instantaneous State */
+            instantaneous_state: string;
+            /** Confirmed State */
+            confirmed_state: string;
+            /** State Explanation */
+            state_explanation: string;
+            /** State Config Version */
+            state_config_version: string;
+            /** Estimator Agreement */
+            estimator_agreement: string;
+            /** Absolute Spread */
+            absolute_spread: number | null;
+            /** Relative Dispersion */
+            relative_dispersion: number | null;
+            /** Agreement Config Version */
+            agreement_config_version: string;
+            /** Price Volatility Context */
+            price_volatility_context: string;
+            /** Asset Return 20D */
+            asset_return_20d: number | null;
+            /** Vol Change 20D */
+            vol_change_20d: number | null;
+        };
+        /**
          * VolatilityFeaturesResponse
          * @description Vol estimate lines for one ticker (Tab 5 chart). Series names are display
          *     labels; ``meta.method`` carries the raw key. ``available_methods`` lists the
@@ -1119,6 +1414,148 @@ export interface components {
             methods: string[];
             /** Rows */
             rows: components["schemas"]["VolLatestRow"][];
+        };
+        /**
+         * VolatilityPercentileSeriesResponse
+         * @description The historical-percentile line for one ticker/estimator/window (Phase 1).
+         *
+         *     ``series`` carries 0.0–1.0 percentile points (``unit="percentile"``);
+         *     ``reference_lines`` are the band edges [0.20, 0.60, 0.80, 0.95] for the chart.
+         */
+        VolatilityPercentileSeriesResponse: {
+            /** Ticker */
+            ticker: string;
+            /** Config Key */
+            config_key: string;
+            /** Reference Estimator */
+            reference_estimator: string;
+            /** Historical Window */
+            historical_window: string;
+            /**
+             * Unit
+             * @default percentile
+             */
+            unit: string;
+            /** Series */
+            series: components["schemas"]["NamedSeries"][];
+            /** Reference Lines */
+            reference_lines: number[];
+        };
+        /**
+         * VolatilityPoint
+         * @description A single (date, value) chart point; ``value`` is ``null`` for NaN/Inf.
+         */
+        VolatilityPoint: {
+            /** Date */
+            date: string;
+            /** Value */
+            value: number | null;
+        };
+        /**
+         * VolatilityRatioChangeResponse
+         * @description A Phase 2 derived-feature line: the 20D/60D term ratio or volatility change.
+         *
+         *     ``view`` selects the feature: ``"ratio"`` (rolling_20/rolling_60, ``unit`` =
+         *     ``"ratio"``, reference lines [0.85, 1.00, 1.15]) or ``"change"`` (relative
+         *     changes, ``unit`` = ``"relative_change"``, reference lines [-0.10, 0, 0.10]).
+         */
+        VolatilityRatioChangeResponse: {
+            /** Ticker */
+            ticker: string;
+            /** Config Key */
+            config_key: string;
+            /** Reference Estimator */
+            reference_estimator: string;
+            /** View */
+            view: string;
+            /** Unit */
+            unit: string;
+            /** Series */
+            series: components["schemas"]["NamedSeries"][];
+            /** Reference Lines */
+            reference_lines: number[];
+        };
+        /**
+         * VolatilitySeries
+         * @description A named chart trace with an explicit axis unit (Phase 6 typed chart data).
+         */
+        VolatilitySeries: {
+            /** Name */
+            name: string;
+            /** Method */
+            method: string | null;
+            /** Unit */
+            unit: string;
+            /** Points */
+            points: components["schemas"]["VolatilityPoint"][];
+        };
+        /**
+         * VolatilityStateRange
+         * @description A contiguous confirmed-state band for chart shading.
+         */
+        VolatilityStateRange: {
+            /** Start */
+            start: string;
+            /** End */
+            end: string;
+            /** State */
+            state: string;
+        };
+        /**
+         * VolatilityStateRow
+         * @description One asset's confirmed diagnostic state + supporting features (Phase 3 table).
+         */
+        VolatilityStateRow: {
+            /** Ticker */
+            ticker: string;
+            /** Confirmed State */
+            confirmed_state: string;
+            /** Percentile Ordinal */
+            percentile_ordinal: number | null;
+            /** Current Volatility */
+            current_volatility: number | null;
+            /** Change 20D */
+            change_20d: number | null;
+            /** Term Ratio */
+            term_ratio: number | null;
+            /** Term State */
+            term_state: string;
+            /** Price Volatility Context */
+            price_volatility_context: string;
+            /** Asset Return 20D */
+            asset_return_20d: number | null;
+        };
+        /**
+         * VolatilityStateTableResponse
+         * @description Latest confirmed-state across all assets (supplements the raw latest table).
+         */
+        VolatilityStateTableResponse: {
+            /** As Of Date */
+            as_of_date: string | null;
+            /** Config Key */
+            config_key: string;
+            /** Reference Estimator */
+            reference_estimator: string;
+            /** State Config Version */
+            state_config_version: string;
+            /** Rows */
+            rows: components["schemas"]["VolatilityStateRow"][];
+        };
+        /**
+         * VolatilityTransition
+         * @description A confirmed, cooldown-gated regime transition for a chart marker.
+         */
+        VolatilityTransition: {
+            /** Date */
+            date: string;
+            /** Kind */
+            kind: string;
+            /** From State */
+            from_state: string | null;
+            /** To State */
+            to_state: string | null;
+            /** Label */
+            label: string;
         };
         /**
          * YieldCurveResponse
@@ -1518,6 +1955,250 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VolatilityLatestResponse"];
+                };
+            };
+        };
+    };
+    volatility_audit_api_v1_volatility_features_audit_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolatilityAuditResponse"];
+                };
+            };
+        };
+    };
+    volatility_chart_api_v1_volatility_features_chart_get: {
+        parameters: {
+            query: {
+                /** @description Ticker, e.g. TLT (required). */
+                ticker: string;
+                /** @description Reference estimator key. */
+                estimator?: string;
+                /** @description Historical window: 3Y | 5Y | 10Y | Full. */
+                window?: string;
+                /** @description View: volatility | percentile | ratio | change | dispersion. */
+                view?: string;
+                /** @description Min observations before a percentile is emitted. */
+                min_periods?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolatilityChartResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_context_api_v1_volatility_features_context_get: {
+        parameters: {
+            query: {
+                /** @description Ticker, e.g. TLT (required). */
+                ticker: string;
+                /** @description Reference estimator key. */
+                estimator?: string;
+                /** @description Historical window: 3Y | 5Y | 10Y | Full. */
+                window?: string;
+                /** @description Min observations before a percentile is emitted. */
+                min_periods?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolatilityContextResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_percentile_api_v1_volatility_features_percentile_get: {
+        parameters: {
+            query: {
+                /** @description Ticker, e.g. TLT (required). */
+                ticker: string;
+                /** @description Reference estimator key. */
+                estimator?: string;
+                /** @description Historical window: 3Y | 5Y | 10Y | Full. */
+                window?: string;
+                /** @description Min observations before a percentile is emitted. */
+                min_periods?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolatilityPercentileSeriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_state_table_api_v1_volatility_features_state_table_get: {
+        parameters: {
+            query?: {
+                /** @description Reference estimator key. */
+                estimator?: string;
+                /** @description Historical window: 3Y | 5Y | 10Y | Full. */
+                window?: string;
+                /** @description Min observations before a percentile is emitted. */
+                min_periods?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolatilityStateTableResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_agreement_api_v1_volatility_features_agreement_get: {
+        parameters: {
+            query: {
+                /** @description Ticker, e.g. TLT (required). */
+                ticker: string;
+                /** @description Historical window for the panel percentiles. */
+                window?: string;
+                /** @description Min observations before a percentile is emitted. */
+                min_periods?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstimatorAgreementResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_derived_api_v1_volatility_features_derived_get: {
+        parameters: {
+            query: {
+                /** @description Ticker, e.g. TLT (required). */
+                ticker: string;
+                /** @description Reference estimator key (drives the change view). */
+                estimator?: string;
+                /** @description Derived view: ratio | change | dispersion. */
+                view?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolatilityRatioChangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -25,6 +25,8 @@ interface PlotlyLineChartProps {
   referenceLines?: { value: number; axis?: "y" | "y2" }[];
   // Shaded vertical date bands with their own fill colour (inversion, regimes).
   bands?: { start: string; end: string; color: string }[];
+  // Vertical marker lines at specific dates (e.g. confirmed state transitions).
+  markers?: { date: string; color?: string }[];
 }
 
 export default function PlotlyLineChart({
@@ -37,6 +39,7 @@ export default function PlotlyLineChart({
   height = 400,
   referenceLines,
   bands,
+  markers,
 }: PlotlyLineChartProps) {
   const c = useChartColors();
   const axis = plotlyAxisTheme(c);
@@ -92,6 +95,13 @@ export default function PlotlyLineChart({
     shapes.push({
       type: "line", xref: "paper", x0: 0, x1: 1, yref: r.axis ?? "y", y0: r.value, y1: r.value,
       line: { color: c.axisLine, width: 1, dash: "dot" }, layer: "below",
+    });
+  }
+  for (const m of markers ?? []) {
+    // Vertical transition markers: full-height dotted lines at a date (x as data).
+    shapes.push({
+      type: "line", xref: "x", x0: m.date, x1: m.date, yref: "paper", y0: 0, y1: 1,
+      line: { color: m.color ?? c.axisLine, width: 1, dash: "dot" }, layer: "below",
     });
   }
   if (shapes.length) layout.shapes = shapes;
