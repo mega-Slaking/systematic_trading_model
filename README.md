@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.20.1
+## Current Version: V 1.21.0
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -905,3 +905,17 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - Added `docs/frontend_ux_improvements_spec.md` — a UX review scoped into six small, independently-shippable phases (token consolidation, shared stat primitive, tab/selection persistence, Volatility page hierarchy, affordances/a11y, dead-code/loading polish).
   - **Phase 1 (this release):** relocated hardcoded chart/regime/star colours into the theme layer with **byte-identical rendered values in every mode** (pure refactor). `theme/chartTheme.ts` now defines a per-mode trace `colorway` (cyan primary on dark/contrast, Plotly blue on light) consumed by `PlotlyLineChart` + `BaseBoxplot`; new CSS tokens `--star-live` / `--star-empty` / `--control-emphasis-text` in `index.css` replace the per-mode ternaries in `StrategiesPage.tsx`; and a new `theme/regimeColors.ts` is the single home for the volatility confirmed-state shading (`volStateBandColor`), the forward-return boxplot fills (`volStateBoxColor`), and the macro regime maps (`regimeRgbMap` + `INVERSION_BAND`) — removing the duplicated palettes from `VolatilityPage.tsx` and `MacroPage.tsx`.
   - Deferred (out of Phase 1 scope): the diagnostic-state **badge** pill colours and the Recharts ETF-prices palette (`SeriesLineChart`) — both pre-existing and constant across modes. `npm run build` clean.
+
+  ## V 1.20.2
+
+- **Frontend UX Phase 2 — shared labelled-value primitive (`frontend/src/components/StatCard.tsx`; no behaviour change)**:
+  - Added `StatCard` + `StatGrid` — one card-tile primitive (card shell, uppercase label header, tabular value) with `info` / `headerRight` / `value` / `children` / `footer` slots, replacing two near-duplicate per-page implementations.
+  - Migrated the Volatility state grid (the former `SnapCard`, incl. the Level/Stability badge cards and info tooltips) and the Macro "Latest readings" tiles (the former `SnapshotCardTile`, with its stale tag + 3m-change/as-of footer) onto it. Rendered output is byte-identical in all three themes; the per-page card markup is removed.
+  - Deferred (spec-sanctioned): the Tearsheet `MetricGrid` migration (differently-shaped tile). `tsc -b` + `npm run build` clean.
+
+  ## V 1.21.0
+
+- **Frontend UX Phase 3 — URL-synced tab & selections (`frontend/src/hooks/useUrlState.ts`)**:
+  - Views are now refresh-safe, bookmarkable, and shareable. New `useUrlState` hook syncs a discrete selection to a URL query param via `history.replaceState` (no router dependency, no history-stack spam): reads once on mount, omits the default from the URL for clean links, and falls back to the default for unknown/garbage values (optional `allowed` validation). Namespaced keys coexist (each write edits only its own param).
+  - Adopted for the **active tab** (`App.tsx` → `?tab=`, validated vs `TABS`), the **Volatility** page (`?volTicker` / `?volEstimator` / `?volWindow` / `?volView`), and the **ETFs-vs-Macro explorer** (`?macroEtf` / `?macroIndicator` / `?macroRange` / `?macroMode` / `?macroHorizon`). `activeTicker` now falls back when an out-of-range ticker arrives via the URL.
+  - Pattern established for incremental adoption; other pages and the regime-timeline / conditional-returns selectors deferred. `tsc -b` + `npm run build` clean.
