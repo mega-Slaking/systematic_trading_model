@@ -80,6 +80,75 @@ export type VolatilityLatestResponse = components["schemas"]["VolatilityLatestRe
 /** One latest-vol row (Tab 5 table). */
 export type VolLatestRow = components["schemas"]["VolLatestRow"];
 
+/** Response of `GET /api/v1/volatility-features/context` (Phase 1 context card). */
+export type VolatilityContextResponse = components["schemas"]["VolatilityContextResponse"];
+
+/** Response of `GET /api/v1/volatility-features/percentile` (Phase 1 percentile view). */
+export type VolatilityPercentileSeriesResponse =
+  components["schemas"]["VolatilityPercentileSeriesResponse"];
+
+/** Response of `GET /api/v1/volatility-features/derived` (Phase 2 ratio/change views). */
+export type VolatilityRatioChangeResponse =
+  components["schemas"]["VolatilityRatioChangeResponse"];
+
+/** Response of `GET /api/v1/volatility-features/state-table` (Phase 3 all-asset states). */
+export type VolatilityStateTableResponse =
+  components["schemas"]["VolatilityStateTableResponse"];
+
+/** One asset's confirmed-state row (Phase 3 table). */
+export type VolatilityStateRow = components["schemas"]["VolatilityStateRow"];
+
+/** Response of `GET /api/v1/volatility-features/agreement` (Phase 4 panel). */
+export type EstimatorAgreementResponse = components["schemas"]["EstimatorAgreementResponse"];
+
+/** One estimator's reading vs the cross-estimator median (Phase 4 panel row). */
+export type EstimatorComparisonRow = components["schemas"]["EstimatorComparisonRow"];
+
+/** Response of `GET /api/v1/volatility-features/chart` (Phase 6 unified chart payload). */
+export type VolatilityChartResponse = components["schemas"]["VolatilityChartResponse"];
+
+/** A contiguous confirmed-state band for shading (Phase 6). */
+export type VolatilityStateRange = components["schemas"]["VolatilityStateRange"];
+
+/** A confirmed, cooldown-gated regime transition for a marker (Phase 6). */
+export type VolatilityTransition = components["schemas"]["VolatilityTransition"];
+
+/** Response of `GET /api/v1/volatility-features/cross-asset` (Phase 7). */
+export type CrossAssetVolatilityResponse = components["schemas"]["CrossAssetVolatilityResponse"];
+
+/** One cross-asset ratio row (Phase 7). */
+export type CrossAssetRatioRow = components["schemas"]["CrossAssetRatioRow"];
+
+/** One all-asset risk-ranking row (Phase 7). */
+export type AssetRiskRankRow = components["schemas"]["AssetRiskRankRow"];
+
+/** Response of `GET /api/v1/volatility-features/cross-asset/ratio-series` (Phase 7 chart). */
+export type CrossAssetRatioSeriesResponse = components["schemas"]["CrossAssetRatioSeriesResponse"];
+
+/** Response of `GET /api/v1/volatility-features/stability` (Phase 8). */
+export type EstimateStabilityResponse = components["schemas"]["EstimateStabilityResponse"];
+
+/** Response of `GET /api/v1/volatility-features/outcomes` (Phase 9 historical outcomes). */
+export type SignalOutcomeResponse = components["schemas"]["SignalOutcomeResponse"];
+
+/** One state×horizon forward-outcome row (Phase 9); stats are null when sample-gated. */
+export type SignalOutcomeRow = components["schemas"]["SignalOutcomeRow"];
+
+/** Per-state forward-return samples at one horizon for the Phase 9 box plot. */
+export type SignalOutcomeDistributionResponse =
+  components["schemas"]["SignalOutcomeDistributionResponse"];
+
+/** One state's per-observation forward-return sample (Phase 9 box plot). */
+export type StateReturnDistribution = components["schemas"]["StateReturnDistribution"];
+
+/** Passive point-in-time signal snapshot for one asset (Phase 10). */
+export type AssetVolatilitySnapshotResponse =
+  components["schemas"]["AssetVolatilitySnapshotResponse"];
+
+/** Passive all-asset snapshot: per-asset snapshots + ratios + ranking (Phase 10). */
+export type CrossAssetVolatilitySnapshotResponse =
+  components["schemas"]["CrossAssetVolatilitySnapshotResponse"];
+
 /** Response of `GET /api/v1/macro` (Page 6). */
 export type MacroResponse = components["schemas"]["MacroResponse"];
 

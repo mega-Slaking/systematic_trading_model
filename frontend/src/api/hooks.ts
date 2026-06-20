@@ -11,7 +11,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { apiGet, apiPost } from "./client";
 import type {
+  AssetVolatilitySnapshotResponse,
   BacktestDailyResponse,
+  CrossAssetRatioSeriesResponse,
+  CrossAssetVolatilityResponse,
+  EstimateStabilityResponse,
+  EstimatorAgreementResponse,
+  VolatilityChartResponse,
   EtfPricesResponse,
   EtfPriceStatsResponse,
   HealthResponse,
@@ -27,10 +33,16 @@ import type {
   ReturnsPointDetail,
   ReturnsResponse,
   ScenariosResponse,
+  SignalOutcomeDistributionResponse,
+  SignalOutcomeResponse,
   StrategiesResponse,
   TearsheetResponse,
+  VolatilityContextResponse,
   VolatilityFeaturesResponse,
   VolatilityLatestResponse,
+  VolatilityPercentileSeriesResponse,
+  VolatilityRatioChangeResponse,
+  VolatilityStateTableResponse,
   YieldCurveResponse,
 } from "./types";
 
@@ -57,6 +69,50 @@ export const queryKeys = {
   volatilityFeatures: (ticker: string | null, methods?: string[]) =>
     ["vol-features", ticker, methods ?? null] as const,
   volatilityLatest: ["vol-latest"] as const,
+  volatilityContext: (ticker: string | null, estimator: string, window: string) =>
+    ["vol-context", ticker, estimator, window] as const,
+  volatilityPercentile: (ticker: string | null, estimator: string, window: string) =>
+    ["vol-percentile", ticker, estimator, window] as const,
+  volatilityDerived: (ticker: string | null, estimator: string, view: string) =>
+    ["vol-derived", ticker, estimator, view] as const,
+  volatilityStateTable: (estimator: string, window: string) =>
+    ["vol-state-table", estimator, window] as const,
+  volatilityAgreement: (ticker: string | null, window: string) =>
+    ["vol-agreement", ticker, window] as const,
+  volatilityChart: (ticker: string | null, estimator: string, window: string, view: string) =>
+    ["vol-chart", ticker, estimator, window, view] as const,
+  estimateStability: (ticker: string | null, estimator: string, window: string) =>
+    ["vol-stability", ticker, estimator, window] as const,
+  crossAsset: (estimator: string, window: string) => ["vol-cross-asset", estimator, window] as const,
+  crossAssetRatio: (pair: string, estimator: string, window: string, view: string) =>
+    ["vol-cross-asset-ratio", pair, estimator, window, view] as const,
+  signalOutcomes: (
+    ticker: string | null,
+    estimator: string,
+    window: string,
+    sampling: string,
+    start: string | null,
+    end: string | null,
+  ) => ["vol-outcomes", ticker, estimator, window, sampling, start, end] as const,
+  signalOutcomeConditions: (
+    ticker: string | null,
+    estimator: string,
+    window: string,
+    sampling: string,
+    start: string | null,
+    end: string | null,
+  ) => ["vol-outcome-conditions", ticker, estimator, window, sampling, start, end] as const,
+  signalOutcomeDistribution: (
+    ticker: string | null,
+    estimator: string,
+    window: string,
+    horizon: string,
+    sampling: string,
+    start: string | null,
+    end: string | null,
+  ) => ["vol-outcome-dist", ticker, estimator, window, horizon, sampling, start, end] as const,
+  signalSnapshot: (ticker: string | null, estimator: string, window: string, asOf: string | null) =>
+    ["vol-snapshot", ticker, estimator, window, asOf] as const,
   macro: (indicators?: string[]) => ["macro", indicators ?? null] as const,
   yieldCurve: ["yield-curve"] as const,
   macroSnapshot: ["macro-snapshot"] as const,
@@ -249,6 +305,229 @@ export function useVolatilityLatest() {
   return useQuery<VolatilityLatestResponse>({
     queryKey: queryKeys.volatilityLatest,
     queryFn: () => apiGet<VolatilityLatestResponse>("/volatility-features/latest"),
+    staleTime: 60_000,
+  });
+}
+
+/** Latest percentile context for one ticker/estimator/window (Phase 1 card). */
+export function useVolatilityContext(ticker: string | undefined, estimator: string, window: string) {
+  return useQuery<VolatilityContextResponse>({
+    queryKey: queryKeys.volatilityContext(ticker ?? null, estimator, window),
+    queryFn: () =>
+      apiGet<VolatilityContextResponse>(
+        `/volatility-features/context?ticker=${encodeURIComponent(ticker!)}&estimator=${estimator}&window=${window}`,
+      ),
+    enabled: Boolean(ticker),
+    staleTime: 60_000,
+  });
+}
+
+/** Historical-percentile line for one ticker/estimator/window (Phase 1 percentile view). */
+export function useVolatilityPercentile(
+  ticker: string | undefined,
+  estimator: string,
+  window: string,
+  options?: QueryOptions,
+) {
+  return useQuery<VolatilityPercentileSeriesResponse>({
+    queryKey: queryKeys.volatilityPercentile(ticker ?? null, estimator, window),
+    queryFn: () =>
+      apiGet<VolatilityPercentileSeriesResponse>(
+        `/volatility-features/percentile?ticker=${encodeURIComponent(ticker!)}&estimator=${estimator}&window=${window}`,
+      ),
+    enabled: Boolean(ticker) && (options?.enabled ?? true),
+    staleTime: 60_000,
+  });
+}
+
+/** All-asset confirmed diagnostic-state table (Phase 3). */
+export function useVolatilityStateTable(estimator: string, window: string) {
+  return useQuery<VolatilityStateTableResponse>({
+    queryKey: queryKeys.volatilityStateTable(estimator, window),
+    queryFn: () =>
+      apiGet<VolatilityStateTableResponse>(
+        `/volatility-features/state-table?estimator=${estimator}&window=${window}`,
+      ),
+    staleTime: 60_000,
+  });
+}
+
+/** Unified chart payload (series + state shading + transition markers) for one view (Phase 6). */
+export function useVolatilityChart(
+  ticker: string | undefined,
+  estimator: string,
+  window: string,
+  view: "volatility" | "percentile" | "ratio" | "change" | "dispersion" | "vov",
+) {
+  return useQuery<VolatilityChartResponse>({
+    queryKey: queryKeys.volatilityChart(ticker ?? null, estimator, window, view),
+    queryFn: () =>
+      apiGet<VolatilityChartResponse>(
+        `/volatility-features/chart?ticker=${encodeURIComponent(ticker!)}&estimator=${estimator}&window=${window}&view=${view}`,
+      ),
+    enabled: Boolean(ticker),
+    staleTime: 60_000,
+  });
+}
+
+/** Estimate stability (vol-of-vol percentile + status) for one ticker (Phase 8). */
+export function useEstimateStability(ticker: string | undefined, estimator: string, window: string) {
+  return useQuery<EstimateStabilityResponse>({
+    queryKey: queryKeys.estimateStability(ticker ?? null, estimator, window),
+    queryFn: () =>
+      apiGet<EstimateStabilityResponse>(
+        `/volatility-features/stability?ticker=${encodeURIComponent(ticker!)}&estimator=${estimator}&window=${window}`,
+      ),
+    enabled: Boolean(ticker),
+    staleTime: 60_000,
+  });
+}
+
+/** Cross-asset relative-vol ratios + risk ranking (Phase 7, monitor only). */
+export function useCrossAssetVolatility(estimator: string, window: string) {
+  return useQuery<CrossAssetVolatilityResponse>({
+    queryKey: queryKeys.crossAsset(estimator, window),
+    queryFn: () =>
+      apiGet<CrossAssetVolatilityResponse>(`/volatility-features/cross-asset?estimator=${estimator}&window=${window}`),
+    staleTime: 60_000,
+  });
+}
+
+/** One pair's ratio (or its percentile) over time (Phase 7 chart). */
+export function useCrossAssetRatioSeries(
+  pair: string | undefined,
+  estimator: string,
+  window: string,
+  view: "raw" | "percentile",
+) {
+  return useQuery<CrossAssetRatioSeriesResponse>({
+    queryKey: queryKeys.crossAssetRatio(pair ?? "", estimator, window, view),
+    queryFn: () =>
+      apiGet<CrossAssetRatioSeriesResponse>(
+        `/volatility-features/cross-asset/ratio-series?pair=${encodeURIComponent(pair!)}&estimator=${estimator}&window=${window}&view=${view}`,
+      ),
+    enabled: Boolean(pair),
+    staleTime: 60_000,
+  });
+}
+
+/** Historical forward outcomes by diagnostic state for one ticker (Phase 9). */
+export function useSignalOutcomes(
+  ticker: string | undefined,
+  estimator: string,
+  window: string,
+  sampling: "non_overlapping" | "all",
+  start?: string,
+  end?: string,
+) {
+  return useQuery<SignalOutcomeResponse>({
+    queryKey: queryKeys.signalOutcomes(ticker ?? null, estimator, window, sampling, start ?? null, end ?? null),
+    queryFn: () => {
+      const params = new URLSearchParams({ ticker: ticker!, estimator, window, sampling });
+      if (start) params.set("start", start);
+      if (end) params.set("end", end);
+      return apiGet<SignalOutcomeResponse>(`/volatility-features/outcomes?${params.toString()}`);
+    },
+    enabled: Boolean(ticker),
+    staleTime: 60_000,
+  });
+}
+
+/** Forward outcomes for the combined-condition signals for one ticker (Phase 9). */
+export function useSignalOutcomeConditions(
+  ticker: string | undefined,
+  estimator: string,
+  window: string,
+  sampling: "non_overlapping" | "all",
+  start?: string,
+  end?: string,
+) {
+  return useQuery<SignalOutcomeResponse>({
+    queryKey: queryKeys.signalOutcomeConditions(ticker ?? null, estimator, window, sampling, start ?? null, end ?? null),
+    queryFn: () => {
+      const params = new URLSearchParams({ ticker: ticker!, estimator, window, sampling });
+      if (start) params.set("start", start);
+      if (end) params.set("end", end);
+      return apiGet<SignalOutcomeResponse>(`/volatility-features/outcomes/conditions?${params.toString()}`);
+    },
+    enabled: Boolean(ticker),
+    staleTime: 60_000,
+  });
+}
+
+/** Per-state forward-return distributions at one horizon for the Phase 9 box plot. */
+export function useSignalOutcomeDistribution(
+  ticker: string | undefined,
+  estimator: string,
+  window: string,
+  horizon: string,
+  sampling: "non_overlapping" | "all",
+  start?: string,
+  end?: string,
+) {
+  return useQuery<SignalOutcomeDistributionResponse>({
+    queryKey: queryKeys.signalOutcomeDistribution(
+      ticker ?? null, estimator, window, horizon, sampling, start ?? null, end ?? null,
+    ),
+    queryFn: () => {
+      const params = new URLSearchParams({ ticker: ticker!, estimator, window, horizon, sampling });
+      if (start) params.set("start", start);
+      if (end) params.set("end", end);
+      return apiGet<SignalOutcomeDistributionResponse>(
+        `/volatility-features/outcomes/distribution?${params.toString()}`,
+      );
+    },
+    enabled: Boolean(ticker),
+    staleTime: 60_000,
+  });
+}
+
+/** Passive point-in-time signal snapshot for one ticker (Phase 10); as-of defaults to latest. */
+export function useAssetSignalSnapshot(
+  ticker: string | undefined,
+  estimator: string,
+  window: string,
+  asOf?: string,
+) {
+  return useQuery<AssetVolatilitySnapshotResponse>({
+    queryKey: queryKeys.signalSnapshot(ticker ?? null, estimator, window, asOf ?? null),
+    queryFn: () => {
+      const params = new URLSearchParams({ ticker: ticker!, estimator, window });
+      if (asOf) params.set("as_of", asOf);
+      return apiGet<AssetVolatilitySnapshotResponse>(`/volatility-features/snapshot?${params.toString()}`);
+    },
+    enabled: Boolean(ticker),
+    staleTime: 60_000,
+  });
+}
+
+/** Estimator-agreement summary + per-estimator comparison panel for one ticker (Phase 4). */
+export function useEstimatorAgreement(ticker: string | undefined, window: string) {
+  return useQuery<EstimatorAgreementResponse>({
+    queryKey: queryKeys.volatilityAgreement(ticker ?? null, window),
+    queryFn: () =>
+      apiGet<EstimatorAgreementResponse>(
+        `/volatility-features/agreement?ticker=${encodeURIComponent(ticker!)}&window=${window}`,
+      ),
+    enabled: Boolean(ticker),
+    staleTime: 60_000,
+  });
+}
+
+/** Term-ratio / volatility-change / estimator-dispersion line (Phase 2/4 chart views). */
+export function useVolatilityDerived(
+  ticker: string | undefined,
+  estimator: string,
+  view: "ratio" | "change" | "dispersion",
+  options?: QueryOptions,
+) {
+  return useQuery<VolatilityRatioChangeResponse>({
+    queryKey: queryKeys.volatilityDerived(ticker ?? null, estimator, view),
+    queryFn: () =>
+      apiGet<VolatilityRatioChangeResponse>(
+        `/volatility-features/derived?ticker=${encodeURIComponent(ticker!)}&estimator=${estimator}&view=${view}`,
+      ),
+    enabled: Boolean(ticker) && (options?.enabled ?? true),
     staleTime: 60_000,
   });
 }

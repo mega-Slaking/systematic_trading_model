@@ -101,9 +101,11 @@ def _now() -> str:
 def _flush_caches() -> None:
     """Invalidate analytics caches so a finished run is reflected at once (§5.2)."""
     try:
-        from api.services.tearsheet import flush_cache
+        from api.services.tearsheet import flush_cache as flush_tearsheet_cache
+        from api.services.volatility import flush_cache as flush_volatility_cache
 
-        flush_cache()
+        flush_tearsheet_cache()
+        flush_volatility_cache()
     except Exception:  # noqa: BLE001 -- never let cache flushing fail a completed job
         logger.exception("Cache flush after backtest failed")
 
