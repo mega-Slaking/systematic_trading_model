@@ -7,7 +7,7 @@
  * their phases.
  */
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiGet, apiPost } from "./client";
 import type {
@@ -602,6 +602,28 @@ export function useStrategies() {
     queryKey: queryKeys.strategies,
     queryFn: () => apiGet<StrategiesResponse>("/strategies"),
     staleTime: 300_000,
+  });
+}
+
+/**
+ * Select which registry entry the live run trades (the star toggle). Writes the
+ * server-side override and seeds the refreshed registry into the cache so the UI
+ * reflects the new live strategy without an extra round-trip.
+ */
+export function useSetLiveStrategy() {
+  const queryClient = useQueryClient();
+  return useMutation<StrategiesResponse, Error, string>({
+    mutationFn: (name) => apiPost<StrategiesResponse>("/strategies/live", { name }),
+    onSuccess: (data) => queryClient.setQueryData(queryKeys.strategies, data),
+  });
+}
+
+/** Reset the live strategy to the built-in default (clears the override). */
+export function useResetLiveStrategy() {
+  const queryClient = useQueryClient();
+  return useMutation<StrategiesResponse, Error, void>({
+    mutationFn: () => apiPost<StrategiesResponse>("/strategies/live/reset"),
+    onSuccess: (data) => queryClient.setQueryData(queryKeys.strategies, data),
   });
 }
 

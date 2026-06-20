@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.19.1
+## Current Version: V 1.20.0
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -889,3 +889,12 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - High-contrast mode now uses vivid, maximally-distinct neon fills for the annualised-volatility chart's confirmed-state shading and the Macro Regime Timeline bands (blue avoided — the contrast theme's axes are already electric blue); other modes keep the original subtle palette.
   - Calm vs Unknown are now visually distinct in both the state shading and the forward-return boxplot.
   - Primary chart curve / box colour is cyan (`#06b6d4`) in dark + high-contrast modes and the original Plotly blue (`#1f77b4`) in light mode, across the Tearsheet, Volatility, ETFs-vs-Macro line charts and the Returns Analysis distribution boxplot; the rest of the palette and all other chart styling are unchanged.
+
+  ## V 1.20.0
+
+- **Select the live strategy from the dashboard (`src/strategy/presets.py`, `api/.../strategies.py`, `frontend/.../StrategiesPage.tsx`)**:
+  - The Strategies tab's ★ is now interactive — click any row's ☆ to choose which registry entry the live run (`main.py` → `live_strategy()`) trades. A runtime override is persisted to `data/live_strategy.json` (gitignored, like the DB) and read by both the API and the live run; the `LIVE_STRATEGY` constant remains the built-in default and a **Reset to default** button clears the override.
+  - `src/strategy/presets.py` gains `live_strategy_override` / `effective_live_strategy_name` / `set_live_strategy_override` / `clear_live_strategy_override`; `live_strategy()` now honours the override, falling back to the constant. The no-override path is behaviour-preserving (effective name == constant). Malformed override files (bad JSON, non-object, non-string/unknown name) are treated as "no override" rather than crashing the live run.
+  - API: `GET /strategies` now also returns `default_strategy` + `is_overridden`; new `POST /strategies/live` (unknown name → 422) and `POST /strategies/live/reset`. React adds `useSetLiveStrategy` / `useResetLiveStrategy` (cache-seeding mutations); the ☆ glyph and Reset button text follow the theme (white on dark, electric blue on high-contrast).
+
+- **Tests**: `api/tests/test_strategies.py` covers set/reset round-trip, unknown-name 422, and a parametrized malformed-override fallback, isolated via a monkeypatched `_OVERRIDE_PATH` temp file so the real `data/live_strategy.json` is never touched. Full suite green (root **441 passed / 5 skipped**; `api/tests` **182 passed**). Note: CI's `pytest -q` (`testpaths = tests`) does not collect `api/tests`, so these run locally via `python -m pytest api/tests`.
