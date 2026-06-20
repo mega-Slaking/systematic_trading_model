@@ -21,6 +21,7 @@ import {
 import type { CategoricalSeries, MacroSnapshotCard, NamedSeries } from "../api/types";
 import { InfoTooltip } from "../components/InfoTooltip";
 import { DataTable, type Column } from "../components/tables/DataTable";
+import { useTheme } from "../theme/ThemeContext";
 
 const PlotlyLineChart = lazy(() => import("../components/charts/PlotlyLineChart"));
 const ForwardReturnScatter = lazy(() => import("../components/charts/ForwardReturnScatter"));
@@ -441,12 +442,28 @@ const ENGINE_REGIME_RGB: Record<string, string> = {
   "Supports duration": "44, 160, 44",
 };
 
+// High-contrast mode swaps in vivid, maximally-distinct neon hues so the regimes
+// read clearly behind the ETF line on a black canvas. Blue is avoided — the
+// contrast theme's axes/font are already electric blue.
+const MACRO_REGIME_RGB_CONTRAST: Record<string, string> = {
+  "Stable Growth": "240, 240, 20",        // neon yellow
+  "Inflationary Tightening": "255, 40, 40", // neon red
+  "Disinflationary Slowdown": "180, 90, 255", // neon purple
+  "Stagflation Risk": "255, 16, 160",     // hot pink
+  "Easing Transition": "57, 255, 20",     // neon green
+};
+const ENGINE_REGIME_RGB_CONTRAST: Record<string, string> = {
+  "No duration support": "255, 145, 0",   // neon orange
+  "Supports duration": "57, 255, 20",     // neon green
+};
+
 type RegimeOverlay = "dashboard" | "engine";
 
 /** Contiguous same-label spans of a categorical series → coloured chart bands. */
 function regimeBands(
   series: CategoricalSeries | null | undefined,
   rgbFor: (label: string) => string | undefined,
+  alpha = 0.16,
 ): { start: string; end: string; color: string }[] {
   if (!series) return [];
   const pts = series.points;
@@ -463,7 +480,7 @@ function regimeBands(
     const rgb = rgbFor(label);
     if (rgb) {
       const end = j + 1 < pts.length ? pts[j + 1].date : pts[j].date; // contiguous bands
-      out.push({ start: pts[i].date, end, color: `rgba(${rgb}, 0.16)` });
+      out.push({ start: pts[i].date, end, color: `rgba(${rgb}, ${alpha})` });
     }
     i = j + 1;
   }
@@ -477,17 +494,22 @@ function RegimeTimeline({
   etfFor: (ticker: string) => NamedSeries | undefined;
   query: ReturnType<typeof useRegimeTimeline>;
 }) {
+  const { mode } = useTheme();
   const [ticker, setTicker] = useState(TICKERS[0]);
   const [overlay, setOverlay] = useState<RegimeOverlay>("dashboard");
 
   if (query.isLoading) return <Muted>Loading regimes…</Muted>;
   if (query.isError || !query.data) return null; // supplementary — never block the page
 
+  const contrast = mode === "contrast";
   const engineAvailable = Boolean(query.data.engine_regime);
   const useEngine = overlay === "engine" && engineAvailable;
   const series = useEngine ? query.data.engine_regime : query.data.regime;
-  const rgbMap = useEngine ? ENGINE_REGIME_RGB : MACRO_REGIME_RGB;
-  const bands = regimeBands(series, (label) => rgbMap[label]);
+  const rgbMap = useEngine
+    ? (contrast ? ENGINE_REGIME_RGB_CONTRAST : ENGINE_REGIME_RGB)
+    : (contrast ? MACRO_REGIME_RGB_CONTRAST : MACRO_REGIME_RGB);
+  // Vivid neon fills need a touch more opacity to read on the black contrast canvas.
+  const bands = regimeBands(series, (label) => rgbMap[label], contrast ? 0.4 : 0.16);
   const etf = etfFor(ticker);
 
   const legendEntries: [string, string][] = useEngine

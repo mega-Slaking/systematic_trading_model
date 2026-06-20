@@ -12,8 +12,14 @@
 import type { Data, Layout } from "plotly.js";
 
 import { plotlyAxisTheme, plotlyBaseLayout, useChartColors } from "../../theme/chartTheme";
+import { useTheme } from "../../theme/ThemeContext";
 import { ChartHeader } from "./ChartHeader";
 import { Plot } from "./plotlyComponent";
+
+// Default Plotly palette tail (D3 category10 minus its leading blue); only the
+// primary box's colour differs between modes. Boxes that pass an explicit `color`
+// (e.g. OutcomeBoxplot's per-state fills) override the colourway and are unaffected.
+const PALETTE_TAIL = ["#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"];
 
 export interface BoxSeries {
   name: string;
@@ -42,7 +48,10 @@ export function BaseBoxplot({
   marginBottom = 80,
 }: BaseBoxplotProps) {
   const c = useChartColors();
+  const { mode } = useTheme();
   const axis = plotlyAxisTheme(c);
+  // Primary box is cyan on the dark/contrast canvases, the original Plotly blue on light.
+  const primaryColor = mode === "light" ? "#1f77b4" : "#06b6d4";
 
   const data: Data[] = series.map((s) => ({
     type: "box",
@@ -56,6 +65,9 @@ export function BaseBoxplot({
 
   const layout: Partial<Layout> = {
     ...plotlyBaseLayout(c),
+    // Mode-dependent primary box colour (cyan on dark/contrast, original blue on light);
+    // the rest of the default palette follows. Explicit per-box colours override this.
+    colorway: [primaryColor, ...PALETTE_TAIL],
     autosize: true,
     height,
     margin: { t: 10, r: 16, b: marginBottom, l: 64 },

@@ -13,8 +13,9 @@
 import { lazy, Suspense, useState, type ReactNode } from "react";
 
 import { ApiError } from "../api/client";
+import { InfoTooltip } from "../components/InfoTooltip";
 import {
-  useAssetSignalSnapshot,
+  // useAssetSignalSnapshot, // used by the commented-out Strategy signal snapshot section
   useCrossAssetRatioSeries,
   useCrossAssetVolatility,
   useEstimateStability,
@@ -29,7 +30,7 @@ import {
 } from "../api/hooks";
 import type {
   AssetRiskRankRow,
-  AssetVolatilitySnapshotResponse,
+  // AssetVolatilitySnapshotResponse, // used by the commented-out Strategy signal snapshot section
   CrossAssetRatioRow,
   EstimateStabilityResponse,
   EstimatorAgreementResponse,
@@ -44,6 +45,7 @@ import type {
 } from "../api/types";
 import { DataTable, type Column } from "../components/tables/DataTable";
 import { formatPercent, formatRatio } from "../lib/format";
+import { useTheme, type ThemeMode } from "../theme/ThemeContext";
 
 const PlotlyLineChart = lazy(() => import("../components/charts/PlotlyLineChart"));
 const OutcomeBoxplot = lazy(() => import("../components/charts/OutcomeBoxplot"));
@@ -92,6 +94,7 @@ const LATEST_COLUMNS: Column<VolLatestRow>[] = [
 ];
 
 export function VolatilityPage() {
+  const { mode } = useTheme();
   const latest = useVolatilityLatest();
   const tickers = (latest.data?.rows ?? []).map((r) => r.ticker);
 
@@ -136,13 +139,14 @@ export function VolatilityPage() {
   const [showMarkers, setShowMarkers] = useState(false);
 
   // Phase 10: passive strategy-integration snapshot (as-of defaults to latest).
-  const [snapshotAsOf, setSnapshotAsOf] = useState<string>("");
-  const snapshot = useAssetSignalSnapshot(
-    activeTicker || undefined,
-    activeEstimator,
-    windowKey,
-    snapshotAsOf || undefined,
-  );
+  // Section removed for now — kept commented for easy restore (see SnapshotPanel below).
+  // const [snapshotAsOf, setSnapshotAsOf] = useState<string>("");
+  // const snapshot = useAssetSignalSnapshot(
+  //   activeTicker || undefined,
+  //   activeEstimator,
+  //   windowKey,
+  //   snapshotAsOf || undefined,
+  // );
 
   // Phase 9: historical signal outcomes (non-overlapping by default).
   const [outcomeSampling, setOutcomeSampling] = useState<"non_overlapping" | "all">("non_overlapping");
@@ -209,7 +213,7 @@ export function VolatilityPage() {
 
     const bands = showShading
       ? data.state_ranges
-          .map((r) => ({ start: r.start, end: r.end, color: stateBandColor(r.state) }))
+          .map((r) => ({ start: r.start, end: r.end, color: stateBandColor(r.state, mode) }))
           .filter((b): b is { start: string; end: string; color: string } => b.color !== null)
       : undefined;
     const markers = showMarkers ? data.transitions.map((t) => ({ date: t.date })) : undefined;
@@ -314,17 +318,12 @@ export function VolatilityPage() {
       <ContextCard
         ticker={activeTicker}
         estimator={activeEstimator}
+        window={windowKey}
         data={ctx.data}
         isLoading={ctx.isLoading}
         agreement={agreement.data}
-      />
-
-      <StabilityCard
-        ticker={activeTicker}
-        estimator={activeEstimator}
-        window={windowKey}
-        data={stability.data}
-        isLoading={stability.isLoading}
+        stabilityData={stability.data}
+        stabilityLoading={stability.isLoading}
       />
 
       <h3 style={{ marginBottom: "0.25rem" }}>Estimator comparison</h3>
@@ -352,19 +351,18 @@ export function VolatilityPage() {
         <DataTable columns={STATE_COLUMNS} rows={stateTable.data?.rows ?? []} />
       )}
 
-      <h3 style={{ marginBottom: "0.25rem", marginTop: "1.5rem" }}>Cross-asset risk</h3>
-      <p style={{ color: "var(--text-subtle)", fontSize: "0.8rem", marginTop: 0, marginBottom: "0.6rem", maxWidth: 820 }}>
-        Relative volatility between assets and each ratio's own history. <strong>Monitor only.</strong> Ratios
-        like TLT/SHY trend with the duration differential, so a high percentile is a single-path, trend-laden
-        reading — not a tradable risk signal. The ranking is by <em>raw</em> current volatility (TLT ≈ always
-        outranks SHY by duration); the percentile and confirmed state carry the real relative context.
-      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "1.5rem", marginBottom: "0.5rem" }}>
+        <h3 style={{ margin: 0 }}>Cross-asset risk</h3>
+        <InfoTooltip label="About cross-asset risk">
+          Relative volatility between assets and each ratio's own history. Monitor only. Ratios like TLT/SHY trend with the duration differential, so a high percentile is a single-path, trend-laden reading — not a tradable risk signal. The ranking is by raw current volatility (TLT ≈ always outranks SHY by duration); the percentile and confirmed state carry the real relative context.
+        </InfoTooltip>
+      </div>
       {crossAsset.isLoading ? (
         <Muted>Loading…</Muted>
       ) : crossAsset.isError ? (
         <Muted tone="error">{errorMessage(crossAsset.error)}</Muted>
       ) : (
-        <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap", alignItems: "flex-start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: "0.8rem", color: "var(--text-3)", marginBottom: "0.3rem" }}>Relative-volatility ratios</div>
             <DataTable columns={RATIO_COLUMNS} rows={crossAsset.data?.ratios ?? []} />
@@ -435,6 +433,8 @@ export function VolatilityPage() {
         setEnd={setOutcomeEnd}
       />
 
+      {/* Strategy signal snapshot section removed for now — added confusion without clear value.
+          The SnapshotPanel component + snapshot hook/state below remain defined for easy restore.
       <SnapshotPanel
         ticker={activeTicker}
         estimator={activeEstimator}
@@ -445,6 +445,7 @@ export function VolatilityPage() {
         asOf={snapshotAsOf}
         setAsOf={setSnapshotAsOf}
       />
+      */}
 
       <h3 style={{ marginBottom: "0.5rem", marginTop: "1.5rem" }}>Latest values</h3>
       {latest.isLoading ? (
@@ -622,15 +623,21 @@ function ViewTab({ active, onClick, children }: { active: boolean; onClick: () =
 function ContextCard({
   ticker,
   estimator,
+  window,
   data,
   isLoading,
   agreement,
+  stabilityData,
+  stabilityLoading,
 }: {
   ticker: string;
   estimator: string;
+  window: string;
   data: VolatilityContextResponse | undefined;
   isLoading: boolean;
   agreement: EstimatorAgreementResponse | undefined;
+  stabilityData: EstimateStabilityResponse | undefined;
+  stabilityLoading: boolean;
 }) {
   const insufficient = data?.insufficient_history ?? false;
   const level = data?.volatility_level ?? "—";
@@ -638,14 +645,9 @@ function ContextCard({
   const instantaneous = data?.instantaneous_state;
 
   return (
-    <div
-      style={{
-        border: "1px solid var(--border-strong)", borderRadius: 8, padding: "0.9rem 1rem",
-        marginBottom: "1.25rem", background: "var(--surface)",
-      }}
-    >
+    <section style={{ marginBottom: "1.25rem" }}>
       {/* headline: confirmed state + as-of */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
           <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)" }}>
             {ticker} · {VOL_METHODS[estimator] ?? estimator} — Volatility State
@@ -670,7 +672,7 @@ function ContextCard({
       </div>
 
       {!isLoading && data?.state_explanation ? (
-        <p style={{ margin: "0.6rem 0 0.8rem", fontSize: "0.85rem", color: "var(--text-muted)", maxWidth: 820 }}>
+        <p style={{ margin: "0 0 0.75rem", fontSize: "0.85rem", color: "var(--text-muted)", maxWidth: 820 }}>
           {data.state_explanation}
         </p>
       ) : null}
@@ -678,87 +680,65 @@ function ContextCard({
       {isLoading ? null : insufficient ? (
         <span style={{ color: "var(--text-muted)" }}>Insufficient history</span>
       ) : (
-        <>
-          <div style={{ display: "flex", gap: "1.75rem", alignItems: "center", flexWrap: "wrap" }}>
-            <Stat label="Current" value={formatPercent(data?.current_volatility ?? null)} />
-            <Stat label={`${data?.historical_window ?? ""} percentile`} value={ordinal(data?.percentile_ordinal ?? null)} />
-            <LabeledBadge label="Level" text={level} style={levelStyle(level)} />
-            <Stat label="20D direction" value={data?.direction ?? "—"} />
-            <Stat label="20D change" value={formatPercent(data?.change_20d ?? null, 1)} />
-            <Stat label="20D / 60D" value={formatRatio(data?.term_ratio ?? null)} />
-            <Stat label="Term state" value={data?.term_state ?? "—"} />
-          </div>
-          {/* Phase 4: estimator agreement */}
-          <div style={{
-            display: "flex", gap: "1.75rem", alignItems: "center", flexWrap: "wrap",
-            marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border-strong)",
-          }}>
-            <Stat label="Agreement" value={data?.estimator_agreement ?? "—"} />
-            <Stat label="Absolute spread" value={formatPP(data?.absolute_spread ?? null)} />
-            <Stat label="Relative dispersion" value={formatPercent(data?.relative_dispersion ?? null, 1)} />
-            <Stat label="Highest" value={agreement?.highest_estimator ?? "—"} />
-            <Stat label="Lowest" value={agreement?.lowest_estimator ?? "—"} />
-          </div>
-          {/* Phase 5: price / volatility context */}
-          <div style={{
-            display: "flex", gap: "1.75rem", alignItems: "center", flexWrap: "wrap",
-            marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border-strong)",
-          }}>
-            <Stat label="Price / Vol context" value={data?.price_volatility_context ?? "—"} />
-            <Stat label="20D asset return" value={formatPercent(data?.asset_return_20d ?? null, 1)} />
-            <Stat label="20D vol change" value={formatPercent(data?.vol_change_20d ?? null, 1)} />
-          </div>
-        </>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "0.75rem" }}>
+          <SnapCard label="Current" value={formatPercent(data?.current_volatility ?? null)} />
+          <SnapCard label={`${data?.historical_window ?? ""} percentile`} value={ordinal(data?.percentile_ordinal ?? null)} />
+          <SnapCard label="Level">
+            <span style={{ ...levelStyle(level), display: "inline-block", padding: "0.1rem 0.5rem", borderRadius: 999, fontSize: "0.9rem", fontWeight: 600 }}>{level}</span>
+          </SnapCard>
+          <SnapCard label="20D direction" value={data?.direction ?? "—"} />
+          <SnapCard label="20D change" value={formatPercent(data?.change_20d ?? null, 1)} />
+          <SnapCard label="20D / 60D" value={formatRatio(data?.term_ratio ?? null)} />
+          <SnapCard label="Term state" value={data?.term_state ?? "—"} />
+          <SnapCard label="Agreement" value={data?.estimator_agreement ?? "—"} />
+          <SnapCard label="Absolute spread" value={formatPP(data?.absolute_spread ?? null)} />
+          <SnapCard label="Relative dispersion" value={formatPercent(data?.relative_dispersion ?? null, 1)} />
+          <SnapCard label="Highest estimator" value={agreement?.highest_estimator ?? "—"} />
+          <SnapCard label="Lowest estimator" value={agreement?.lowest_estimator ?? "—"} />
+          <SnapCard label="Price / Vol context" value={data?.price_volatility_context ?? "—"} />
+          <SnapCard label="20D asset return" value={formatPercent(data?.asset_return_20d ?? null, 1)} />
+          <SnapCard label="20D vol change" value={formatPercent(data?.vol_change_20d ?? null, 1)} />
+          <SnapCard
+            label={`${window} stability %ile`}
+            value={stabilityLoading ? "…" : ordinal(stabilityData?.percentile_ordinal ?? null)}
+            info="20D std dev of daily changes in annualised volatility, ranked vs history. High percentile means the risk estimate is changing quickly and position sizes derived from it would be less stable. Diagnostic only — no sizing change is implied."
+          />
+          <SnapCard
+            label="Stability status"
+            info="Derived from the vol-of-vol percentile. Diagnostic only — no sizing change is implied."
+          >
+            {(() => {
+              const status = stabilityLoading ? "…" : (stabilityData?.estimate_stability ?? "—");
+              const s = stabilityStyle(status);
+              return (
+                <span style={{ ...s, display: "inline-block", padding: "0.1rem 0.5rem", borderRadius: 999, fontSize: "0.9rem", fontWeight: 600 }}>
+                  {status}
+                </span>
+              );
+            })()}
+          </SnapCard>
+        </div>
       )}
-    </div>
+    </section>
   );
 }
 
-/** The Phase 8 "Risk Estimate Stability" card: vov percentile + status headline; raw value in details. */
-function StabilityCard({
-  ticker,
-  estimator,
-  window,
-  data,
-  isLoading,
-}: {
-  ticker: string;
-  estimator: string;
-  window: string;
-  data: EstimateStabilityResponse | undefined;
-  isLoading: boolean;
-}) {
-  const status = data?.estimate_stability ?? "—";
-  const raw = data?.raw_vol_of_vol;
+function SnapCard({ label, value, children, info }: { label: string; value?: string; children?: ReactNode; info?: string }) {
   return (
     <div style={{
-      border: "1px solid var(--border-strong)", borderRadius: 8, padding: "0.85rem 1rem",
-      marginBottom: "1.25rem", background: "var(--surface)",
+      border: "1px solid var(--border-soft)", borderRadius: 8,
+      padding: "0.8rem 0.9rem", background: "var(--surface-raised)",
     }}>
-      <span style={{ fontSize: "0.75rem", color: "var(--text-subtle)" }}>
-        {ticker} · {VOL_METHODS[estimator] ?? estimator} — Risk Estimate Stability
-      </span>
-      {isLoading ? (
-        <div style={{ color: "var(--text-subtle)", marginTop: "0.35rem" }}>Loading…</div>
+      <div style={{ fontSize: "0.72rem", color: "var(--text-subtle)", textTransform: "uppercase", letterSpacing: "0.02em", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+        <span>{label}</span>
+        {info ? <InfoTooltip label={label}>{info}</InfoTooltip> : null}
+      </div>
+      {children ? (
+        <div style={{ marginTop: "0.35rem" }}>{children}</div>
       ) : (
-        <>
-          <div style={{ display: "flex", gap: "1.75rem", alignItems: "center", flexWrap: "wrap", marginTop: "0.45rem" }}>
-            <Stat label={`${window} stability percentile`} value={ordinal(data?.percentile_ordinal ?? null)} />
-            <LabeledBadge label="Status" text={status} style={stabilityStyle(status)} />
-          </div>
-          <p style={{ margin: "0.6rem 0 0.3rem", fontSize: "0.8rem", color: "var(--text-muted)", maxWidth: 820 }}>
-            High volatility-of-volatility means the estimated risk level is changing quickly, so position sizes
-            based on current volatility would be less stable. Diagnostic only — no sizing change is implied.
-          </p>
-          <details style={{ fontSize: "0.78rem", color: "var(--text-subtle)" }}>
-            <summary style={{ cursor: "pointer" }}>Details / methodology</summary>
-            <div style={{ marginTop: "0.3rem" }}>
-              20D standard deviation of daily changes in annualised volatility:{" "}
-              <strong>{raw != null && Number.isFinite(raw) ? raw.toFixed(4) : "—"}</strong>
-              {" "}(muddy units — interpret via the percentile/status above, not this raw value).
-            </div>
-          </details>
-        </>
+        <div style={{ fontSize: "1.2rem", marginTop: "0.35rem", fontVariantNumeric: "tabular-nums", fontFamily: "var(--font-data)" }}>
+          {value}
+        </div>
       )}
     </div>
   );
@@ -775,6 +755,9 @@ function stabilityStyle(status: string): { background: string; color: string } {
   return { background: "transparent", color: "var(--text-muted)" };
 }
 
+// Stat and LabeledBadge are only used by the commented-out Strategy signal snapshot
+// section below — kept commented for easy restore alongside it.
+/*
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
@@ -797,6 +780,7 @@ function LabeledBadge({ label, text, style }: { label: string; text: string; sty
     </div>
   );
 }
+*/
 
 /** Coloured pill for a diagnostic state (shared by the card headline and the table). */
 function StateBadge({ state, large = false }: { state: string; large?: boolean }) {
@@ -822,12 +806,13 @@ function levelStyle(level: string): { background: string; color: string } {
 
 /** Colour key for the chart's confirmed-state shading. */
 function StateLegend() {
-  const states = ["Calm", "Early Expansion", "Stress Expansion", "Persistent Stress", "Normalisation", "Shock"];
+  const { mode } = useTheme();
+  const states = ["Calm", "Early Expansion", "Stress Expansion", "Persistent Stress", "Normalisation", "Shock", "Unknown"];
   return (
     <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center", marginTop: "0.6rem", fontSize: "0.78rem", color: "var(--text-subtle)" }}>
       <span style={{ fontWeight: 600 }}>Confirmed state:</span>
       {states.map((s) => {
-        const fill = stateBandColor(s);
+        const fill = stateBandColor(s, mode);
         return (
           <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
             <span style={{
@@ -839,13 +824,35 @@ function StateLegend() {
           </span>
         );
       })}
-      <span style={{ fontStyle: "italic" }}>Calm / Unknown are unshaded. Markers = regime change.</span>
+      <span style={{ fontStyle: "italic" }}>Calm is unshaded (baseline). Markers = regime change.</span>
     </div>
   );
 }
 
-/** Faint shading fill per notable state; Calm/Unknown return null (unshaded) to keep the chart clean. */
-function stateBandColor(state: string): string | null {
+/**
+ * Faint shading fill per notable state; Calm returns null (unshaded) to keep the
+ * chart's baseline clean. High-contrast mode swaps the subtle palette for vivid,
+ * maximally-distinct neon fills so the regimes read clearly on a black canvas.
+ */
+function stateBandColor(state: string, mode: ThemeMode): string | null {
+  if (mode === "contrast") {
+    switch (state) {
+      case "Shock":
+        return "rgba(255,40,40,0.55)"; // neon red
+      case "Stress Expansion":
+        return "rgba(255,16,160,0.50)"; // hot pink
+      case "Persistent Stress":
+        return "rgba(255,145,0,0.52)"; // neon orange
+      case "Early Expansion":
+        return "rgba(240,240,20,0.45)"; // neon yellow
+      case "Normalisation":
+        return "rgba(180,90,255,0.48)"; // neon purple (clear of the electric-blue axis)
+      case "Unknown":
+        return "rgba(57,255,20,0.42)"; // neon green
+      default: // Calm
+        return null;
+    }
+  }
   switch (state) {
     case "Shock":
       return "rgba(220,38,38,0.20)";
@@ -857,7 +864,9 @@ function stateBandColor(state: string): string | null {
       return "rgba(217,119,6,0.09)";
     case "Normalisation":
       return "rgba(37,99,235,0.09)";
-    default: // Calm, Unknown
+    case "Unknown":
+      return "rgba(148,163,184,0.12)";
+    default: // Calm
       return null;
   }
 }
@@ -1058,13 +1067,12 @@ function OutcomesSection({
 
   return (
     <section style={{ marginTop: "2rem" }}>
-      <h3 style={{ marginBottom: "0.25rem" }}>Historical signal outcomes</h3>
-      <p style={{ color: "var(--text-subtle)", fontSize: "0.8rem", marginTop: 0, marginBottom: "0.6rem", maxWidth: 880 }}>
-        What forward returns followed each confirmed diagnostic state for{" "}
-        <strong>{ticker || "—"}</strong> ({VOL_METHODS[estimator] ?? estimator}). Forward returns are measured from
-        unlagged prices <em>strictly after</em> the signal date; the state is the already-lagged, point-in-time
-        reading. The <strong>independent observation count</strong> is the headline — non-overlapping windows by default.
-      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.6rem" }}>
+        <h3 style={{ margin: 0 }}>Historical signal outcomes</h3>
+        <InfoTooltip label="About historical signal outcomes">
+          What forward returns followed each confirmed diagnostic state for {ticker || "—"} ({VOL_METHODS[estimator] ?? estimator}). Forward returns are measured from unlagged prices strictly after the signal date; the state is the already-lagged, point-in-time reading. The independent observation count is the headline — non-overlapping windows by default.
+        </InfoTooltip>
+      </div>
 
       {/* controls: state filter, horizon, date range, sampling */}
       <div style={{ display: "flex", gap: "1.25rem", alignItems: "center", flexWrap: "wrap", marginBottom: "0.75rem" }}>
@@ -1106,8 +1114,18 @@ function OutcomesSection({
         </p>
       ) : null}
 
-      <div style={{ fontSize: "0.85rem", color: "var(--text-3)", marginBottom: "0.4rem" }}>
-        Independent observations shown ({activeHorizon}): <strong>{totalIndependent}</strong>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.4rem" }}>
+        <span style={{ fontSize: "0.85rem", color: "var(--text-3)" }}>
+          Independent observations shown ({activeHorizon}): <strong>{totalIndependent}</strong>
+        </span>
+        <InfoTooltip label="How to read these outcomes">
+          {data?.disclaimer ??
+            "Outcomes describe what historically followed similar diagnostic states in this single sample. They do not establish causality and do not guarantee future performance."}{" "}
+          Non-overlapping sampling is the default because overlapping daily forward windows overstate the
+          independent evidence. Stats are suppressed below the minimum-sample gates: under 5 independent
+          observations show no stats (Insufficient sample); 5–9 show count / median / worst / best only
+          (Anecdotal); 10–19 show descriptive stats (Low sample); 20+ show the full summary.
+        </InfoTooltip>
       </div>
 
       {isLoading ? (
@@ -1136,21 +1154,13 @@ function OutcomesSection({
         </div>
       ) : null}
 
-      <p style={{ marginTop: "0.7rem", fontSize: "0.78rem", color: "var(--text-subtle)", maxWidth: 880 }}>
-        {data?.disclaimer ??
-          "Outcomes describe what historically followed similar diagnostic states in this single sample. They do not establish causality and do not guarantee future performance."}{" "}
-        Stats are suppressed below the minimum-sample gates: under 5 independent observations show no stats
-        (Insufficient sample); 5–9 show count / median / worst / best only (Anecdotal); 10–19 show descriptive
-        stats (Low sample); 20+ show the full summary.
-      </p>
-
       {/* Combined-condition signals (added incrementally on top of the six diagnostic states). */}
-      <h4 style={{ marginBottom: "0.25rem", marginTop: "1.5rem" }}>Combined-condition signals</h4>
-      <p style={{ color: "var(--text-subtle)", fontSize: "0.8rem", marginTop: 0, marginBottom: "0.5rem", maxWidth: 880 }}>
-        Forward outcomes after specific point-in-time conditions (e.g. volatility rising while price falls), at the{" "}
-        <strong>{activeHorizon}</strong> horizon. A single day may satisfy several conditions, so these are analysed
-        independently — not as one combined state. Same minimum-sample gates as above.
-      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "1.5rem", marginBottom: "0.5rem" }}>
+        <h4 style={{ margin: 0 }}>Combined-condition signals</h4>
+        <InfoTooltip label="About combined-condition signals">
+          Forward outcomes after specific point-in-time conditions (e.g. volatility rising while price falls), at the {activeHorizon} horizon. A single day may satisfy several conditions, so these are analysed independently — not as one combined state. Same minimum-sample gates as above.
+        </InfoTooltip>
+      </div>
       {conditionsLoading ? (
         <Muted>Loading…</Muted>
       ) : conditionsError ? (
@@ -1169,11 +1179,11 @@ function OutcomesSection({
   );
 }
 
-/**
- * Phase 10 "Strategy signal snapshot" panel: the passive, typed, point-in-time
- * snapshot a strategy/risk layer *could* consume — with full reproducibility
- * metadata and both information-time dates. Explicitly NOT wired to allocation.
- */
+// ===== Strategy signal snapshot — REMOVED FROM UI for now (kept for easy restore) =====
+// Phase 10 "Strategy signal snapshot" panel: the passive, typed, point-in-time
+// snapshot a strategy/risk layer could consume — with full reproducibility
+// metadata and both information-time dates. Explicitly NOT wired to allocation.
+/*
 function SnapshotPanel({
   ticker,
   estimator,
@@ -1195,8 +1205,11 @@ function SnapshotPanel({
 }) {
   return (
     <section style={{ marginTop: "2rem" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
-        <h3 style={{ marginBottom: "0.25rem", marginTop: 0 }}>Strategy signal snapshot</h3>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
+        <h3 style={{ margin: 0 }}>Strategy signal snapshot</h3>
+        <InfoTooltip label="About strategy signal snapshot">
+          The stable, typed, point-in-time snapshot that strategy / risk layers could consume, with full reproducibility metadata. Producing it changes no allocation, sizing, or weight. Point-in-time via the existing as-of path; {ticker || "—"} ({VOL_METHODS[estimator] ?? estimator}).
+        </InfoTooltip>
         <span style={{
           padding: "0.1rem 0.5rem", borderRadius: 999, fontSize: "0.72rem", fontWeight: 700,
           background: "rgba(217,119,6,0.16)", color: "#b45309",
@@ -1204,11 +1217,6 @@ function SnapshotPanel({
           Passive — not wired to allocation
         </span>
       </div>
-      <p style={{ color: "var(--text-subtle)", fontSize: "0.8rem", marginTop: 0, marginBottom: "0.6rem", maxWidth: 880 }}>
-        The stable, typed, point-in-time snapshot that strategy / risk layers <em>could</em> consume, with full
-        reproducibility metadata. Producing it changes no allocation, sizing, or weight. Point-in-time via the
-        existing as-of path; <strong>{ticker || "—"}</strong> ({VOL_METHODS[estimator] ?? estimator}).
-      </p>
 
       <div style={{ display: "flex", gap: "1.25rem", alignItems: "center", flexWrap: "wrap", marginBottom: "0.75rem" }}>
         <Control label="As of">
@@ -1235,7 +1243,7 @@ function SnapshotPanel({
         <Muted>No snapshot.</Muted>
       ) : (
         <div style={{ border: "1px solid var(--border-strong)", borderRadius: 8, padding: "0.9rem 1rem", background: "var(--surface)" }}>
-          {/* diagnostic states / features */}
+          {/* diagnostic states / features }
           <div style={{ display: "flex", gap: "1.75rem", alignItems: "center", flexWrap: "wrap" }}>
             <LabeledBadge label="Confirmed state" text={data.confirmed_state} style={stateStyle(data.confirmed_state)} />
             <Stat label="Annualised vol" value={formatPercent(data.annualized_volatility ?? null)} />
@@ -1249,7 +1257,7 @@ function SnapshotPanel({
             <Stat label="Estimate stability" value={data.estimate_stability} />
           </div>
 
-          {/* reproducibility metadata + information-time dates */}
+          {/* reproducibility metadata + information-time dates }
           <div style={{
             display: "flex", gap: "1.5rem", alignItems: "center", flexWrap: "wrap",
             marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border-strong)",
@@ -1266,16 +1274,75 @@ function SnapshotPanel({
             <MetaItem label="stability window" value={data.stability_window ?? "—"} />
           </div>
 
-          <p style={{ margin: "0.7rem 0 0", fontSize: "0.76rem", color: "var(--text-subtle)", maxWidth: 880 }}>
-            Documented but intentionally <strong>not</strong> implemented here: position sizing
-            (target_vol / estimated_vol), risk overlays (extreme percentile → lower max weight; low agreement →
-            conservative estimate; unstable estimate → slower weight changes), and allocation context. Each is a
-            future strategy decision requiring its own reviewed design.
-          </p>
+          {/* Indicative posture + future hooks, side by side so they fill the card width
+              instead of wrapping into a narrow column. }
+          <div style={{
+            marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border-strong)",
+            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "1.5rem",
+          }}>
+            {/* Indicative posture: what a strategy COULD read from this snapshot — derived from the
+                readings above, but explicitly not applied to any weight here. }
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.4rem" }}>
+                <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text-3)" }}>Indicative posture</span>
+                <span style={{
+                  padding: "0.05rem 0.45rem", borderRadius: 999, fontSize: "0.68rem", fontWeight: 700,
+                  background: "rgba(217,119,6,0.16)", color: "#b45309",
+                }}>
+                  Read-only — not applied
+                </span>
+              </div>
+              <ul style={{ margin: "0", paddingLeft: "1.1rem", fontSize: "0.8rem", color: "var(--text-muted)", lineHeight: 1.55 }}>
+                {snapshotActions(data).map((a, i) => (
+                  <li key={i} style={{ marginBottom: "0.7rem" }}>{a}</li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Future, intentionally-unimplemented strategy hooks. }
+            <div style={{ fontSize: "0.76rem", color: "var(--text-subtle)" }}>
+              <span style={{ fontWeight: 600 }}>Documented, intentionally not implemented here</span> — each needs its own reviewed design:
+              <ul style={{ margin: "0.3rem 0 0", paddingLeft: "1.1rem", lineHeight: 1.55 }}>
+                <li style={{ marginBottom: "0.7rem" }}><strong>Position sizing</strong> — scale toward a target volatility (target_vol ÷ estimated_vol).</li>
+                <li style={{ marginBottom: "0.7rem" }}><strong>Risk overlays</strong> — extreme percentile → lower max weight; low agreement → more conservative estimate; unstable estimate → slower weight changes.</li>
+                <li><strong>Allocation context</strong> — how this asset's reading fits the wider book.</li>
+              </ul>
+            </div>
+          </div>
         </div>
       )}
     </section>
   );
+}
+
+// Indicative-only reading of a snapshot: the plain-English actions a strategy/risk
+// layer COULD take given these readings. Purely descriptive — nothing changes a weight.
+function snapshotActions(data: AssetVolatilitySnapshotResponse): string[] {
+  const out: string[] = [];
+
+  const vol = data.annualized_volatility;
+  if (vol != null && Number.isFinite(vol) && vol > 0) {
+    out.push(`Sizing reference: scale exposure by target_vol ÷ ${formatPercent(vol)} (current vol) — higher vol implies a smaller position.`);
+  }
+
+  const pct = data.percentile_ordinal;
+  if (pct != null) {
+    if (pct >= 90) out.push(`Risk cap: vol sits in the ${ordinal(pct)} percentile (extreme) — a risk overlay would lower the max weight.`);
+    else if (pct <= 10) out.push(`Risk budget: vol sits in the ${ordinal(pct)} percentile (calm) — room for a fuller position within caps.`);
+    else out.push(`Risk budget: vol in the ${ordinal(pct)} percentile (mid-range) — no percentile-driven cap implied.`);
+  }
+
+  if (/low|weak|poor/i.test(data.estimator_agreement)) {
+    out.push("Estimate: estimators disagree (low agreement) — size off the more conservative (higher) vol.");
+  }
+
+  if (/unstable|changing|extreme/i.test(data.estimate_stability)) {
+    out.push("Smoothing: estimate is unstable — adjust weights gradually rather than snapping to target.");
+  } else {
+    out.push("Smoothing: estimate is stable — target weight can be tracked closely.");
+  }
+
+  return out;
 }
 
 function MetaItem({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
@@ -1288,6 +1355,8 @@ function MetaItem({ label, value, mono = false }: { label: string; value: string
     </div>
   );
 }
+*/
+// ===== end Strategy signal snapshot =====
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return `${error.message} (HTTP ${error.status})`;
