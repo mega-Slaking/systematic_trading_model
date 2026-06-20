@@ -80,6 +80,8 @@ class VolatilityStateRow(BaseModel):
     term_state: str
     price_volatility_context: str     # Phase 5 joint context
     asset_return_20d: float | None    # Phase 5 as-of-(t-1) 20-day price return
+    estimate_stability: str           # Phase 8 status
+    stability_percentile: float | None  # Phase 8 vol-of-vol percentile (0.0–1.0)
 
 
 class VolatilityStateTableResponse(BaseModel):
@@ -119,6 +121,61 @@ class EstimatorAgreementResponse(BaseModel):
     lowest_estimator: str | None         # display label
     agreement_config_version: str
     rows: list[EstimatorComparisonRow]
+
+
+class EstimateStabilityResponse(BaseModel):
+    """Estimate stability for one ticker (Phase 8). Percentile + Status are primary;
+    the raw vol-of-vol is debug/methodology only and precisely labelled."""
+
+    ticker: str
+    config_key: str
+    stability_percentile: float | None      # 0.0–1.0 (primary)
+    percentile_ordinal: int | None
+    estimate_stability: str                 # Status (primary)
+    stability_window: str
+    # Debug/methodology only — "20D std of daily changes in annualised volatility":
+    raw_vol_of_vol: float | None
+
+
+class CrossAssetRatioRow(BaseModel):
+    """One cross-asset volatility ratio + its own historical context (Phase 7, monitor only)."""
+
+    pair: str                          # "TLT / AGG"
+    current_ratio: float | None
+    percentile_ordinal: int | None
+    relative_risk_state: str           # Low | Normal | Elevated | High | Extreme | Insufficient history
+
+
+class AssetRiskRankRow(BaseModel):
+    """One row of the all-asset risk ranking (by raw current volatility, Phase 7)."""
+
+    rank: int
+    ticker: str
+    current_volatility: float | None
+    percentile_ordinal: int | None
+    confirmed_state: str
+
+
+class CrossAssetVolatilityResponse(BaseModel):
+    """Cross-asset relative-risk diagnostics: per-pair ratios + the asset ranking."""
+
+    as_of_date: str | None
+    config_key: str
+    reference_estimator: str
+    ratios: list[CrossAssetRatioRow]
+    ranking: list[AssetRiskRankRow]
+
+
+class CrossAssetRatioSeriesResponse(BaseModel):
+    """One pair's ratio (or its percentile) over time for the Phase 7 chart selector."""
+
+    pair: str
+    config_key: str
+    reference_estimator: str
+    view: str                          # "raw" | "percentile"
+    unit: str                          # "ratio" | "percentile"
+    series: list[NamedSeries]
+    reference_lines: list[float]
 
 
 class VolatilityPoint(BaseModel):
@@ -190,6 +247,164 @@ class VolatilityRatioChangeResponse(BaseModel):
     unit: str                         # "ratio" | "relative_change"
     series: list[NamedSeries]
     reference_lines: list[float]
+
+
+class SignalOutcomeRow(BaseModel):
+    """Forward outcomes that followed one diagnostic state at one horizon (Phase 9).
+
+    ``effective_observations`` is the **independent** count — non-overlapping by
+    default. The statistics are gated by sample quality: ``Insufficient sample``
+    emits no stats; ``Anecdotal`` emits median / worst / best only; ``Low sample``
+    and above emit the full set. Gated-out statistics serialise as ``null``.
+    Outcomes describe the sample only — no causality, no guarantee (see the
+    response disclaimer).
+    """
+
+    state: str
+    horizon: str                       # "1M" | "3M" | "6M"
+    effective_observations: int        # independent count (non-overlapping by default)
+    sample_quality: str                # "Insufficient sample" | "Anecdotal" | "Low sample" | ""
+    mean_return: float | None          # None when gated out
+    median_return: float | None
+    hit_rate: float | None             # fraction of windows with a positive forward return
+    std_return: float | None           # sample std of forward returns (Low-sample+ only)
+    worst_return: float | None
+    best_return: float | None
+    forward_max_drawdown: float | None  # worst peak-to-trough inside the forward window (<= 0)
+
+
+class SignalOutcomeResponse(BaseModel):
+    """Historical forward outcomes by diagnostic state for one ticker (Phase 9).
+
+    ``sampling`` is ``"non_overlapping"`` (default) or ``"all"`` (explicit override
+    that overstates independent evidence — flagged in ``disclaimer``). ``rows``
+    span the states present in the sample across the requested horizons.
+
+    The ``/outcomes/conditions`` endpoint reuses this same shape for the
+    combined-condition signals (``state`` then holds the condition label, e.g.
+    "Vol rising + price falling"); every defined condition appears, gated to
+    "Insufficient sample" when it has too few independent occurrences.
+    """
+
+    ticker: str
+    config_key: str
+    reference_estimator: str
+    sampling: str                      # "non_overlapping" (default) | "all"
+    horizons: list[str]                # the analysed horizon labels, in order
+    rows: list[SignalOutcomeRow]
+    disclaimer: str                    # describes-the-sample-only caveat
+
+
+class StateReturnDistribution(BaseModel):
+    """One state's per-observation forward-return sample for the box plot (Phase 9).
+
+    ``returns`` is the list of realised forward returns over the state's (optionally
+    non-overlapping) signal dates at one horizon — the raw distribution the box
+    summarises, not aggregate stats. ``effective_observations`` is ``len(returns)``.
+    """
+
+    state: str
+    effective_observations: int
+    returns: list[float]
+
+
+class SignalOutcomeDistributionResponse(BaseModel):
+    """Per-state forward-return distributions at one horizon for the box plot (Phase 9).
+
+    Companion to ``SignalOutcomeResponse``: the aggregate endpoint returns gated
+    summary stats; this returns the per-observation samples for one ``horizon`` so
+    the frontend can draw a box per diagnostic state under the same sampling policy.
+    """
+
+    ticker: str
+    config_key: str
+    reference_estimator: str
+    sampling: str                      # "non_overlapping" (default) | "all"
+    horizon: str                       # "1M" | "3M" | "6M"
+    unit: str = "decimal"              # forward returns are decimal fractions
+    distributions: list[StateReturnDistribution]
+    disclaimer: str
+
+
+class AssetVolatilitySnapshotResponse(BaseModel):
+    """One asset's passive point-in-time volatility snapshot (Phase 10).
+
+    A stable typed view of the Phase 1–8 diagnostics at ``as_of_date`` with full
+    reproducibility metadata (config + versions + both information-time dates), for
+    strategy/risk layers to consume. **Passive** — producing it changes no
+    allocation, sizing, or weight. ``as_of_date`` is the decision date ``t``;
+    ``information_through_date`` is ``t-1`` (the surface is lagged one day).
+    """
+
+    ticker: str
+    as_of_date: str | None
+    information_through_date: str | None
+    # reproducibility metadata
+    config_key: str
+    reference_estimator: str
+    historical_window: str
+    minimum_history: int
+    state_config_version: str
+    confirmation_days: int
+    agreement_config_version: str | None
+    stability_window: str | None
+    # features / diagnostic states
+    annualized_volatility: float | None
+    historical_percentile: float | None
+    percentile_ordinal: int | None
+    volatility_level: str
+    change_5d: float | None
+    change_20d: float | None
+    direction: str
+    short_long_ratio: float | None
+    term_state: str
+    instantaneous_state: str
+    confirmed_state: str
+    estimator_agreement: str
+    absolute_spread: float | None
+    relative_dispersion: float | None
+    asset_return_20d: float | None
+    price_volatility_context: str
+    stability_percentile: float | None
+    estimate_stability: str
+    raw_vol_of_vol: float | None        # "20D std of daily changes in annualised volatility"
+
+
+class CrossAssetRatioSnapshotRow(BaseModel):
+    """One cross-asset volatility ratio + its own historical context (Phase 10 snapshot)."""
+
+    pair: str
+    current_ratio: float | None
+    percentile_ordinal: int | None
+    relative_risk_state: str
+
+
+class AssetRiskRankSnapshotRow(BaseModel):
+    """One row of the all-asset risk ranking, by raw current volatility (Phase 10 snapshot)."""
+
+    rank: int
+    ticker: str
+    annualized_volatility: float | None
+    historical_percentile: float | None
+    confirmed_state: str
+
+
+class CrossAssetVolatilitySnapshotResponse(BaseModel):
+    """All-asset passive snapshot: per-asset snapshots + relative ratios + risk ranking (Phase 10)."""
+
+    as_of_date: str | None
+    information_through_date: str | None
+    config_key: str
+    reference_estimator: str
+    historical_window: str
+    minimum_history: int
+    state_config_version: str
+    confirmation_days: int
+    agreement_config_version: str | None
+    stability_window: str | None
+    assets: list[AssetVolatilitySnapshotResponse]
+    ratios: list[CrossAssetRatioSnapshotRow]
+    ranking: list[AssetRiskRankSnapshotRow]
 
 
 class VolatilityFeaturesResponse(BaseModel):

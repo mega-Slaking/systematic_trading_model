@@ -353,6 +353,175 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/volatility-features/cross-asset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cross-asset relative vol + risk ranking
+         * @description Per-pair relative-vol ratios (+ own percentile) and the all-asset risk ranking (monitor only).
+         */
+        get: operations["volatility_cross_asset_api_v1_volatility_features_cross_asset_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/cross-asset/ratio-series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One pair's ratio / percentile line
+         * @description The selected pair's raw ratio or its historical percentile over time (Phase 7 chart).
+         */
+        get: operations["volatility_cross_asset_ratio_series_api_v1_volatility_features_cross_asset_ratio_series_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/stability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Estimate stability (vol-of-vol)
+         * @description Vol-of-vol percentile + status (raw value is debug/methodology only).
+         */
+        get: operations["volatility_stability_api_v1_volatility_features_stability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/outcomes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Historical forward outcomes by state
+         * @description Forward returns / drawdowns / hit rates by confirmed diagnostic state (Phase 9).
+         *
+         *     Non-overlapping sampling is the default; hard minimum-sample gates suppress
+         *     full stats for inadequate samples. Outcomes describe the sample only.
+         */
+        get: operations["volatility_outcomes_api_v1_volatility_features_outcomes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/outcomes/conditions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Forward outcomes by combined condition
+         * @description Forward outcomes for the combined-condition signals (Phase 9, added incrementally).
+         *
+         *     Same alignment and minimum-sample gates as ``/outcomes``; ``state`` carries the
+         *     condition label. Every defined condition appears (gated when too rare).
+         */
+        get: operations["volatility_outcome_conditions_api_v1_volatility_features_outcomes_conditions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/outcomes/distribution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Forward-return distribution by state
+         * @description Per-state forward-return samples at one horizon for the Phase 9 box plot.
+         */
+        get: operations["volatility_outcome_distribution_api_v1_volatility_features_outcomes_distribution_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Passive point-in-time signal snapshot
+         * @description Phase 10 passive snapshot: Phase 1–8 diagnostics + reproducibility metadata at an as-of date.
+         *
+         *     Strategy/risk layers *could* consume this typed snapshot; producing it changes
+         *     no allocation, sizing, or weight. Point-in-time via the existing as-of path.
+         */
+        get: operations["volatility_snapshot_api_v1_volatility_features_snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/volatility-features/snapshot/cross-asset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Passive all-asset signal snapshot
+         * @description Phase 10 passive all-asset snapshot: per-asset snapshots + relative ratios + risk ranking.
+         */
+        get: operations["volatility_snapshot_cross_asset_api_v1_volatility_features_snapshot_cross_asset_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/volatility-features/agreement": {
         parameters: {
             query?: never;
@@ -618,6 +787,110 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AssetRiskRankRow
+         * @description One row of the all-asset risk ranking (by raw current volatility, Phase 7).
+         */
+        AssetRiskRankRow: {
+            /** Rank */
+            rank: number;
+            /** Ticker */
+            ticker: string;
+            /** Current Volatility */
+            current_volatility: number | null;
+            /** Percentile Ordinal */
+            percentile_ordinal: number | null;
+            /** Confirmed State */
+            confirmed_state: string;
+        };
+        /**
+         * AssetRiskRankSnapshotRow
+         * @description One row of the all-asset risk ranking, by raw current volatility (Phase 10 snapshot).
+         */
+        AssetRiskRankSnapshotRow: {
+            /** Rank */
+            rank: number;
+            /** Ticker */
+            ticker: string;
+            /** Annualized Volatility */
+            annualized_volatility: number | null;
+            /** Historical Percentile */
+            historical_percentile: number | null;
+            /** Confirmed State */
+            confirmed_state: string;
+        };
+        /**
+         * AssetVolatilitySnapshotResponse
+         * @description One asset's passive point-in-time volatility snapshot (Phase 10).
+         *
+         *     A stable typed view of the Phase 1–8 diagnostics at ``as_of_date`` with full
+         *     reproducibility metadata (config + versions + both information-time dates), for
+         *     strategy/risk layers to consume. **Passive** — producing it changes no
+         *     allocation, sizing, or weight. ``as_of_date`` is the decision date ``t``;
+         *     ``information_through_date`` is ``t-1`` (the surface is lagged one day).
+         */
+        AssetVolatilitySnapshotResponse: {
+            /** Ticker */
+            ticker: string;
+            /** As Of Date */
+            as_of_date: string | null;
+            /** Information Through Date */
+            information_through_date: string | null;
+            /** Config Key */
+            config_key: string;
+            /** Reference Estimator */
+            reference_estimator: string;
+            /** Historical Window */
+            historical_window: string;
+            /** Minimum History */
+            minimum_history: number;
+            /** State Config Version */
+            state_config_version: string;
+            /** Confirmation Days */
+            confirmation_days: number;
+            /** Agreement Config Version */
+            agreement_config_version: string | null;
+            /** Stability Window */
+            stability_window: string | null;
+            /** Annualized Volatility */
+            annualized_volatility: number | null;
+            /** Historical Percentile */
+            historical_percentile: number | null;
+            /** Percentile Ordinal */
+            percentile_ordinal: number | null;
+            /** Volatility Level */
+            volatility_level: string;
+            /** Change 5D */
+            change_5d: number | null;
+            /** Change 20D */
+            change_20d: number | null;
+            /** Direction */
+            direction: string;
+            /** Short Long Ratio */
+            short_long_ratio: number | null;
+            /** Term State */
+            term_state: string;
+            /** Instantaneous State */
+            instantaneous_state: string;
+            /** Confirmed State */
+            confirmed_state: string;
+            /** Estimator Agreement */
+            estimator_agreement: string;
+            /** Absolute Spread */
+            absolute_spread: number | null;
+            /** Relative Dispersion */
+            relative_dispersion: number | null;
+            /** Asset Return 20D */
+            asset_return_20d: number | null;
+            /** Price Volatility Context */
+            price_volatility_context: string;
+            /** Stability Percentile */
+            stability_percentile: number | null;
+            /** Estimate Stability */
+            estimate_stability: string;
+            /** Raw Vol Of Vol */
+            raw_vol_of_vol: number | null;
+        };
+        /**
          * BacktestDailyResponse
          * @description Endpoint 4 (Tab 3 raw table): one scenario's daily rows, paginated.
          *
@@ -698,6 +971,123 @@ export interface components {
             point_in_time_release_available: boolean;
             /** Notes */
             notes: string[];
+        };
+        /**
+         * CrossAssetRatioRow
+         * @description One cross-asset volatility ratio + its own historical context (Phase 7, monitor only).
+         */
+        CrossAssetRatioRow: {
+            /** Pair */
+            pair: string;
+            /** Current Ratio */
+            current_ratio: number | null;
+            /** Percentile Ordinal */
+            percentile_ordinal: number | null;
+            /** Relative Risk State */
+            relative_risk_state: string;
+        };
+        /**
+         * CrossAssetRatioSeriesResponse
+         * @description One pair's ratio (or its percentile) over time for the Phase 7 chart selector.
+         */
+        CrossAssetRatioSeriesResponse: {
+            /** Pair */
+            pair: string;
+            /** Config Key */
+            config_key: string;
+            /** Reference Estimator */
+            reference_estimator: string;
+            /** View */
+            view: string;
+            /** Unit */
+            unit: string;
+            /** Series */
+            series: components["schemas"]["NamedSeries"][];
+            /** Reference Lines */
+            reference_lines: number[];
+        };
+        /**
+         * CrossAssetRatioSnapshotRow
+         * @description One cross-asset volatility ratio + its own historical context (Phase 10 snapshot).
+         */
+        CrossAssetRatioSnapshotRow: {
+            /** Pair */
+            pair: string;
+            /** Current Ratio */
+            current_ratio: number | null;
+            /** Percentile Ordinal */
+            percentile_ordinal: number | null;
+            /** Relative Risk State */
+            relative_risk_state: string;
+        };
+        /**
+         * CrossAssetVolatilityResponse
+         * @description Cross-asset relative-risk diagnostics: per-pair ratios + the asset ranking.
+         */
+        CrossAssetVolatilityResponse: {
+            /** As Of Date */
+            as_of_date: string | null;
+            /** Config Key */
+            config_key: string;
+            /** Reference Estimator */
+            reference_estimator: string;
+            /** Ratios */
+            ratios: components["schemas"]["CrossAssetRatioRow"][];
+            /** Ranking */
+            ranking: components["schemas"]["AssetRiskRankRow"][];
+        };
+        /**
+         * CrossAssetVolatilitySnapshotResponse
+         * @description All-asset passive snapshot: per-asset snapshots + relative ratios + risk ranking (Phase 10).
+         */
+        CrossAssetVolatilitySnapshotResponse: {
+            /** As Of Date */
+            as_of_date: string | null;
+            /** Information Through Date */
+            information_through_date: string | null;
+            /** Config Key */
+            config_key: string;
+            /** Reference Estimator */
+            reference_estimator: string;
+            /** Historical Window */
+            historical_window: string;
+            /** Minimum History */
+            minimum_history: number;
+            /** State Config Version */
+            state_config_version: string;
+            /** Confirmation Days */
+            confirmation_days: number;
+            /** Agreement Config Version */
+            agreement_config_version: string | null;
+            /** Stability Window */
+            stability_window: string | null;
+            /** Assets */
+            assets: components["schemas"]["AssetVolatilitySnapshotResponse"][];
+            /** Ratios */
+            ratios: components["schemas"]["CrossAssetRatioSnapshotRow"][];
+            /** Ranking */
+            ranking: components["schemas"]["AssetRiskRankSnapshotRow"][];
+        };
+        /**
+         * EstimateStabilityResponse
+         * @description Estimate stability for one ticker (Phase 8). Percentile + Status are primary;
+         *     the raw vol-of-vol is debug/methodology only and precisely labelled.
+         */
+        EstimateStabilityResponse: {
+            /** Ticker */
+            ticker: string;
+            /** Config Key */
+            config_key: string;
+            /** Stability Percentile */
+            stability_percentile: number | null;
+            /** Percentile Ordinal */
+            percentile_ordinal: number | null;
+            /** Estimate Stability */
+            estimate_stability: string;
+            /** Stability Window */
+            stability_window: string;
+            /** Raw Vol Of Vol */
+            raw_vol_of_vol: number | null;
         };
         /**
          * EstimatorAgreementResponse
@@ -1129,6 +1519,115 @@ export interface components {
             value: number | null;
         };
         /**
+         * SignalOutcomeDistributionResponse
+         * @description Per-state forward-return distributions at one horizon for the box plot (Phase 9).
+         *
+         *     Companion to ``SignalOutcomeResponse``: the aggregate endpoint returns gated
+         *     summary stats; this returns the per-observation samples for one ``horizon`` so
+         *     the frontend can draw a box per diagnostic state under the same sampling policy.
+         */
+        SignalOutcomeDistributionResponse: {
+            /** Ticker */
+            ticker: string;
+            /** Config Key */
+            config_key: string;
+            /** Reference Estimator */
+            reference_estimator: string;
+            /** Sampling */
+            sampling: string;
+            /** Horizon */
+            horizon: string;
+            /**
+             * Unit
+             * @default decimal
+             */
+            unit: string;
+            /** Distributions */
+            distributions: components["schemas"]["StateReturnDistribution"][];
+            /** Disclaimer */
+            disclaimer: string;
+        };
+        /**
+         * SignalOutcomeResponse
+         * @description Historical forward outcomes by diagnostic state for one ticker (Phase 9).
+         *
+         *     ``sampling`` is ``"non_overlapping"`` (default) or ``"all"`` (explicit override
+         *     that overstates independent evidence — flagged in ``disclaimer``). ``rows``
+         *     span the states present in the sample across the requested horizons.
+         *
+         *     The ``/outcomes/conditions`` endpoint reuses this same shape for the
+         *     combined-condition signals (``state`` then holds the condition label, e.g.
+         *     "Vol rising + price falling"); every defined condition appears, gated to
+         *     "Insufficient sample" when it has too few independent occurrences.
+         */
+        SignalOutcomeResponse: {
+            /** Ticker */
+            ticker: string;
+            /** Config Key */
+            config_key: string;
+            /** Reference Estimator */
+            reference_estimator: string;
+            /** Sampling */
+            sampling: string;
+            /** Horizons */
+            horizons: string[];
+            /** Rows */
+            rows: components["schemas"]["SignalOutcomeRow"][];
+            /** Disclaimer */
+            disclaimer: string;
+        };
+        /**
+         * SignalOutcomeRow
+         * @description Forward outcomes that followed one diagnostic state at one horizon (Phase 9).
+         *
+         *     ``effective_observations`` is the **independent** count — non-overlapping by
+         *     default. The statistics are gated by sample quality: ``Insufficient sample``
+         *     emits no stats; ``Anecdotal`` emits median / worst / best only; ``Low sample``
+         *     and above emit the full set. Gated-out statistics serialise as ``null``.
+         *     Outcomes describe the sample only — no causality, no guarantee (see the
+         *     response disclaimer).
+         */
+        SignalOutcomeRow: {
+            /** State */
+            state: string;
+            /** Horizon */
+            horizon: string;
+            /** Effective Observations */
+            effective_observations: number;
+            /** Sample Quality */
+            sample_quality: string;
+            /** Mean Return */
+            mean_return: number | null;
+            /** Median Return */
+            median_return: number | null;
+            /** Hit Rate */
+            hit_rate: number | null;
+            /** Std Return */
+            std_return: number | null;
+            /** Worst Return */
+            worst_return: number | null;
+            /** Best Return */
+            best_return: number | null;
+            /** Forward Max Drawdown */
+            forward_max_drawdown: number | null;
+        };
+        /**
+         * StateReturnDistribution
+         * @description One state's per-observation forward-return sample for the box plot (Phase 9).
+         *
+         *     ``returns`` is the list of realised forward returns over the state's (optionally
+         *     non-overlapping) signal dates at one horizon — the raw distribution the box
+         *     summarises, not aggregate stats. ``effective_observations`` is ``len(returns)``.
+         */
+        StateReturnDistribution: {
+            /** State */
+            state: string;
+            /** Effective Observations */
+            effective_observations: number;
+            /** Returns */
+            returns: number[];
+        };
+        /**
          * StrategiesResponse
          * @description The whole registry plus the currently-selected live strategy name.
          */
@@ -1524,6 +2023,10 @@ export interface components {
             price_volatility_context: string;
             /** Asset Return 20D */
             asset_return_20d: number | null;
+            /** Estimate Stability */
+            estimate_stability: string;
+            /** Stability Percentile */
+            stability_percentile: number | null;
         };
         /**
          * VolatilityStateTableResponse
@@ -2118,6 +2621,332 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VolatilityStateTableResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_cross_asset_api_v1_volatility_features_cross_asset_get: {
+        parameters: {
+            query?: {
+                /** @description Reference estimator key (consistent across assets). */
+                estimator?: string;
+                /** @description Historical window for the ratio percentiles. */
+                window?: string;
+                /** @description Min observations before a percentile is emitted. */
+                min_periods?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrossAssetVolatilityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_cross_asset_ratio_series_api_v1_volatility_features_cross_asset_ratio_series_get: {
+        parameters: {
+            query: {
+                /** @description Asset pair 'A/B', e.g. TLT/AGG (required). */
+                pair: string;
+                /** @description Reference estimator key. */
+                estimator?: string;
+                /** @description Historical window for the percentile view. */
+                window?: string;
+                /** @description raw | percentile. */
+                view?: string;
+                /** @description Min observations before a percentile is emitted. */
+                min_periods?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrossAssetRatioSeriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_stability_api_v1_volatility_features_stability_get: {
+        parameters: {
+            query: {
+                /** @description Ticker, e.g. TLT (required). */
+                ticker: string;
+                /** @description Reference estimator key. */
+                estimator?: string;
+                /** @description Historical window for the stability percentile. */
+                window?: string;
+                /** @description Min observations before a percentile is emitted. */
+                min_periods?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstimateStabilityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_outcomes_api_v1_volatility_features_outcomes_get: {
+        parameters: {
+            query: {
+                /** @description Ticker, e.g. TLT (required). */
+                ticker: string;
+                /** @description Reference estimator key (drives the state). */
+                estimator?: string;
+                /** @description Historical window for the state percentile. */
+                window?: string;
+                /** @description non_overlapping (default) | all (override). */
+                sampling?: string;
+                /** @description ISO start clamp on the signal date (inclusive). */
+                start?: string | null;
+                /** @description ISO end clamp on the signal date (inclusive). */
+                end?: string | null;
+                /** @description Min observations before a percentile is emitted. */
+                min_periods?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignalOutcomeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_outcome_conditions_api_v1_volatility_features_outcomes_conditions_get: {
+        parameters: {
+            query: {
+                /** @description Ticker, e.g. TLT (required). */
+                ticker: string;
+                /** @description Reference estimator key (drives the conditions). */
+                estimator?: string;
+                /** @description Historical window for the percentiles. */
+                window?: string;
+                /** @description non_overlapping (default) | all (override). */
+                sampling?: string;
+                /** @description ISO start clamp on the signal date (inclusive). */
+                start?: string | null;
+                /** @description ISO end clamp on the signal date (inclusive). */
+                end?: string | null;
+                /** @description Min observations before a percentile is emitted. */
+                min_periods?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignalOutcomeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_outcome_distribution_api_v1_volatility_features_outcomes_distribution_get: {
+        parameters: {
+            query: {
+                /** @description Ticker, e.g. TLT (required). */
+                ticker: string;
+                /** @description Reference estimator key (drives the state). */
+                estimator?: string;
+                /** @description Historical window for the state percentile. */
+                window?: string;
+                /** @description Forward horizon: 1M | 3M | 6M. */
+                horizon?: string;
+                /** @description non_overlapping (default) | all (override). */
+                sampling?: string;
+                /** @description ISO start clamp on the signal date (inclusive). */
+                start?: string | null;
+                /** @description ISO end clamp on the signal date (inclusive). */
+                end?: string | null;
+                /** @description Min observations before a percentile is emitted. */
+                min_periods?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignalOutcomeDistributionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_snapshot_api_v1_volatility_features_snapshot_get: {
+        parameters: {
+            query: {
+                /** @description Ticker, e.g. TLT (required). */
+                ticker: string;
+                /** @description Reference estimator key. */
+                estimator?: string;
+                /** @description Historical window: 3Y | 5Y | 10Y | Full. */
+                window?: string;
+                /** @description ISO as-of date; default = latest surface date. */
+                as_of?: string | null;
+                /** @description Min observations before a percentile is emitted. */
+                min_periods?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetVolatilitySnapshotResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    volatility_snapshot_cross_asset_api_v1_volatility_features_snapshot_cross_asset_get: {
+        parameters: {
+            query?: {
+                /** @description Reference estimator key. */
+                estimator?: string;
+                /** @description Historical window: 3Y | 5Y | 10Y | Full. */
+                window?: string;
+                /** @description ISO as-of date; default = latest surface date. */
+                as_of?: string | null;
+                /** @description Min observations before a percentile is emitted. */
+                min_periods?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrossAssetVolatilitySnapshotResponse"];
                 };
             };
             /** @description Validation Error */

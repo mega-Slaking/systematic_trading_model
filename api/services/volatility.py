@@ -27,16 +27,32 @@ from src.volatility.agreement import (
     classify_estimator_agreement,
     compute_estimator_dispersion,
 )
+from src.volatility.outcomes import (
+    COMBINED_CONDITIONS,
+    COND_RELATIVE_VOL_EXTREME,
+    DEFAULT_MIN_SAMPLE_GATES,
+    FORWARD_HORIZONS,
+    RECENT_PEAK_LOOKBACK,
+    RELATIVE_EXTREME_PERCENTILE,
+    OUTCOME_STATES,
+    build_combined_condition_outcome_table,
+    build_state_return_distribution,
+    build_volatility_signal_outcome_table,
+    compute_combined_condition_flags,
+    compute_forward_asset_returns,
+    compute_forward_window_drawdowns,
+)
 from src.volatility.direction import (
     VOL_DIRECTION_THRESHOLDS,
     VOL_RATIO_BANDS,
     change_reference_lines,
-    classify_volatility_direction,
-    classify_volatility_term_state,
     compute_volatility_direction_features,
     compute_volatility_term_ratio,
     ratio_reference_lines,
 )
+from src.volatility.feature_frame import build_ticker_feature_frame
+from src.volatility.models import VolatilityFeatureConfig, VolatilityFeatureSurface
+from src.volatility.snapshot import VolatilitySignalSnapshotProvider
 from src.volatility.percentiles import (
     classify_volatility_level,
     compute_rolling_percentile,
@@ -47,6 +63,16 @@ from src.volatility.price_context import (
     PRICE_DIRECTION_THRESHOLD,
     classify_price_volatility_context,
     compute_price_direction_features,
+)
+from src.volatility.relative import (
+    build_cross_asset_risk_table,
+    compute_relative_volatility_ratios,
+    default_ratio_pairs,
+)
+from src.volatility.stability import (
+    classify_estimate_stability,
+    compute_volatility_of_volatility,
+    stability_reference_lines,
 )
 from src.volatility.states import (
     VolatilityStateConfig,
@@ -61,8 +87,21 @@ from src.volatility.transitions import (
 from api.cache import TTLCache
 from api.config import get_settings
 from api.schemas.volatility import (
+    AssetRiskRankRow,
+    CrossAssetRatioRow,
+    CrossAssetRatioSeriesResponse,
+    CrossAssetVolatilityResponse,
+    EstimateStabilityResponse,
     EstimatorAgreementResponse,
+    AssetRiskRankSnapshotRow,
+    AssetVolatilitySnapshotResponse,
+    CrossAssetRatioSnapshotRow,
+    CrossAssetVolatilitySnapshotResponse,
     EstimatorComparisonRow,
+    SignalOutcomeDistributionResponse,
+    SignalOutcomeResponse,
+    SignalOutcomeRow,
+    StateReturnDistribution,
     VolatilityAuditResponse,
     VolatilityChartResponse,
     VolatilityContextResponse,
@@ -261,6 +300,32 @@ def _term_ratio_series(ordered: pd.DataFrame) -> pd.Series:
     return pd.Series(float("nan"), index=ordered.index)
 
 
+def _stability_series(
+    ordered: pd.DataFrame,
+    config_key: str,
+    ticker: str,
+    estimator: str,
+    window_key: str,
+    min_periods: int,
+) -> tuple[pd.Series, pd.Series]:
+    """``(vov_percentile_series, raw_vov_series)`` for the reference estimator, cached.
+
+    The raw vol-of-vol is the 20D std of daily changes in the annualised vol; its
+    percentile (the headline) reuses the Phase 1 algorithm over the chosen window.
+    """
+    data_version = surface_data_version(ordered)
+    key = ("vol_stability", "v1", config_key, ticker, estimator, window_key, int(min_periods), data_version)
+    cache = _pct_cache()
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    vov = compute_volatility_of_volatility(ordered[estimator], window=20)
+    percentile = compute_rolling_percentile(vov, _resolve_window(window_key), int(min_periods))
+    cache.set(key, (percentile, vov))
+    return percentile, vov
+
+
 def _features_frame(
     ordered: pd.DataFrame,
     config_key: str,
@@ -270,39 +335,20 @@ def _features_frame(
     min_periods: int,
 ) -> pd.DataFrame:
     """Per-row point-in-time features for one ticker — the inputs every Phase 1–3
-    response is assembled from. The percentile is cached (§7.1); direction, term
-    ratio, level and ordinal are vectorised/cheap and use the default state config
-    so all three phases agree on a single source of thresholds.
+    response is assembled from. The percentile is TTL-cached here (§7.1); the rest
+    of the orchestration lives in the shared pure ``build_ticker_feature_frame`` so
+    the API and the Phase 10 snapshot stay in lock-step on a single source of
+    thresholds.
     """
-    cfg = _STATE_CONFIG
     percentile = _percentile_series_cached(ordered, config_key, ticker, estimator, window_key, min_periods)
-    changes = compute_volatility_direction_features(ordered[estimator])
-    ratio = _term_ratio_series(ordered)
-
-    pct_vals = percentile.to_numpy()
-    ratio_vals = ratio.to_numpy()
-    change_20 = changes["change_20d"].to_numpy()
-
-    return pd.DataFrame(
-        {
-            "date": ordered["date"].to_numpy(),
-            "ticker": ticker,
-            "current_volatility": ordered[estimator].to_numpy(),
-            "percentile": pct_vals,
-            "percentile_ordinal": [percentile_to_ordinal(p) for p in pct_vals],
-            "volatility_level": [classify_volatility_level(p, cfg.level_thresholds()) for p in pct_vals],
-            "change_5d": changes["change_5d"].to_numpy(),
-            "change_20d": change_20,
-            "term_ratio": ratio_vals,
-            "term_state": [
-                classify_volatility_term_state(r, cfg.expansion_ratio, cfg.contraction_ratio)
-                for r in ratio_vals
-            ],
-            "direction": [
-                classify_volatility_direction(c, cfg.rising_change, cfg.falling_change)
-                for c in change_20
-            ],
-        }
+    return build_ticker_feature_frame(
+        ordered,
+        estimator=estimator,
+        window=_resolve_window(window_key),
+        min_periods=min_periods,
+        config=_STATE_CONFIG,
+        ticker=ticker,
+        percentile=percentile,
     )
 
 
@@ -591,10 +637,20 @@ def get_volatility_state_table(
         for t, grp in prices_all.groupby("ticker")
     }
 
+    # Estimate-stability percentile per ticker.
+    stability_pct: dict[str, float | None] = {}
+    for t in tickers:
+        if estimator not in df_slice.columns:
+            continue
+        ot = df_slice[df_slice["ticker"] == t].sort_values("date").reset_index(drop=True)
+        pct, _ = _stability_series(ot, config_key, t, estimator, window_key, min_periods)
+        stability_pct[t] = _clean_float(pct.iloc[-1]) if len(pct) else None
+
     rows = []
     for _, r in table.iterrows():
         ticker = str(r["ticker"])
         asset_return_20d = price_ret.get(ticker)
+        sp = stability_pct.get(ticker)
         rows.append(
             VolatilityStateRow(
                 ticker=ticker,
@@ -609,6 +665,8 @@ def get_volatility_state_table(
                     PRICE_DIRECTION_THRESHOLD, _STATE_CONFIG.rising_change,
                 ),
                 asset_return_20d=asset_return_20d,
+                estimate_stability=classify_estimate_stability(sp),
+                stability_percentile=sp,
             )
         )
     response = VolatilityStateTableResponse(
@@ -700,7 +758,7 @@ def get_estimator_agreement(
 # Phase 6 — unified typed chart payload (series + shading + transitions)
 # --------------------------------------------------------------------------- #
 
-_CHART_VIEWS = {"volatility", "percentile", "ratio", "change", "dispersion"}
+_CHART_VIEWS = {"volatility", "percentile", "ratio", "change", "dispersion", "vov"}
 _TRANSITION_COOLDOWN_DAYS = 10
 
 
@@ -739,6 +797,12 @@ def _chart_series(ordered: pd.DataFrame, estimator: str, window_key: str, min_pe
             _vseries("5-day change", estimator, "decimal_change", dates, changes["change_5d"]),
         ]
         return series, "decimal_change", change_reference_lines()
+
+    if view == "vov":
+        # Estimate stability: the vol-of-vol *percentile* (the raw value is muddy units).
+        percentile, _ = _stability_series(ordered, config_key, ticker, estimator, window_key, min_periods)
+        name = f"{_label(estimator)} estimate stability ({window_key})"
+        return [_vseries(name, estimator, "percentile", dates, percentile)], "percentile", stability_reference_lines()
 
     # dispersion
     dispersion = compute_estimator_dispersion(ordered, VOL_ESTIMATOR_NAMES, _AGREEMENT_CONFIG.min_estimators)
@@ -823,6 +887,829 @@ def get_volatility_chart(
         state_ranges=state_ranges,
         transitions=transition_models,
         reference_lines=reference_lines,
+    )
+    cache.set(key, response)
+    return response
+
+
+# --------------------------------------------------------------------------- #
+# Phase 7 — cross-asset relative volatility (monitor only)
+# --------------------------------------------------------------------------- #
+
+
+def _wide_vol(df_slice: pd.DataFrame, estimator: str) -> pd.DataFrame:
+    """date × ticker frame of the reference estimator's vol (consistent estimator)."""
+    return df_slice.pivot_table(index="date", columns="ticker", values=estimator).sort_index()
+
+
+def get_cross_asset_volatility(
+    estimator: str = DEFAULT_REFERENCE_ESTIMATOR,
+    window_key: str = DEFAULT_HISTORICAL_WINDOW,
+    min_periods: int = MIN_PERCENTILE_HISTORY,
+) -> CrossAssetVolatilityResponse:
+    """Per-pair relative-vol ratios (+ own percentile) and the all-asset risk ranking.
+
+    Monitor only — the ranking is by **raw** current vol; percentile + confirmed
+    state carry the real relative context. Cached on the §7.4 cross-asset key.
+    """
+    _validate_estimator(estimator)
+    _resolve_window(window_key)
+
+    raw = get_volatility_features()
+    if raw.empty or estimator not in raw.columns:
+        return CrossAssetVolatilityResponse(
+            as_of_date=None, config_key="", reference_estimator=estimator, ratios=[], ranking=[],
+        )
+
+    df_slice, config_key = _single_config_slice(raw)
+    data_version = surface_data_version(df_slice)
+    tickers = sorted(str(t) for t in df_slice["ticker"].dropna().unique())
+    key = ("relative_vol", "v1", config_key, tuple(tickers), estimator, window_key, int(min_periods), data_version)
+    cache = _pct_cache()
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    wide = _wide_vol(df_slice, estimator)
+    pairs = default_ratio_pairs(tickers)
+    ratios_df = compute_relative_volatility_ratios(wide, pairs)
+    as_of = wide.index.max() if len(wide.index) else None
+
+    ratio_rows: list[CrossAssetRatioRow] = []
+    for a, b in pairs:
+        col = f"{a}/{b}"
+        if col not in ratios_df.columns:
+            continue
+        pct = _clean_float(
+            compute_rolling_percentile(ratios_df[col], _resolve_window(window_key), int(min_periods)).iloc[-1]
+        )
+        ratio_rows.append(
+            CrossAssetRatioRow(
+                pair=f"{a} / {b}",
+                current_ratio=_clean_float(ratios_df[col].iloc[-1]),
+                percentile_ordinal=percentile_to_ordinal(pct),
+                relative_risk_state=classify_volatility_level(pct),
+            )
+        )
+
+    # Ranking reuses the confirmed-state table (one latest row per asset).
+    table = get_volatility_state_table(estimator, window_key, min_periods)
+    rank_src = pd.DataFrame(
+        [
+            {"ticker": r.ticker, "current_volatility": r.current_volatility,
+             "percentile_ordinal": r.percentile_ordinal, "confirmed_state": r.confirmed_state}
+            for r in table.rows
+        ]
+    )
+    ranking: list[AssetRiskRankRow] = []
+    if not rank_src.empty:
+        for _, r in build_cross_asset_risk_table(rank_src).iterrows():
+            ranking.append(
+                AssetRiskRankRow(
+                    rank=int(r["rank"]),
+                    ticker=str(r["ticker"]),
+                    current_volatility=_clean_float(r["current_volatility"]),
+                    percentile_ordinal=_clean_ordinal(r["percentile_ordinal"]),
+                    confirmed_state=str(r["confirmed_state"]),
+                )
+            )
+
+    response = CrossAssetVolatilityResponse(
+        as_of_date=_iso_date(as_of), config_key=config_key, reference_estimator=estimator,
+        ratios=ratio_rows, ranking=ranking,
+    )
+    cache.set(key, response)
+    return response
+
+
+def get_cross_asset_ratio_series(
+    pair: str,
+    estimator: str = DEFAULT_REFERENCE_ESTIMATOR,
+    window_key: str = DEFAULT_HISTORICAL_WINDOW,
+    view: str = "raw",
+    min_periods: int = MIN_PERCENTILE_HISTORY,
+) -> CrossAssetRatioSeriesResponse:
+    """One pair's ratio over time (``view="raw"``) or its historical percentile (``view="percentile"``)."""
+    if view not in {"raw", "percentile"}:
+        raise ValueError(f"unknown view '{view}' (expected 'raw' or 'percentile')")
+    _validate_estimator(estimator)
+    _resolve_window(window_key)
+    parts = [p.strip().upper() for p in pair.split("/")]
+    if len(parts) != 2 or not all(parts):
+        raise ValueError(f"pair must be 'A/B', got {pair!r}")
+    a, b = parts
+    label = f"{a} / {b}"
+    unit = "percentile" if view == "percentile" else "ratio"
+    ref_lines = level_reference_lines() if view == "percentile" else []
+
+    def _empty(config_key: str = "") -> CrossAssetRatioSeriesResponse:
+        return CrossAssetRatioSeriesResponse(
+            pair=label, config_key=config_key, reference_estimator=estimator,
+            view=view, unit=unit, series=[], reference_lines=ref_lines,
+        )
+
+    raw_df = get_volatility_features([a, b])
+    if raw_df.empty or estimator not in raw_df.columns:
+        return _empty()
+
+    df_slice, config_key = _single_config_slice(raw_df)
+    ratios = compute_relative_volatility_ratios(_wide_vol(df_slice, estimator), [(a, b)])
+    col = f"{a}/{b}"
+    if col not in ratios.columns:
+        return _empty(config_key)
+
+    dates = pd.Series(ratios.index).to_numpy()
+    if view == "percentile":
+        values = compute_rolling_percentile(ratios[col], _resolve_window(window_key), int(min_periods)).to_numpy()
+        name = f"{label} percentile"
+    else:
+        values = ratios[col].to_numpy()
+        name = f"{label} ratio"
+
+    frame = pd.DataFrame({"date": dates, "value": values})
+    series = [df_to_series(frame, name=name, x="date", y="value", meta={"pair": label, "view": view})]
+    return CrossAssetRatioSeriesResponse(
+        pair=label, config_key=config_key, reference_estimator=estimator,
+        view=view, unit=unit, series=series, reference_lines=ref_lines,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Phase 8 — estimate stability (vol-of-vol)
+# --------------------------------------------------------------------------- #
+
+
+def get_estimate_stability(
+    ticker: str,
+    estimator: str = DEFAULT_REFERENCE_ESTIMATOR,
+    window_key: str = DEFAULT_HISTORICAL_WINDOW,
+    min_periods: int = MIN_PERCENTILE_HISTORY,
+) -> EstimateStabilityResponse:
+    """Vol-of-vol stability for one ticker: percentile + status headline, raw value for details."""
+    _validate_estimator(estimator)
+    _resolve_window(window_key)
+
+    ordered, config_key = _load_ticker_ordered(ticker)
+    if ordered.empty or estimator not in ordered.columns:
+        return EstimateStabilityResponse(
+            ticker=ticker, config_key=config_key, stability_percentile=None,
+            percentile_ordinal=None, estimate_stability="Unknown",
+            stability_window=window_key, raw_vol_of_vol=None,
+        )
+
+    percentile, vov = _stability_series(ordered, config_key, ticker, estimator, window_key, min_periods)
+    sp = _clean_float(percentile.iloc[-1])
+    return EstimateStabilityResponse(
+        ticker=ticker,
+        config_key=config_key,
+        stability_percentile=sp,
+        percentile_ordinal=percentile_to_ordinal(sp),
+        estimate_stability=classify_estimate_stability(sp),
+        stability_window=window_key,
+        raw_vol_of_vol=_clean_float(vov.iloc[-1]),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Phase 9 — historical signal outcome analysis
+# --------------------------------------------------------------------------- #
+
+# The standing caveat shown with every outcome table: outcomes describe what
+# followed similar states *in this single sample*, not a causal or future claim.
+_OUTCOME_DISCLAIMER = (
+    "Outcomes describe what historically followed similar diagnostic states in "
+    "this single sample. They do not establish causality and do not guarantee "
+    "future performance. Non-overlapping sampling is the default because "
+    "overlapping daily forward windows overstate the independent evidence."
+)
+
+
+def _forward_prices(prices_for_ticker: pd.DataFrame) -> pd.Series:
+    """Unlagged, ffilled close indexed by date for one ticker (Phase 9 forward side).
+
+    Uses the same ``close`` series the surface treats as its price column (§4.4),
+    ffilled so a one-off missing close does not null an entire forward window.
+    **Never shifted** — forward returns read prices strictly *after* the signal
+    date; the as-of-``t`` convention lives entirely on the (already-lagged) state
+    side of the join.
+    """
+    if prices_for_ticker.empty or "close" not in prices_for_ticker.columns:
+        return pd.Series(dtype=float)
+    return prices_for_ticker.sort_values("date").set_index("date")["close"].ffill()
+
+
+def _forward_outcome_frame(ticker: str, with_drawdowns: bool = True) -> pd.DataFrame:
+    """Unlagged forward returns (and optionally forward-window drawdowns) per date.
+
+    The shared forward side of all three Phase 9 outcome endpoints: reads the
+    UNLAGGED ffilled close strictly *after* each date (§Phase 9 alignment) and
+    returns a ``date`` + ``forward_return_*`` (+ ``forward_max_drawdown_*``) frame,
+    joined one-to-one. Empty (``columns=["date"]``) when the ticker has no price
+    history, so callers branch on ``.empty``.
+    """
+    prices = _forward_prices(get_etf_history([ticker]))
+    if prices.empty:
+        return pd.DataFrame(columns=["date"])
+    forward = compute_forward_asset_returns(prices, FORWARD_HORIZONS).reset_index(names="date")
+    if with_drawdowns:
+        drawdowns = compute_forward_window_drawdowns(prices, FORWARD_HORIZONS).reset_index(names="date")
+        forward = forward.merge(drawdowns, on="date", how="inner", validate="one_to_one")
+    return forward
+
+
+def get_signal_outcomes(
+    ticker: str,
+    estimator: str = DEFAULT_REFERENCE_ESTIMATOR,
+    window_key: str = DEFAULT_HISTORICAL_WINDOW,
+    sampling: str = "non_overlapping",
+    start: str | None = None,
+    end: str | None = None,
+    min_periods: int = MIN_PERCENTILE_HISTORY,
+) -> SignalOutcomeResponse:
+    """Forward outcomes by confirmed diagnostic state for one ticker (Phase 9).
+
+    The state side is the **already-lagged** confirmed-state series (as-of ``t``,
+    info through ``t-1``); the forward side is the **unlagged** ffilled close read
+    strictly *after* ``t``. They are joined one-to-one on date inside
+    ``build_volatility_signal_outcome_table`` (which raises on any many-to-many
+    key collision). Non-overlapping sampling is the default; ``sampling="all"``
+    is the explicit, disclaimer-flagged override.
+
+    Cached on the §7.2 state key extended with the horizon set, sampling mode and
+    min-sample gates so a threshold/policy change or a freshly persisted row both
+    invalidate the result.
+    """
+    if sampling not in {"non_overlapping", "all"}:
+        raise ValueError(f"unknown sampling '{sampling}' (expected 'non_overlapping' or 'all')")
+    _validate_estimator(estimator)
+    _resolve_window(window_key)
+
+    ordered, config_key = _load_ticker_ordered(ticker)
+    horizon_labels = list(FORWARD_HORIZONS)
+    if ordered.empty or estimator not in ordered.columns:
+        return SignalOutcomeResponse(
+            ticker=ticker, config_key=config_key, reference_estimator=estimator,
+            sampling=sampling, horizons=horizon_labels, rows=[], disclaimer=_OUTCOME_DISCLAIMER,
+        )
+
+    data_version = surface_data_version(ordered)
+    key = (
+        "vol_outcomes", "v1", config_key, ticker, estimator, window_key, int(min_periods),
+        _STATE_CONFIG.version(), int(_STATE_CONFIG.confirmation_days),
+        tuple(sorted(FORWARD_HORIZONS.items())), sampling, start, end,
+        tuple(sorted(DEFAULT_MIN_SAMPLE_GATES.items())), data_version,
+    )
+    cache = _pct_cache()
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    # State side: confirmed diagnostic state per date (already-lagged, as-of t).
+    state_frame = _confirmed_state_frame(ordered, config_key, ticker, estimator, window_key, min_periods)
+
+    # Optional date-range filter applies to the *signal* (decision) date only.
+    if start is not None:
+        state_frame = state_frame[state_frame["date"] >= pd.Timestamp(start)]
+    if end is not None:
+        state_frame = state_frame[state_frame["date"] <= pd.Timestamp(end)]
+
+    # Forward side: UNLAGGED ffilled close read strictly after t.
+    forward = _forward_outcome_frame(ticker, with_drawdowns=True)
+    if forward.empty:
+        response = SignalOutcomeResponse(
+            ticker=ticker, config_key=config_key, reference_estimator=estimator,
+            sampling=sampling, horizons=horizon_labels, rows=[], disclaimer=_OUTCOME_DISCLAIMER,
+        )
+        cache.set(key, response)
+        return response
+
+    non_overlapping = sampling == "non_overlapping"
+    rows: list[SignalOutcomeRow] = []
+    for label in horizon_labels:
+        table = build_volatility_signal_outcome_table(
+            state_frame, forward, "confirmed_state", f"forward_return_{label}",
+            non_overlapping=non_overlapping, min_sample_gates=DEFAULT_MIN_SAMPLE_GATES,
+        )
+        for _, r in table.iterrows():
+            rows.append(
+                SignalOutcomeRow(
+                    state=str(r["state"]),
+                    horizon=label,
+                    effective_observations=int(r["effective_observations"]),
+                    sample_quality=str(r["sample_quality"]),
+                    mean_return=_clean_float(r["mean_return"]),
+                    median_return=_clean_float(r["median_return"]),
+                    hit_rate=_clean_float(r["hit_rate"]),
+                    std_return=_clean_float(r["std_return"]),
+                    worst_return=_clean_float(r["worst_return"]),
+                    best_return=_clean_float(r["best_return"]),
+                    forward_max_drawdown=_clean_float(r["forward_max_drawdown"]),
+                )
+            )
+
+    response = SignalOutcomeResponse(
+        ticker=ticker, config_key=config_key, reference_estimator=estimator,
+        sampling=sampling, horizons=horizon_labels, rows=rows, disclaimer=_OUTCOME_DISCLAIMER,
+    )
+    cache.set(key, response)
+    return response
+
+
+# The combined-condition signals are descriptive *conditions*, not the unified
+# confirmed state — same honesty caveat, plus a note that a date may satisfy
+# several conditions at once (they are analysed independently).
+_CONDITION_DISCLAIMER = (
+    "Combined-condition signals are independent point-in-time conditions on the "
+    "already-lagged feature surface (a single day may satisfy several). Outcomes "
+    "describe what historically followed each condition in this single sample — no "
+    "causality, no guarantee. Non-overlapping sampling is the default."
+)
+
+
+def _confirmed_state_frame(
+    ordered: pd.DataFrame,
+    config_key: str,
+    ticker: str,
+    estimator: str,
+    window_key: str,
+    min_periods: int,
+) -> pd.DataFrame:
+    """``date`` + ``confirmed_state`` for one ticker (already-lagged, as-of ``t``).
+
+    The shared signal side for the Phase 9 outcome / distribution endpoints: the
+    persistence-debounced confirmed diagnostic state per date.
+    """
+    feats = _features_frame(ordered, config_key, ticker, estimator, window_key, min_periods)
+    _, confirmed = compute_state_series(feats, _STATE_CONFIG)
+    return pd.DataFrame(
+        {"date": pd.to_datetime(feats["date"].to_numpy()), "confirmed_state": confirmed.to_numpy()}
+    )
+
+
+def _per_date_agreement(ordered: pd.DataFrame) -> pd.Series:
+    """Per-date estimator-agreement label aligned to ``ordered`` (Phase 4 classification)."""
+    dispersion = compute_estimator_dispersion(ordered, VOL_ESTIMATOR_NAMES, _AGREEMENT_CONFIG.min_estimators)
+    labels = [
+        classify_estimator_agreement(_clean_float(rel), _clean_float(absol), _AGREEMENT_CONFIG)
+        for rel, absol in zip(
+            dispersion["relative_dispersion"].to_numpy(), dispersion["absolute_spread"].to_numpy()
+        )
+    ]
+    return pd.Series(labels, index=ordered.index)
+
+
+def _tlt_agg_slice() -> tuple[pd.DataFrame, str]:
+    """The single-config TLT/AGG surface slice + its freshness token (cross-asset condition).
+
+    Returns ``(slice, data_version)``; the slice is empty and the token ``""`` when
+    TLT or AGG is missing. The token lets callers (a) include the cross-asset
+    surface's freshness in their cache key — so a TLT/AGG-only refresh invalidates
+    a *different* ticker's cached conditions — and (b) key the percentile cache.
+    """
+    raw = get_volatility_features(["TLT", "AGG"])
+    if raw.empty or DEFAULT_REFERENCE_ESTIMATOR not in raw.columns:
+        return raw.iloc[0:0], ""
+    df_slice, _ = _single_config_slice(raw)
+    if not {"TLT", "AGG"} <= set(df_slice["ticker"].dropna().unique()):
+        return df_slice.iloc[0:0], ""
+    return df_slice, surface_data_version(df_slice)
+
+
+def _tlt_agg_relative_percentile(cross_slice: pd.DataFrame, data_version: str, window_key: str, min_periods: int) -> pd.Series:
+    """Date-indexed historical percentile of the TLT/AGG relative-vol ratio (cross-asset condition).
+
+    Uses the reference estimator (rolling_20) consistently with Phase 7, regardless
+    of the per-ticker estimator. Empty when the TLT/AGG slice is empty, so the
+    cross-asset combined condition is simply not emitted. Cached on the TLT/AGG
+    ``data_version`` so it is computed once and shared across per-ticker requests
+    (Phase 7-style cross-asset key) rather than recomputed on every call.
+    """
+    if cross_slice.empty:
+        return pd.Series(dtype=float)
+    key = ("tlt_agg_rel_pct", "v1", DEFAULT_REFERENCE_ESTIMATOR, window_key, int(min_periods), data_version)
+    cache = _pct_cache()
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    ratios = compute_relative_volatility_ratios(_wide_vol(cross_slice, DEFAULT_REFERENCE_ESTIMATOR), [("TLT", "AGG")])
+    if "TLT/AGG" not in ratios.columns:
+        pct = pd.Series(dtype=float)
+    else:
+        pct = compute_rolling_percentile(ratios["TLT/AGG"], _resolve_window(window_key), int(min_periods))
+        pct.index = pd.to_datetime(ratios.index)
+    cache.set(key, pct)
+    return pct
+
+
+def _combined_conditions_frame(
+    ordered: pd.DataFrame,
+    config_key: str,
+    ticker: str,
+    estimator: str,
+    window_key: str,
+    min_periods: int,
+    cross_slice: pd.DataFrame,
+    cross_data_version: str,
+) -> pd.DataFrame:
+    """``date`` + one boolean column per combined condition for one ticker (Phase 9).
+
+    Enriches the per-row Phase 1–3 features with the per-date estimator agreement
+    (Phase 4), the as-of-(t-1) 20-day price return (Phase 5) and — when the TLT/AGG
+    ``cross_slice`` is present — the cross-asset TLT/AGG relative-vol percentile
+    (Phase 7), then defers the actual condition maths to the pure
+    ``compute_combined_condition_flags``. The caller supplies the cross-asset slice
+    + freshness token so they also feed the endpoint's cache key.
+    """
+    feats = _features_frame(ordered, config_key, ticker, estimator, window_key, min_periods)
+    feats["date"] = pd.to_datetime(feats["date"])
+    # Per-date agreement (same row order as `ordered` -> `feats`).
+    feats["estimator_agreement"] = _per_date_agreement(ordered).to_numpy()
+
+    # As-of-(t-1) 20D price return, joined one-to-one on date.
+    price_ret = _price_return_20d(get_etf_history([ticker]))
+    if len(price_ret):
+        pr = price_ret.rename("asset_return_20d").reset_index()
+        pr.columns = ["date", "asset_return_20d"]
+        pr["date"] = pd.to_datetime(pr["date"])
+        feats = feats.merge(pr, on="date", how="left", validate="one_to_one")
+    else:
+        feats["asset_return_20d"] = float("nan")
+
+    # Cross-asset TLT/AGG relative-vol percentile (only when both assets exist).
+    rel = _tlt_agg_relative_percentile(cross_slice, cross_data_version, window_key, min_periods)
+    if len(rel):
+        rr = rel.rename("relative_pair_percentile").reset_index()
+        rr.columns = ["date", "relative_pair_percentile"]
+        rr["date"] = pd.to_datetime(rr["date"])
+        feats = feats.merge(rr, on="date", how="left", validate="one_to_one")
+
+    return compute_combined_condition_flags(feats, PRICE_DIRECTION_THRESHOLD)
+
+
+def get_signal_outcome_conditions(
+    ticker: str,
+    estimator: str = DEFAULT_REFERENCE_ESTIMATOR,
+    window_key: str = DEFAULT_HISTORICAL_WINDOW,
+    sampling: str = "non_overlapping",
+    start: str | None = None,
+    end: str | None = None,
+    min_periods: int = MIN_PERCENTILE_HISTORY,
+) -> SignalOutcomeResponse:
+    """Forward outcomes for the **combined-condition** signals for one ticker (Phase 9).
+
+    Same shape, alignment and gating as :func:`get_signal_outcomes`, but the signal
+    side is the set of combined conditions (vol rising + price falling, agreement
+    Low, …) rather than the unified confirmed state. ``state`` carries the condition
+    label. Cached on the §7.2-style key extended with the agreement/state config
+    versions and the condition parameters.
+    """
+    if sampling not in {"non_overlapping", "all"}:
+        raise ValueError(f"unknown sampling '{sampling}' (expected 'non_overlapping' or 'all')")
+    _validate_estimator(estimator)
+    _resolve_window(window_key)
+
+    ordered, config_key = _load_ticker_ordered(ticker)
+    horizon_labels = list(FORWARD_HORIZONS)
+
+    def _empty() -> SignalOutcomeResponse:
+        return SignalOutcomeResponse(
+            ticker=ticker, config_key=config_key, reference_estimator=estimator,
+            sampling=sampling, horizons=horizon_labels, rows=[], disclaimer=_CONDITION_DISCLAIMER,
+        )
+
+    if ordered.empty or estimator not in ordered.columns:
+        return _empty()
+
+    data_version = surface_data_version(ordered)
+    # The cross-asset condition depends on the TLT/AGG surface, not just this
+    # ticker's — so the TLT/AGG freshness token is part of the key (a TLT/AGG-only
+    # refresh must invalidate another ticker's cached conditions, §7.5).
+    cross_slice, cross_data_version = _tlt_agg_slice()
+    key = (
+        "vol_outcome_conditions", "v1", config_key, ticker, estimator, window_key, int(min_periods),
+        _STATE_CONFIG.version(), _AGREEMENT_CONFIG.version(), PRICE_DIRECTION_THRESHOLD,
+        RECENT_PEAK_LOOKBACK, RELATIVE_EXTREME_PERCENTILE,
+        tuple(sorted(FORWARD_HORIZONS.items())), sampling, start, end,
+        tuple(sorted(DEFAULT_MIN_SAMPLE_GATES.items())), data_version, cross_data_version,
+    )
+    cache = _pct_cache()
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    conditions = _combined_conditions_frame(
+        ordered, config_key, ticker, estimator, window_key, min_periods, cross_slice, cross_data_version
+    )
+    if start is not None:
+        conditions = conditions[conditions["date"] >= pd.Timestamp(start)]
+    if end is not None:
+        conditions = conditions[conditions["date"] <= pd.Timestamp(end)]
+
+    forward = _forward_outcome_frame(ticker, with_drawdowns=True)
+    if forward.empty:
+        response = _empty()
+        cache.set(key, response)
+        return response
+
+    non_overlapping = sampling == "non_overlapping"
+    rows: list[SignalOutcomeRow] = []
+    for label in horizon_labels:
+        table = build_combined_condition_outcome_table(
+            conditions, forward, f"forward_return_{label}",
+            non_overlapping=non_overlapping, min_sample_gates=DEFAULT_MIN_SAMPLE_GATES,
+        )
+        for _, r in table.iterrows():
+            rows.append(
+                SignalOutcomeRow(
+                    state=str(r["state"]),
+                    horizon=label,
+                    effective_observations=int(r["effective_observations"]),
+                    sample_quality=str(r["sample_quality"]),
+                    mean_return=_clean_float(r.get("mean_return")),
+                    median_return=_clean_float(r.get("median_return")),
+                    hit_rate=_clean_float(r.get("hit_rate")),
+                    std_return=_clean_float(r.get("std_return")),
+                    worst_return=_clean_float(r.get("worst_return")),
+                    best_return=_clean_float(r.get("best_return")),
+                    forward_max_drawdown=_clean_float(r.get("forward_max_drawdown")),
+                )
+            )
+
+    response = SignalOutcomeResponse(
+        ticker=ticker, config_key=config_key, reference_estimator=estimator,
+        sampling=sampling, horizons=horizon_labels, rows=rows, disclaimer=_CONDITION_DISCLAIMER,
+    )
+    cache.set(key, response)
+    return response
+
+
+def get_signal_outcome_distribution(
+    ticker: str,
+    estimator: str = DEFAULT_REFERENCE_ESTIMATOR,
+    window_key: str = DEFAULT_HISTORICAL_WINDOW,
+    horizon: str = "1M",
+    sampling: str = "non_overlapping",
+    start: str | None = None,
+    end: str | None = None,
+    min_periods: int = MIN_PERCENTILE_HISTORY,
+) -> SignalOutcomeDistributionResponse:
+    """Per-state forward-return *samples* at one ``horizon`` for the box plot (Phase 9).
+
+    The companion to :func:`get_signal_outcomes`: identical state side (already-lagged
+    confirmed state), identical unlagged after-``t`` forward side and identical
+    sampling, but it returns the raw per-observation forward returns per diagnostic
+    state so the frontend can draw a box per state. Cached on the outcome key plus
+    the single horizon.
+    """
+    if horizon not in FORWARD_HORIZONS:
+        raise ValueError(f"unknown horizon '{horizon}' (expected one of {sorted(FORWARD_HORIZONS)})")
+    if sampling not in {"non_overlapping", "all"}:
+        raise ValueError(f"unknown sampling '{sampling}' (expected 'non_overlapping' or 'all')")
+    _validate_estimator(estimator)
+    _resolve_window(window_key)
+
+    ordered, config_key = _load_ticker_ordered(ticker)
+
+    def _empty() -> SignalOutcomeDistributionResponse:
+        return SignalOutcomeDistributionResponse(
+            ticker=ticker, config_key=config_key, reference_estimator=estimator,
+            sampling=sampling, horizon=horizon, distributions=[], disclaimer=_OUTCOME_DISCLAIMER,
+        )
+
+    if ordered.empty or estimator not in ordered.columns:
+        return _empty()
+
+    data_version = surface_data_version(ordered)
+    key = (
+        "vol_outcome_dist", "v1", config_key, ticker, estimator, window_key, int(min_periods),
+        _STATE_CONFIG.version(), int(_STATE_CONFIG.confirmation_days),
+        horizon, sampling, start, end, data_version,
+    )
+    cache = _pct_cache()
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    state_frame = _confirmed_state_frame(ordered, config_key, ticker, estimator, window_key, min_periods)
+    if start is not None:
+        state_frame = state_frame[state_frame["date"] >= pd.Timestamp(start)]
+    if end is not None:
+        state_frame = state_frame[state_frame["date"] <= pd.Timestamp(end)]
+
+    forward_returns = _forward_outcome_frame(ticker, with_drawdowns=False)
+    if forward_returns.empty:
+        response = _empty()
+        cache.set(key, response)
+        return response
+
+    samples = build_state_return_distribution(
+        state_frame, forward_returns, "confirmed_state", f"forward_return_{horizon}",
+        non_overlapping=(sampling == "non_overlapping"), states=OUTCOME_STATES,
+    )
+    distributions = [
+        StateReturnDistribution(state=state, effective_observations=len(returns), returns=returns)
+        for state, returns in samples.items()
+        if returns  # a box needs at least one realised forward return
+    ]
+
+    response = SignalOutcomeDistributionResponse(
+        ticker=ticker, config_key=config_key, reference_estimator=estimator,
+        sampling=sampling, horizon=horizon, distributions=distributions, disclaimer=_OUTCOME_DISCLAIMER,
+    )
+    cache.set(key, response)
+    return response
+
+
+# --------------------------------------------------------------------------- #
+# Phase 10 — passive strategy-integration snapshot interface
+# --------------------------------------------------------------------------- #
+
+
+def _snapshot_provider(
+    estimator: str, window_key: str, min_periods: int
+) -> tuple[VolatilitySignalSnapshotProvider | None, str, pd.Timestamp | None]:
+    """Build a snapshot provider over the persisted surface (+ ETF prices).
+
+    Returns ``(provider, config_key, latest_date)``; provider is ``None`` when the
+    surface is empty. The provider wraps a single-``config_key`` ``VolatilityFeatureSurface``
+    and the matching ETF close history, sharing the process-wide state/agreement
+    configs so versions line up with the rest of the dashboard.
+    """
+    raw = get_volatility_features()
+    if raw.empty:
+        return None, "", None
+    df_slice, config_key = _single_config_slice(raw)
+    tickers = sorted(str(t) for t in df_slice["ticker"].dropna().unique())
+    surface = VolatilityFeatureSurface(
+        values=df_slice.reset_index(drop=True), config=VolatilityFeatureConfig(), tickers=tickers
+    )
+    latest = df_slice["date"].max() if not df_slice.empty else None
+    provider = VolatilitySignalSnapshotProvider(
+        surface=surface,
+        prices=get_etf_history(tickers),
+        reference_estimator=estimator,
+        historical_window=window_key,
+        minimum_history=int(min_periods),
+        state_config=_STATE_CONFIG,
+        agreement_config=_AGREEMENT_CONFIG,
+        stability_window=window_key,
+    )
+    return provider, config_key, latest
+
+
+def _asset_snapshot_to_response(snap) -> AssetVolatilitySnapshotResponse:
+    """Map the pure ``AssetVolatilitySignalSnapshot`` dataclass to its API model."""
+    return AssetVolatilitySnapshotResponse(
+        ticker=snap.ticker,
+        as_of_date=_iso_date(snap.as_of_date),
+        information_through_date=_iso_date(snap.information_through_date),
+        config_key=snap.config_key,
+        reference_estimator=snap.reference_estimator,
+        historical_window=snap.historical_window,
+        minimum_history=snap.minimum_history,
+        state_config_version=snap.state_config_version,
+        confirmation_days=snap.confirmation_days,
+        agreement_config_version=snap.agreement_config_version,
+        stability_window=snap.stability_window,
+        annualized_volatility=_clean_float(snap.annualized_volatility),
+        historical_percentile=_clean_float(snap.historical_percentile),
+        percentile_ordinal=percentile_to_ordinal(_clean_float(snap.historical_percentile)),
+        volatility_level=snap.volatility_level,
+        change_5d=_clean_float(snap.change_5d),
+        change_20d=_clean_float(snap.change_20d),
+        direction=snap.direction,
+        short_long_ratio=_clean_float(snap.short_long_ratio),
+        term_state=snap.term_state,
+        instantaneous_state=snap.instantaneous_state,
+        confirmed_state=snap.confirmed_state,
+        estimator_agreement=snap.estimator_agreement,
+        absolute_spread=_clean_float(snap.absolute_spread),
+        relative_dispersion=_clean_float(snap.relative_dispersion),
+        asset_return_20d=_clean_float(snap.asset_return_20d),
+        price_volatility_context=snap.price_volatility_context,
+        stability_percentile=_clean_float(snap.stability_percentile),
+        estimate_stability=snap.estimate_stability,
+        raw_vol_of_vol=_clean_float(snap.raw_vol_of_vol),
+    )
+
+
+def _resolve_as_of(as_of: str | None, latest: pd.Timestamp | None) -> pd.Timestamp | None:
+    """Parse an ISO ``as_of`` (or default to the surface's latest date)."""
+    if as_of:
+        return pd.Timestamp(as_of)
+    return latest
+
+
+def get_asset_signal_snapshot(
+    ticker: str,
+    estimator: str = DEFAULT_REFERENCE_ESTIMATOR,
+    window_key: str = DEFAULT_HISTORICAL_WINDOW,
+    as_of: str | None = None,
+    min_periods: int = MIN_PERCENTILE_HISTORY,
+) -> AssetVolatilitySnapshotResponse:
+    """Passive point-in-time signal snapshot for one ticker (Phase 10).
+
+    Retrieves via the single existing ``get_ticker_snapshot`` as-of path and packages
+    the Phase 1–8 diagnostics + reproducibility metadata. Defaults to the latest
+    surface date. Cached on the §7.2-style key + the as-of date.
+    """
+    _validate_estimator(estimator)
+    _resolve_window(window_key)
+
+    provider, config_key, latest = _snapshot_provider(estimator, window_key, min_periods)
+    if provider is None or latest is None:
+        # Empty surface: a metadata-only blank snapshot (no row to read).
+        blank = VolatilitySignalSnapshotProvider(
+            surface=VolatilityFeatureSurface(values=pd.DataFrame(), config=VolatilityFeatureConfig(), tickers=[]),
+            reference_estimator=estimator, historical_window=window_key,
+            minimum_history=int(min_periods), state_config=_STATE_CONFIG,
+            agreement_config=_AGREEMENT_CONFIG, stability_window=window_key,
+        )
+        as_of_blank = pd.Timestamp(as_of) if as_of else pd.Timestamp.now().normalize()
+        return _asset_snapshot_to_response(blank._missing_snapshot(ticker, as_of_blank))
+
+    as_of_ts = _resolve_as_of(as_of, latest)
+    data_version = surface_data_version(provider.surface.values)
+    key = (
+        "vol_snapshot", "v1", config_key, ticker, estimator, window_key, int(min_periods),
+        _STATE_CONFIG.version(), int(_STATE_CONFIG.confirmation_days), _AGREEMENT_CONFIG.version(),
+        str(as_of_ts.date()) if as_of_ts is not None else None, data_version,
+    )
+    cache = _pct_cache()
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    snap = provider.get_volatility_signal_snapshot(ticker, as_of_ts)
+    response = _asset_snapshot_to_response(snap)
+    cache.set(key, response)
+    return response
+
+
+def get_cross_asset_signal_snapshot(
+    estimator: str = DEFAULT_REFERENCE_ESTIMATOR,
+    window_key: str = DEFAULT_HISTORICAL_WINDOW,
+    as_of: str | None = None,
+    min_periods: int = MIN_PERCENTILE_HISTORY,
+) -> CrossAssetVolatilitySnapshotResponse:
+    """Passive all-asset snapshot: per-asset snapshots + ratios + risk ranking (Phase 10)."""
+    _validate_estimator(estimator)
+    _resolve_window(window_key)
+
+    provider, config_key, latest = _snapshot_provider(estimator, window_key, min_periods)
+    if provider is None or latest is None:
+        return CrossAssetVolatilitySnapshotResponse(
+            as_of_date=None, information_through_date=None, config_key="",
+            reference_estimator=estimator, historical_window=window_key,
+            minimum_history=int(min_periods), state_config_version=_STATE_CONFIG.version(),
+            confirmation_days=int(_STATE_CONFIG.confirmation_days),
+            agreement_config_version=_AGREEMENT_CONFIG.version(), stability_window=window_key,
+            assets=[], ratios=[], ranking=[],
+        )
+
+    as_of_ts = _resolve_as_of(as_of, latest)
+    data_version = surface_data_version(provider.surface.values)
+    key = (
+        "vol_snapshot_cross", "v1", config_key, estimator, window_key, int(min_periods),
+        _STATE_CONFIG.version(), int(_STATE_CONFIG.confirmation_days), _AGREEMENT_CONFIG.version(),
+        str(as_of_ts.date()) if as_of_ts is not None else None, data_version,
+    )
+    cache = _pct_cache()
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    snap = provider.get_cross_asset_volatility_snapshot(as_of_ts)
+    response = CrossAssetVolatilitySnapshotResponse(
+        as_of_date=_iso_date(snap.as_of_date),
+        information_through_date=_iso_date(snap.information_through_date),
+        config_key=snap.config_key,
+        reference_estimator=snap.reference_estimator,
+        historical_window=snap.historical_window,
+        minimum_history=snap.minimum_history,
+        state_config_version=snap.state_config_version,
+        confirmation_days=snap.confirmation_days,
+        agreement_config_version=snap.agreement_config_version,
+        stability_window=snap.stability_window,
+        assets=[_asset_snapshot_to_response(a) for a in snap.assets],
+        ratios=[
+            CrossAssetRatioSnapshotRow(
+                pair=r.pair, current_ratio=_clean_float(r.current_ratio),
+                percentile_ordinal=_clean_ordinal(r.percentile_ordinal),
+                relative_risk_state=r.relative_risk_state,
+            )
+            for r in snap.ratios
+        ],
+        ranking=[
+            AssetRiskRankSnapshotRow(
+                rank=r.rank, ticker=r.ticker,
+                annualized_volatility=_clean_float(r.annualized_volatility),
+                historical_percentile=_clean_float(r.historical_percentile),
+                confirmed_state=r.confirmed_state,
+            )
+            for r in snap.ranking
+        ],
     )
     cache.set(key, response)
     return response

@@ -238,7 +238,7 @@ def test_volatility_state_table_has_price_context(client: TestClient) -> None:
 
 _CHART_UNITS = {
     "volatility": "decimal", "percentile": "percentile", "ratio": "ratio",
-    "change": "decimal_change", "dispersion": "ratio",
+    "change": "decimal_change", "dispersion": "ratio", "vov": "percentile",
 }
 
 
@@ -266,3 +266,315 @@ def test_volatility_chart_rejects_unknown_view(client: TestClient) -> None:
     assert client.get(
         "/api/v1/volatility-features/chart", params={"ticker": "TLT", "view": "bogus"}
     ).status_code == 422
+
+
+_LEVELS = {"Low", "Normal", "Elevated", "High", "Extreme", "Insufficient history"}
+
+
+def test_cross_asset_volatility(client: TestClient) -> None:
+    resp = client.get("/api/v1/volatility-features/cross-asset")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["reference_estimator"] == "rolling_20"
+    # Ratio rows carry a pair label + own percentile context.
+    pairs = [r["pair"] for r in body["ratios"]]
+    assert "TLT / AGG" in pairs
+    for r in body["ratios"]:
+        assert r["relative_risk_state"] in _LEVELS
+        assert r["percentile_ordinal"] is None or 0 <= r["percentile_ordinal"] <= 100
+    # Ranking is by raw current vol descending, ranks 1..n, with state visible.
+    ranking = body["ranking"]
+    assert [row["rank"] for row in ranking] == list(range(1, len(ranking) + 1))
+    vols = [row["current_volatility"] for row in ranking if row["current_volatility"] is not None]
+    assert vols == sorted(vols, reverse=True)
+    assert all(row["confirmed_state"] for row in ranking)
+    assert "NaN" not in resp.text and "Infinity" not in resp.text
+    json.loads(resp.text)
+
+
+@pytest.mark.parametrize("view, unit", [("raw", "ratio"), ("percentile", "percentile")])
+def test_cross_asset_ratio_series(client: TestClient, view: str, unit: str) -> None:
+    resp = client.get(
+        "/api/v1/volatility-features/cross-asset/ratio-series",
+        params={"pair": "tlt/agg", "view": view},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["pair"] == "TLT / AGG" and body["view"] == view and body["unit"] == unit
+    assert body["reference_lines"] == ([0.20, 0.60, 0.80, 0.95] if view == "percentile" else [])
+    pts = body["series"][0]["points"]
+    assert pts and _ISO_DATE.match(pts[0]["date"])
+    if view == "percentile":
+        for p in pts:
+            assert p["value"] is None or 0.0 <= p["value"] <= 1.0
+    assert "NaN" not in resp.text and "Infinity" not in resp.text
+    json.loads(resp.text)
+
+
+def test_cross_asset_ratio_series_rejects_bad_pair_and_view(client: TestClient) -> None:
+    assert client.get(
+        "/api/v1/volatility-features/cross-asset/ratio-series", params={"pair": "TLT"}
+    ).status_code == 422
+    assert client.get(
+        "/api/v1/volatility-features/cross-asset/ratio-series", params={"pair": "TLT/AGG", "view": "bogus"}
+    ).status_code == 422
+
+
+_STABILITY = {"Stable", "Changing", "Unstable", "Extreme instability", "Unknown"}
+
+
+def test_estimate_stability(client: TestClient) -> None:
+    resp = client.get("/api/v1/volatility-features/stability", params={"ticker": "tlt"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ticker"] == "TLT"
+    assert body["estimate_stability"] in _STABILITY
+    sp = body["stability_percentile"]
+    assert sp is None or 0.0 <= sp <= 1.0
+    assert body["percentile_ordinal"] is None or 0 <= body["percentile_ordinal"] <= 100
+    # Raw vol-of-vol is present (debug/methodology) but the percentile/status are the headline.
+    assert "raw_vol_of_vol" in body
+    assert "NaN" not in resp.text and "Infinity" not in resp.text
+    json.loads(resp.text)
+
+
+def test_state_table_has_stability(client: TestClient) -> None:
+    body = client.get("/api/v1/volatility-features/state-table").json()
+    assert body["rows"]
+    for row in body["rows"]:
+        assert row["estimate_stability"] in _STABILITY
+        assert row["stability_percentile"] is None or 0.0 <= row["stability_percentile"] <= 1.0
+
+
+def test_chart_vov_reference_lines(client: TestClient) -> None:
+    body = client.get(
+        "/api/v1/volatility-features/chart", params={"ticker": "TLT", "view": "vov"}
+    ).json()
+    assert body["unit"] == "percentile"
+    assert body["reference_lines"] == [0.60, 0.80, 0.95]
+
+
+# --------------------------------------------------------------------------- #
+# Phase 9 — historical signal outcomes
+# --------------------------------------------------------------------------- #
+
+_SAMPLE_QUALITY = {"Insufficient sample", "Anecdotal", "Low sample", ""}
+_OUTCOME_STATES = {
+    "Calm", "Early Expansion", "Stress Expansion", "Persistent Stress",
+    "Normalisation", "Shock",
+}
+_HORIZONS = {"1M", "3M", "6M"}
+
+
+def test_signal_outcomes_typed_response(client: TestClient) -> None:
+    resp = client.get("/api/v1/volatility-features/outcomes", params={"ticker": "tlt"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ticker"] == "TLT"
+    assert body["reference_estimator"] == "rolling_20"
+    assert body["sampling"] == "non_overlapping"          # default
+    assert set(body["horizons"]) == _HORIZONS
+    assert isinstance(body["disclaimer"], str) and body["disclaimer"]
+    for row in body["rows"]:
+        assert row["state"] in _OUTCOME_STATES            # "Unknown" never appears
+        assert row["horizon"] in _HORIZONS
+        assert isinstance(row["effective_observations"], int)
+        assert row["sample_quality"] in _SAMPLE_QUALITY
+    # Strict JSON: NaN/Inf -> null at the boundary (gated-out stats are null).
+    assert "NaN" not in resp.text and "Infinity" not in resp.text
+    json.loads(resp.text)
+
+
+def test_signal_outcomes_gating_consistent_with_label(client: TestClient) -> None:
+    body = client.get("/api/v1/volatility-features/outcomes", params={"ticker": "TLT"}).json()
+    for row in body["rows"]:
+        if row["sample_quality"] == "Insufficient sample":
+            # No aggregate stats at all.
+            for stat in ("mean_return", "median_return", "hit_rate", "worst_return", "best_return"):
+                assert row[stat] is None
+        elif row["sample_quality"] == "Anecdotal":
+            # median / worst / best only — no mean / hit_rate / std.
+            assert row["mean_return"] is None
+            assert row["hit_rate"] is None
+            assert row["std_return"] is None
+        # Hit rate, when present, is a fraction.
+        if row["hit_rate"] is not None:
+            assert 0.0 <= row["hit_rate"] <= 1.0
+        # Forward drawdown, when present, is non-positive.
+        if row["forward_max_drawdown"] is not None:
+            assert row["forward_max_drawdown"] <= 1e-9
+
+
+def test_signal_outcomes_all_observations_override(client: TestClient) -> None:
+    non_overlap = client.get(
+        "/api/v1/volatility-features/outcomes", params={"ticker": "TLT", "sampling": "non_overlapping"}
+    ).json()
+    all_obs = client.get(
+        "/api/v1/volatility-features/outcomes", params={"ticker": "TLT", "sampling": "all"}
+    ).json()
+    assert all_obs["sampling"] == "all"
+    # The override never reduces the independent count below the default for any state/horizon.
+    by_key = {(r["state"], r["horizon"]): r["effective_observations"] for r in non_overlap["rows"]}
+    for r in all_obs["rows"]:
+        key = (r["state"], r["horizon"])
+        if key in by_key:
+            assert r["effective_observations"] >= by_key[key]
+
+
+def test_signal_outcomes_rejects_unknown_sampling_and_estimator(client: TestClient) -> None:
+    assert client.get(
+        "/api/v1/volatility-features/outcomes", params={"ticker": "TLT", "sampling": "bogus"}
+    ).status_code == 422
+    assert client.get(
+        "/api/v1/volatility-features/outcomes", params={"ticker": "TLT", "estimator": "bogus"}
+    ).status_code == 422
+
+
+# Combined-condition signals (added incrementally on top of the diagnostic states).
+_CONDITIONS = {
+    "Vol rising + price falling",
+    "Vol rising + price rising",
+    "Vol falling after High/Extreme",
+    "20D/60D in expansion",
+    "Estimator agreement Low",
+    "TLT/AGG relative vol > 90th pct",
+}
+
+
+def test_signal_outcome_conditions_typed_response(client: TestClient) -> None:
+    resp = client.get("/api/v1/volatility-features/outcomes/conditions", params={"ticker": "tlt"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ticker"] == "TLT"
+    assert body["sampling"] == "non_overlapping"           # default
+    assert set(body["horizons"]) == _HORIZONS
+    seen_conditions = {row["state"] for row in body["rows"]}
+    # Every single-asset condition appears (TLT/AGG cross-asset condition appears
+    # whenever both assets exist in the surface).
+    assert {
+        "Vol rising + price falling", "Vol rising + price rising",
+        "Vol falling after High/Extreme", "20D/60D in expansion", "Estimator agreement Low",
+    } <= seen_conditions
+    assert seen_conditions <= _CONDITIONS
+    for row in body["rows"]:
+        assert row["horizon"] in _HORIZONS
+        assert isinstance(row["effective_observations"], int)
+        assert row["sample_quality"] in _SAMPLE_QUALITY
+        # Same gating contract as the state table.
+        if row["sample_quality"] == "Insufficient sample":
+            assert row["mean_return"] is None
+    assert "NaN" not in resp.text and "Infinity" not in resp.text
+    json.loads(resp.text)
+
+
+def test_signal_outcome_conditions_includes_cross_asset_when_tlt_agg_present(client: TestClient) -> None:
+    # TLT and AGG are both in the production surface, so the cross-asset condition
+    # must actually appear (guards against _tlt_agg_relative_percentile silently
+    # returning empty and dropping the condition).
+    body = client.get("/api/v1/volatility-features/outcomes/conditions", params={"ticker": "TLT"}).json()
+    seen = {row["state"] for row in body["rows"]}
+    assert "TLT/AGG relative vol > 90th pct" in seen
+
+
+def test_signal_outcome_conditions_rejects_bad_params(client: TestClient) -> None:
+    assert client.get(
+        "/api/v1/volatility-features/outcomes/conditions", params={"ticker": "TLT", "sampling": "bogus"}
+    ).status_code == 422
+    assert client.get(
+        "/api/v1/volatility-features/outcomes/conditions", params={"ticker": "TLT", "estimator": "bogus"}
+    ).status_code == 422
+
+
+def test_signal_outcome_distribution_typed_response(client: TestClient) -> None:
+    resp = client.get(
+        "/api/v1/volatility-features/outcomes/distribution", params={"ticker": "TLT", "horizon": "3M"}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ticker"] == "TLT"
+    assert body["horizon"] == "3M"
+    assert body["unit"] == "decimal"
+    for dist in body["distributions"]:
+        assert dist["state"] in _OUTCOME_STATES
+        # effective_observations is the length of the realised-return sample, all finite.
+        assert dist["effective_observations"] == len(dist["returns"])
+        assert all(isinstance(v, (int, float)) for v in dist["returns"])
+    assert "NaN" not in resp.text and "Infinity" not in resp.text
+    json.loads(resp.text)
+
+
+def test_signal_outcome_distribution_rejects_bad_horizon(client: TestClient) -> None:
+    assert client.get(
+        "/api/v1/volatility-features/outcomes/distribution", params={"ticker": "TLT", "horizon": "9Y"}
+    ).status_code == 422
+
+
+def test_volatility_snapshot_typed_response(client: TestClient) -> None:
+    resp = client.get("/api/v1/volatility-features/snapshot", params={"ticker": "tlt"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ticker"] == "TLT"
+    assert body["reference_estimator"] == "rolling_20"
+    # Reproducibility metadata is always present (never a state without its context).
+    assert body["config_key"] and body["state_config_version"] and body["agreement_config_version"]
+    assert body["confirmation_days"] > 0
+    assert body["historical_window"] == "5Y" and body["stability_window"] == "5Y"
+    # Lagged surface => as_of (t) and information_through (t-1) are present and distinct.
+    assert _ISO_DATE.match(body["as_of_date"])
+    assert _ISO_DATE.match(body["information_through_date"])
+    assert body["as_of_date"] != body["information_through_date"]
+    # Diagnostic fields exposed.
+    for fld in ("volatility_level", "direction", "confirmed_state", "instantaneous_state",
+                "estimator_agreement", "price_volatility_context", "estimate_stability"):
+        assert isinstance(body[fld], str)
+    # Strict JSON: NaN/Inf -> null.
+    assert "NaN" not in resp.text and "Infinity" not in resp.text
+    json.loads(resp.text)
+
+
+def test_volatility_snapshot_historical_as_of(client: TestClient) -> None:
+    base = client.get("/api/v1/volatility-features/snapshot", params={"ticker": "TLT"}).json()
+    info_through = base["information_through_date"]
+    assert info_through  # there is a prior trading day
+    hist = client.get(
+        "/api/v1/volatility-features/snapshot", params={"ticker": "TLT", "as_of": info_through}
+    ).json()
+    # Requesting an earlier as-of returns that historical snapshot, not the latest.
+    assert hist["as_of_date"] == info_through
+    assert hist["as_of_date"] != base["as_of_date"]
+
+
+def test_volatility_snapshot_rejects_unknown_estimator(client: TestClient) -> None:
+    assert client.get(
+        "/api/v1/volatility-features/snapshot", params={"ticker": "TLT", "estimator": "bogus"}
+    ).status_code == 422
+
+
+def test_volatility_cross_asset_snapshot(client: TestClient) -> None:
+    resp = client.get("/api/v1/volatility-features/snapshot/cross-asset")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["config_key"] and body["state_config_version"]
+    assert len(body["assets"]) >= 1
+    # Ranking covers the assets, ranks are 1..n in order.
+    ranks = [r["rank"] for r in body["ranking"]]
+    assert ranks == list(range(1, len(ranks) + 1))
+    for a in body["assets"]:
+        assert isinstance(a["confirmed_state"], str)
+    assert "NaN" not in resp.text and "Infinity" not in resp.text
+    json.loads(resp.text)
+
+
+def test_signal_outcome_distribution_non_overlapping_subset_of_all(client: TestClient) -> None:
+    # Non-overlapping (default) must never have more samples per state than "all".
+    non = client.get(
+        "/api/v1/volatility-features/outcomes/distribution",
+        params={"ticker": "TLT", "horizon": "1M", "sampling": "non_overlapping"},
+    ).json()
+    allobs = client.get(
+        "/api/v1/volatility-features/outcomes/distribution",
+        params={"ticker": "TLT", "horizon": "1M", "sampling": "all"},
+    ).json()
+    all_counts = {d["state"]: d["effective_observations"] for d in allobs["distributions"]}
+    for d in non["distributions"]:
+        assert d["effective_observations"] <= all_counts.get(d["state"], 0)
