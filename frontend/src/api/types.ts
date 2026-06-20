@@ -179,6 +179,9 @@ export type StrategiesResponse = components["schemas"]["StrategiesResponse"];
 /** One flattened strategy summary. */
 export type StrategySummary = components["schemas"]["StrategySummary"];
 
+/** Body of `POST /api/v1/strategies/live`: the registry name to make live. */
+export type SetLiveStrategyRequest = components["schemas"]["SetLiveStrategyRequest"];
+
 /** A backtest job's state (`POST /jobs/backtest`, `GET /jobs/{id}`). */
 export type JobStatus = components["schemas"]["JobStatus"];
 

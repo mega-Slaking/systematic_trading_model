@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.19.1
+## Current Version: V 1.21.0
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -889,3 +889,33 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - High-contrast mode now uses vivid, maximally-distinct neon fills for the annualised-volatility chart's confirmed-state shading and the Macro Regime Timeline bands (blue avoided — the contrast theme's axes are already electric blue); other modes keep the original subtle palette.
   - Calm vs Unknown are now visually distinct in both the state shading and the forward-return boxplot.
   - Primary chart curve / box colour is cyan (`#06b6d4`) in dark + high-contrast modes and the original Plotly blue (`#1f77b4`) in light mode, across the Tearsheet, Volatility, ETFs-vs-Macro line charts and the Returns Analysis distribution boxplot; the rest of the palette and all other chart styling are unchanged.
+
+  ## V 1.20.0
+
+- **Select the live strategy from the dashboard (`src/strategy/presets.py`, `api/.../strategies.py`, `frontend/.../StrategiesPage.tsx`)**:
+  - The Strategies tab's ★ is now interactive — click any row's ☆ to choose which registry entry the live run (`main.py` → `live_strategy()`) trades. A runtime override is persisted to `data/live_strategy.json` (gitignored, like the DB) and read by both the API and the live run; the `LIVE_STRATEGY` constant remains the built-in default and a **Reset to default** button clears the override.
+  - `src/strategy/presets.py` gains `live_strategy_override` / `effective_live_strategy_name` / `set_live_strategy_override` / `clear_live_strategy_override`; `live_strategy()` now honours the override, falling back to the constant. The no-override path is behaviour-preserving (effective name == constant). Malformed override files (bad JSON, non-object, non-string/unknown name) are treated as "no override" rather than crashing the live run.
+  - API: `GET /strategies` now also returns `default_strategy` + `is_overridden`; new `POST /strategies/live` (unknown name → 422) and `POST /strategies/live/reset`. React adds `useSetLiveStrategy` / `useResetLiveStrategy` (cache-seeding mutations); the ☆ glyph and Reset button text follow the theme (white on dark, electric blue on high-contrast).
+
+- **Tests**: `api/tests/test_strategies.py` covers set/reset round-trip, unknown-name 422, and a parametrized malformed-override fallback, isolated via a monkeypatched `_OVERRIDE_PATH` temp file so the real `data/live_strategy.json` is never touched. Full suite green (root **441 passed / 5 skipped**; `api/tests` **182 passed**). Note: CI's `pytest -q` (`testpaths = tests`) does not collect `api/tests`, so these run locally via `python -m pytest api/tests`.
+
+  ## V 1.20.1
+
+- **Frontend UX/maintainability spec + Phase 1 theme-token consolidation (`docs/frontend_ux_improvements_spec.md`; no behaviour change)**:
+  - Added `docs/frontend_ux_improvements_spec.md` — a UX review scoped into six small, independently-shippable phases (token consolidation, shared stat primitive, tab/selection persistence, Volatility page hierarchy, affordances/a11y, dead-code/loading polish).
+  - **Phase 1 (this release):** relocated hardcoded chart/regime/star colours into the theme layer with **byte-identical rendered values in every mode** (pure refactor). `theme/chartTheme.ts` now defines a per-mode trace `colorway` (cyan primary on dark/contrast, Plotly blue on light) consumed by `PlotlyLineChart` + `BaseBoxplot`; new CSS tokens `--star-live` / `--star-empty` / `--control-emphasis-text` in `index.css` replace the per-mode ternaries in `StrategiesPage.tsx`; and a new `theme/regimeColors.ts` is the single home for the volatility confirmed-state shading (`volStateBandColor`), the forward-return boxplot fills (`volStateBoxColor`), and the macro regime maps (`regimeRgbMap` + `INVERSION_BAND`) — removing the duplicated palettes from `VolatilityPage.tsx` and `MacroPage.tsx`.
+  - Deferred (out of Phase 1 scope): the diagnostic-state **badge** pill colours and the Recharts ETF-prices palette (`SeriesLineChart`) — both pre-existing and constant across modes. `npm run build` clean.
+
+  ## V 1.20.2
+
+- **Frontend UX Phase 2 — shared labelled-value primitive (`frontend/src/components/StatCard.tsx`; no behaviour change)**:
+  - Added `StatCard` + `StatGrid` — one card-tile primitive (card shell, uppercase label header, tabular value) with `info` / `headerRight` / `value` / `children` / `footer` slots, replacing two near-duplicate per-page implementations.
+  - Migrated the Volatility state grid (the former `SnapCard`, incl. the Level/Stability badge cards and info tooltips) and the Macro "Latest readings" tiles (the former `SnapshotCardTile`, with its stale tag + 3m-change/as-of footer) onto it. Rendered output is byte-identical in all three themes; the per-page card markup is removed.
+  - Deferred (spec-sanctioned): the Tearsheet `MetricGrid` migration (differently-shaped tile). `tsc -b` + `npm run build` clean.
+
+  ## V 1.21.0
+
+- **Frontend UX Phase 3 — URL-synced tab & selections (`frontend/src/hooks/useUrlState.ts`)**:
+  - Views are now refresh-safe, bookmarkable, and shareable. New `useUrlState` hook syncs a discrete selection to a URL query param via `history.replaceState` (no router dependency, no history-stack spam): reads once on mount, omits the default from the URL for clean links, and falls back to the default for unknown/garbage values (optional `allowed` validation). Namespaced keys coexist (each write edits only its own param).
+  - Adopted for the **active tab** (`App.tsx` → `?tab=`, validated vs `TABS`), the **Volatility** page (`?volTicker` / `?volEstimator` / `?volWindow` / `?volView`), and the **ETFs-vs-Macro explorer** (`?macroEtf` / `?macroIndicator` / `?macroRange` / `?macroMode` / `?macroHorizon`). `activeTicker` now falls back when an out-of-range ticker arrives via the URL.
+  - Pattern established for incremental adoption; other pages and the regime-timeline / conditional-returns selectors deferred. `tsc -b` + `npm run build` clean.

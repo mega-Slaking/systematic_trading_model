@@ -12,6 +12,7 @@
  */
 
 import type { StateReturnDistribution } from "../../api/types";
+import { volStateBoxColor } from "../../theme/regimeColors";
 import { BaseBoxplot, type BoxSeries } from "./BaseBoxplot";
 
 interface OutcomeBoxplotProps {
@@ -20,31 +21,11 @@ interface OutcomeBoxplotProps {
   height?: number;
 }
 
-/** Data-meaning fill per diagnostic state (constant across themes, aligned with the page badges). */
-function stateColor(state: string): string {
-  switch (state) {
-    case "Shock":
-      return "rgba(220,38,38,0.55)";
-    case "Stress Expansion":
-      return "rgba(220,38,38,0.40)";
-    case "Persistent Stress":
-      return "rgba(234,88,12,0.45)";
-    case "Early Expansion":
-      return "rgba(217,119,6,0.45)";
-    case "Normalisation":
-      return "rgba(37,99,235,0.45)";
-    case "Calm":
-      return "rgba(16,185,129,0.40)";
-    default: // Unknown
-      return "rgba(148,163,184,0.40)";
-  }
-}
-
 export default function OutcomeBoxplot({ distributions, horizon, height = 360 }: OutcomeBoxplotProps) {
   const series: BoxSeries[] = distributions.map((d) => ({
     name: `${d.state} (n=${d.effective_observations})`,
     y: d.returns,
-    color: stateColor(d.state),
+    color: volStateBoxColor(d.state),
   }));
 
   return (

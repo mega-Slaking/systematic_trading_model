@@ -96,6 +96,11 @@
   --danger-text: #7a1f1f;
   --danger-text-strong: #992222;
   --success: #1a7f37;
+
+  /* Interactive control accents (Strategies live-star, emphasis button text). */
+  --star-live: #f5b301;
+  --star-empty: var(--text-subtle);
+  --control-emphasis-text: var(--text);
 }
 
 :root[data-theme="dark"] {
@@ -133,6 +138,11 @@
   --danger-text: #ffb3b3;
   --danger-text-strong: #ff9d9d;
   --success: #4ade80;
+
+  /* Interactive control accents (Strategies live-star, emphasis button text). */
+  --star-live: #f5b301;
+  --star-empty: #ffffff;
+  --control-emphasis-text: #ffffff;
 }
 
 /* High contrast: black background, electric-blue text, electric-blue borders. */
@@ -171,6 +181,11 @@
   --danger-text: #ff8a8a;
   --danger-text-strong: #ff8a8a;
   --success: #33ff99;
+
+  /* Interactive control accents (Strategies live-star, emphasis button text). */
+  --star-live: #f5b301;
+  --star-empty: #00b3ff;
+  --control-emphasis-text: #00b3ff;
 }
 
 html,

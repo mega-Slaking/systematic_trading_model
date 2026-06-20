@@ -9,6 +9,8 @@ See docs/strategy_config_design_spec.md (V1.10.0).
 """
 
 import itertools
+import json
+from pathlib import Path
 
 from src.strategy.config import StrategyConfig
 
@@ -103,22 +105,70 @@ STRATEGIES = _registry(
 
 # ---------------------------------------------------------------------------
 # Live selection (spec step 5). The live run trades exactly ONE registry entry.
-# Change this single line to switch the live book; it must name a key in
-# STRATEGIES (enforced by live_strategy()).
+# LIVE_STRATEGY is the built-in default; it can be overridden at runtime by a
+# small JSON file (data/live_strategy.json) written from the dashboard's
+# Strategies tab. The override always takes precedence when set and valid; a
+# "reset to default" clears the file and falls back to this constant.
 # ---------------------------------------------------------------------------
 LIVE_STRATEGY = "baseV1_roll20_ewmacov_lam94_tv05"
+
+# data/live_strategy.json at the repo root (src/strategy/presets.py -> parents[2]).
+_OVERRIDE_PATH = Path(__file__).resolve().parents[2] / "data" / "live_strategy.json"
+
+
+def live_strategy_override() -> str | None:
+    """The dashboard-selected live strategy name, or None if unset/invalid.
+
+    Reads the override file on every call (cheap) so the API and the live run
+    always see the latest selection. Anything malformed — missing file, bad JSON,
+    a non-object top level, or a name that isn't a registry key — is treated as no
+    override, so we fall back to the constant rather than crash the live run.
+    """
+    try:
+        with open(_OVERRIDE_PATH, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    name = data.get("live_strategy")
+    return name if isinstance(name, str) and name in STRATEGIES else None
+
+
+def effective_live_strategy_name() -> str:
+    """The name the live run will trade: the override if set, else the constant."""
+    return live_strategy_override() or LIVE_STRATEGY
+
+
+def set_live_strategy_override(name: str) -> None:
+    """Persist `name` as the live selection (must be a registry key)."""
+    if name not in STRATEGIES:
+        raise KeyError(
+            f"{name!r} is not in STRATEGIES. Available: {sorted(STRATEGIES)}"
+        )
+    _OVERRIDE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(_OVERRIDE_PATH, "w", encoding="utf-8") as fh:
+        json.dump({"live_strategy": name}, fh, indent=2)
+
+
+def clear_live_strategy_override() -> None:
+    """Remove the override file, reverting the live run to the LIVE_STRATEGY constant."""
+    _OVERRIDE_PATH.unlink(missing_ok=True)
 
 
 def live_strategy() -> StrategyConfig:
     """Return the StrategyConfig the live run should trade.
 
-    Fails fast (listing the available names) if LIVE_STRATEGY is not a registry
-    key, so a typo can never silently fall back to a different or default book.
+    Honours the runtime override (data/live_strategy.json) when set, otherwise the
+    LIVE_STRATEGY constant. Fails fast (listing the available names) if the chosen
+    name is not a registry key, so a typo can never silently fall back to default.
     """
+    name = effective_live_strategy_name()
     try:
-        return STRATEGIES[LIVE_STRATEGY]
+        # return STRATEGIES[LIVE_STRATEGY]  # pre-override behaviour (constant only)
+        return STRATEGIES[name]
     except KeyError:
         raise KeyError(
-            f"LIVE_STRATEGY={LIVE_STRATEGY!r} is not in STRATEGIES. "
+            f"live strategy {name!r} is not in STRATEGIES. "
             f"Available: {sorted(STRATEGIES)}"
         ) from None

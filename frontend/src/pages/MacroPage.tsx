@@ -20,8 +20,11 @@ import {
 } from "../api/hooks";
 import type { CategoricalSeries, MacroSnapshotCard, NamedSeries } from "../api/types";
 import { InfoTooltip } from "../components/InfoTooltip";
+import { StatCard, StatGrid } from "../components/StatCard";
 import { DataTable, type Column } from "../components/tables/DataTable";
+import { useUrlState } from "../hooks/useUrlState";
 import { useTheme } from "../theme/ThemeContext";
+import { INVERSION_BAND, regimeRgbMap } from "../theme/regimeColors";
 
 const PlotlyLineChart = lazy(() => import("../components/charts/PlotlyLineChart"));
 const ForwardReturnScatter = lazy(() => import("../components/charts/ForwardReturnScatter"));
@@ -234,11 +237,11 @@ function SnapshotCards({ query }: { query: ReturnType<typeof useMacroSnapshot> }
           update at different times. As of {query.data.as_of}.
         </InfoTooltip>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: "1rem" }}>
+      <StatGrid>
         {query.data.cards.map((card) => (
           <SnapshotCardTile key={card.key} card={card} />
         ))}
-      </div>
+      </StatGrid>
     </section>
   );
 }
@@ -247,21 +250,21 @@ function SnapshotCardTile({ card }: { card: MacroSnapshotCard }) {
   const change = formatSnapshotChange(card.change_3m, card.unit);
   const changeColor = card.direction ? DIRECTION_COLOR[card.direction] ?? "var(--text-faint)" : "var(--text-faint)";
   return (
-    <div style={{ border: "1px solid var(--border-soft)", borderRadius: 8, padding: "0.8rem 0.9rem", background: "var(--surface-raised)" }}>
-      <div style={{ fontSize: "0.72rem", color: "var(--text-subtle)", textTransform: "uppercase", letterSpacing: "0.02em", display: "flex", justifyContent: "space-between", gap: "0.4rem" }}>
-        <span>{card.label}</span>
-        {card.is_stale ? <span title="No recent update" style={{ color: "var(--danger)" }}>stale</span> : null}
-      </div>
-      <div style={{ fontSize: "1.2rem", marginTop: "0.35rem", fontVariantNumeric: "tabular-nums", fontFamily: "var(--font-data)" }}>
-        {formatSnapshotValue(card.value, card.unit)}
-      </div>
+    <StatCard
+      label={card.label}
+      value={formatSnapshotValue(card.value, card.unit)}
+      headerRight={card.is_stale ? <span title="No recent update" style={{ color: "var(--danger)" }}>stale</span> : undefined}
+      footer={
+        <>
       <div style={{ fontSize: "0.74rem", color: changeColor, marginTop: "0.3rem" }}>
         {card.direction && change ? `${DIRECTION_ARROW[card.direction] ?? ""} ${change} · 3m` : " "}
       </div>
       <div style={{ fontSize: "0.68rem", color: "var(--text-faint)", marginTop: "0.35rem" }}>
         as of {card.observation_date ?? "—"}
       </div>
-    </div>
+        </>
+      }
+    />
   );
 }
 
@@ -270,6 +273,8 @@ function SnapshotCardTile({ card }: { card: MacroSnapshotCard }) {
 // --------------------------------------------------------------------------- //
 type ExplorerMode = "dual" | "indexed" | "scatter";
 type DateRange = "full" | "10y" | "5y" | "3y";
+const EXPLORER_MODES = ["dual", "indexed", "scatter"] as const;
+const RANGE_KEYS = ["full", "10y", "5y", "3y"] as const;
 const FWD_HORIZONS = ["1m", "3m", "6m", "12m"];
 
 const RANGE_YEARS: Record<Exclude<DateRange, "full">, number> = { "10y": 10, "5y": 5, "3y": 3 };
@@ -305,11 +310,13 @@ function MacroExplorer({
   etfFor: (ticker: string) => NamedSeries | undefined;
   macroList: NamedSeries[];
 }) {
-  const [ticker, setTicker] = useState(TICKERS[0]);
-  const [macroKey, setMacroKey] = useState("cpi_yoy");
-  const [range, setRange] = useState<DateRange>("full");
-  const [mode, setMode] = useState<ExplorerMode>("dual");
-  const [horizon, setHorizon] = useState("3m");
+  // Explorer selections are URL-synced (refresh-safe + shareable); unknown values
+  // fall back to defaults. The macro indicator validates against the loaded list below.
+  const [ticker, setTicker] = useUrlState<string>("macroEtf", TICKERS[0], { allowed: TICKERS });
+  const [macroKey, setMacroKey] = useUrlState<string>("macroIndicator", "cpi_yoy");
+  const [range, setRange] = useUrlState<DateRange>("macroRange", "full", { allowed: RANGE_KEYS });
+  const [mode, setMode] = useUrlState<ExplorerMode>("macroMode", "dual", { allowed: EXPLORER_MODES });
+  const [horizon, setHorizon] = useUrlState<string>("macroHorizon", "3m", { allowed: FWD_HORIZONS });
 
   const etf = etfFor(ticker);
   const macro = macroList.find((s) => s.name === macroKey) ?? macroList[0];
@@ -426,36 +433,8 @@ const explorerSelect: React.CSSProperties = {
 // --------------------------------------------------------------------------- //
 // Macro regime timeline (ETF line + regime background shading)
 // --------------------------------------------------------------------------- //
-const INVERSION_BAND = "rgba(214, 39, 40, 0.10)";
-
-// Base RGB per regime label; bands use low alpha, legend swatches higher. These
-// are constant data-meaning colours (not theme chrome).
-const MACRO_REGIME_RGB: Record<string, string> = {
-  "Stable Growth": "120, 120, 120",
-  "Inflationary Tightening": "214, 39, 40",
-  "Disinflationary Slowdown": "31, 119, 180",
-  "Stagflation Risk": "148, 0, 33",
-  "Easing Transition": "44, 160, 44",
-};
-const ENGINE_REGIME_RGB: Record<string, string> = {
-  "No duration support": "120, 120, 120",
-  "Supports duration": "44, 160, 44",
-};
-
-// High-contrast mode swaps in vivid, maximally-distinct neon hues so the regimes
-// read clearly behind the ETF line on a black canvas. Blue is avoided — the
-// contrast theme's axes/font are already electric blue.
-const MACRO_REGIME_RGB_CONTRAST: Record<string, string> = {
-  "Stable Growth": "240, 240, 20",        // neon yellow
-  "Inflationary Tightening": "255, 40, 40", // neon red
-  "Disinflationary Slowdown": "180, 90, 255", // neon purple
-  "Stagflation Risk": "255, 16, 160",     // hot pink
-  "Easing Transition": "57, 255, 20",     // neon green
-};
-const ENGINE_REGIME_RGB_CONTRAST: Record<string, string> = {
-  "No duration support": "255, 145, 0",   // neon orange
-  "Supports duration": "57, 255, 20",     // neon green
-};
+// Regime/inversion shading palettes live in theme/regimeColors.ts (shared, and
+// including the high-contrast neon variants).
 
 type RegimeOverlay = "dashboard" | "engine";
 
@@ -505,15 +484,13 @@ function RegimeTimeline({
   const engineAvailable = Boolean(query.data.engine_regime);
   const useEngine = overlay === "engine" && engineAvailable;
   const series = useEngine ? query.data.engine_regime : query.data.regime;
-  const rgbMap = useEngine
-    ? (contrast ? ENGINE_REGIME_RGB_CONTRAST : ENGINE_REGIME_RGB)
-    : (contrast ? MACRO_REGIME_RGB_CONTRAST : MACRO_REGIME_RGB);
+  const rgbMap = regimeRgbMap(useEngine, mode);
   // Vivid neon fills need a touch more opacity to read on the black contrast canvas.
   const bands = regimeBands(series, (label) => rgbMap[label], contrast ? 0.4 : 0.16);
   const etf = etfFor(ticker);
 
   const legendEntries: [string, string][] = useEngine
-    ? Object.keys(ENGINE_REGIME_RGB).map((label) => [
+    ? Object.keys(rgbMap).map((label) => [
         label,
         label === "Supports duration"
           ? "Engine's macro signal favours duration"

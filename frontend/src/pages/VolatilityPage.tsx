@@ -14,6 +14,8 @@ import { lazy, Suspense, useState, type ReactNode } from "react";
 
 import { ApiError } from "../api/client";
 import { InfoTooltip } from "../components/InfoTooltip";
+import { StatCard, StatGrid } from "../components/StatCard";
+import { useUrlState } from "../hooks/useUrlState";
 import {
   // useAssetSignalSnapshot, // used by the commented-out Strategy signal snapshot section
   useCrossAssetRatioSeries,
@@ -45,7 +47,8 @@ import type {
 } from "../api/types";
 import { DataTable, type Column } from "../components/tables/DataTable";
 import { formatPercent, formatRatio } from "../lib/format";
-import { useTheme, type ThemeMode } from "../theme/ThemeContext";
+import { useTheme } from "../theme/ThemeContext";
+import { volStateBandColor } from "../theme/regimeColors";
 
 const PlotlyLineChart = lazy(() => import("../components/charts/PlotlyLineChart"));
 const OutcomeBoxplot = lazy(() => import("../components/charts/OutcomeBoxplot"));
@@ -73,6 +76,8 @@ const CHART_LABELS: Record<View, string> = {
   vov: "Estimate stability (vol-of-vol percentile)",
 };
 
+const VIEW_KEYS = Object.keys(CHART_LABELS) as View[];
+
 /** Format a decimal annualised-vol spread as percentage points, e.g. 0.0124 -> "1.24 pp". */
 function formatPP(value: number | null | undefined, digits = 2): string {
   if (value == null || !Number.isFinite(value)) return "—";
@@ -98,8 +103,13 @@ export function VolatilityPage() {
   const latest = useVolatilityLatest();
   const tickers = (latest.data?.rows ?? []).map((r) => r.ticker);
 
-  const [ticker, setTicker] = useState<string>("");
-  const activeTicker = ticker || (tickers.includes("TLT") ? "TLT" : tickers[0]) || "";
+  // Selections are URL-synced (refresh-safe + shareable). An out-of-range ticker
+  // falls back below once the ticker list loads; window/view validate against
+  // their fixed option sets.
+  const [ticker, setTicker] = useUrlState<string>("volTicker", "");
+  const activeTicker = (ticker && tickers.includes(ticker))
+    ? ticker
+    : (tickers.includes("TLT") ? "TLT" : tickers[0]) || "";
 
   // Per-ticker available estimators come from the latest-values row (non-null methods).
   const latestRow = (latest.data?.rows ?? []).find((r) => r.ticker === activeTicker);
@@ -107,9 +117,9 @@ export function VolatilityPage() {
     ? METHOD_KEYS.filter((m) => (latestRow as Record<string, unknown>)[m] != null)
     : METHOD_KEYS;
 
-  const [view, setView] = useState<View>("volatility");
-  const [windowKey, setWindowKey] = useState<string>("5Y");
-  const [refEstimator, setRefEstimator] = useState<string>("rolling_20");
+  const [view, setView] = useUrlState<View>("volView", "volatility", { allowed: VIEW_KEYS });
+  const [windowKey, setWindowKey] = useUrlState<string>("volWindow", "5Y", { allowed: WINDOWS });
+  const [refEstimator, setRefEstimator] = useUrlState<string>("volEstimator", "rolling_20");
   const activeEstimator = available.includes(refEstimator)
     ? refEstimator
     : available.includes("rolling_20")
@@ -213,7 +223,7 @@ export function VolatilityPage() {
 
     const bands = showShading
       ? data.state_ranges
-          .map((r) => ({ start: r.start, end: r.end, color: stateBandColor(r.state, mode) }))
+          .map((r) => ({ start: r.start, end: r.end, color: volStateBandColor(r.state, mode) }))
           .filter((b): b is { start: string; end: string; color: string } => b.color !== null)
       : undefined;
     const markers = showMarkers ? data.transitions.map((t) => ({ date: t.date })) : undefined;
@@ -680,30 +690,30 @@ function ContextCard({
       {isLoading ? null : insufficient ? (
         <span style={{ color: "var(--text-muted)" }}>Insufficient history</span>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "0.75rem" }}>
-          <SnapCard label="Current" value={formatPercent(data?.current_volatility ?? null)} />
-          <SnapCard label={`${data?.historical_window ?? ""} percentile`} value={ordinal(data?.percentile_ordinal ?? null)} />
-          <SnapCard label="Level">
+        <StatGrid minColWidth={160} gap="0.75rem">
+          <StatCard label="Current" value={formatPercent(data?.current_volatility ?? null)} />
+          <StatCard label={`${data?.historical_window ?? ""} percentile`} value={ordinal(data?.percentile_ordinal ?? null)} />
+          <StatCard label="Level">
             <span style={{ ...levelStyle(level), display: "inline-block", padding: "0.1rem 0.5rem", borderRadius: 999, fontSize: "0.9rem", fontWeight: 600 }}>{level}</span>
-          </SnapCard>
-          <SnapCard label="20D direction" value={data?.direction ?? "—"} />
-          <SnapCard label="20D change" value={formatPercent(data?.change_20d ?? null, 1)} />
-          <SnapCard label="20D / 60D" value={formatRatio(data?.term_ratio ?? null)} />
-          <SnapCard label="Term state" value={data?.term_state ?? "—"} />
-          <SnapCard label="Agreement" value={data?.estimator_agreement ?? "—"} />
-          <SnapCard label="Absolute spread" value={formatPP(data?.absolute_spread ?? null)} />
-          <SnapCard label="Relative dispersion" value={formatPercent(data?.relative_dispersion ?? null, 1)} />
-          <SnapCard label="Highest estimator" value={agreement?.highest_estimator ?? "—"} />
-          <SnapCard label="Lowest estimator" value={agreement?.lowest_estimator ?? "—"} />
-          <SnapCard label="Price / Vol context" value={data?.price_volatility_context ?? "—"} />
-          <SnapCard label="20D asset return" value={formatPercent(data?.asset_return_20d ?? null, 1)} />
-          <SnapCard label="20D vol change" value={formatPercent(data?.vol_change_20d ?? null, 1)} />
-          <SnapCard
+          </StatCard>
+          <StatCard label="20D direction" value={data?.direction ?? "—"} />
+          <StatCard label="20D change" value={formatPercent(data?.change_20d ?? null, 1)} />
+          <StatCard label="20D / 60D" value={formatRatio(data?.term_ratio ?? null)} />
+          <StatCard label="Term state" value={data?.term_state ?? "—"} />
+          <StatCard label="Agreement" value={data?.estimator_agreement ?? "—"} />
+          <StatCard label="Absolute spread" value={formatPP(data?.absolute_spread ?? null)} />
+          <StatCard label="Relative dispersion" value={formatPercent(data?.relative_dispersion ?? null, 1)} />
+          <StatCard label="Highest estimator" value={agreement?.highest_estimator ?? "—"} />
+          <StatCard label="Lowest estimator" value={agreement?.lowest_estimator ?? "—"} />
+          <StatCard label="Price / Vol context" value={data?.price_volatility_context ?? "—"} />
+          <StatCard label="20D asset return" value={formatPercent(data?.asset_return_20d ?? null, 1)} />
+          <StatCard label="20D vol change" value={formatPercent(data?.vol_change_20d ?? null, 1)} />
+          <StatCard
             label={`${window} stability %ile`}
             value={stabilityLoading ? "…" : ordinal(stabilityData?.percentile_ordinal ?? null)}
             info="20D std dev of daily changes in annualised volatility, ranked vs history. High percentile means the risk estimate is changing quickly and position sizes derived from it would be less stable. Diagnostic only — no sizing change is implied."
           />
-          <SnapCard
+          <StatCard
             label="Stability status"
             info="Derived from the vol-of-vol percentile. Diagnostic only — no sizing change is implied."
           >
@@ -716,31 +726,10 @@ function ContextCard({
                 </span>
               );
             })()}
-          </SnapCard>
-        </div>
+          </StatCard>
+        </StatGrid>
       )}
     </section>
-  );
-}
-
-function SnapCard({ label, value, children, info }: { label: string; value?: string; children?: ReactNode; info?: string }) {
-  return (
-    <div style={{
-      border: "1px solid var(--border-soft)", borderRadius: 8,
-      padding: "0.8rem 0.9rem", background: "var(--surface-raised)",
-    }}>
-      <div style={{ fontSize: "0.72rem", color: "var(--text-subtle)", textTransform: "uppercase", letterSpacing: "0.02em", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-        <span>{label}</span>
-        {info ? <InfoTooltip label={label}>{info}</InfoTooltip> : null}
-      </div>
-      {children ? (
-        <div style={{ marginTop: "0.35rem" }}>{children}</div>
-      ) : (
-        <div style={{ fontSize: "1.2rem", marginTop: "0.35rem", fontVariantNumeric: "tabular-nums", fontFamily: "var(--font-data)" }}>
-          {value}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -812,7 +801,7 @@ function StateLegend() {
     <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center", marginTop: "0.6rem", fontSize: "0.78rem", color: "var(--text-subtle)" }}>
       <span style={{ fontWeight: 600 }}>Confirmed state:</span>
       {states.map((s) => {
-        const fill = stateBandColor(s, mode);
+        const fill = volStateBandColor(s, mode);
         return (
           <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
             <span style={{
@@ -827,48 +816,6 @@ function StateLegend() {
       <span style={{ fontStyle: "italic" }}>Calm is unshaded (baseline). Markers = regime change.</span>
     </div>
   );
-}
-
-/**
- * Faint shading fill per notable state; Calm returns null (unshaded) to keep the
- * chart's baseline clean. High-contrast mode swaps the subtle palette for vivid,
- * maximally-distinct neon fills so the regimes read clearly on a black canvas.
- */
-function stateBandColor(state: string, mode: ThemeMode): string | null {
-  if (mode === "contrast") {
-    switch (state) {
-      case "Shock":
-        return "rgba(255,40,40,0.55)"; // neon red
-      case "Stress Expansion":
-        return "rgba(255,16,160,0.50)"; // hot pink
-      case "Persistent Stress":
-        return "rgba(255,145,0,0.52)"; // neon orange
-      case "Early Expansion":
-        return "rgba(240,240,20,0.45)"; // neon yellow
-      case "Normalisation":
-        return "rgba(180,90,255,0.48)"; // neon purple (clear of the electric-blue axis)
-      case "Unknown":
-        return "rgba(57,255,20,0.42)"; // neon green
-      default: // Calm
-        return null;
-    }
-  }
-  switch (state) {
-    case "Shock":
-      return "rgba(220,38,38,0.20)";
-    case "Stress Expansion":
-      return "rgba(220,38,38,0.11)";
-    case "Persistent Stress":
-      return "rgba(234,88,12,0.11)";
-    case "Early Expansion":
-      return "rgba(217,119,6,0.09)";
-    case "Normalisation":
-      return "rgba(37,99,235,0.09)";
-    case "Unknown":
-      return "rgba(148,163,184,0.12)";
-    default: // Calm
-      return null;
-  }
 }
 
 /** Data-meaning colours for diagnostic states (constant across themes, like the chart bands). */

@@ -10,13 +10,22 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { ApiError } from "../api/client";
-import { useCancelBacktest, useJob, useStrategies, useTriggerBacktest } from "../api/hooks";
+import {
+  useCancelBacktest,
+  useJob,
+  useResetLiveStrategy,
+  useSetLiveStrategy,
+  useStrategies,
+  useTriggerBacktest,
+} from "../api/hooks";
 import type { StrategySummary } from "../api/types";
 import { DataTable, type Column } from "../components/tables/DataTable";
 import { formatPercent } from "../lib/format";
 
-const COLUMNS: Column<StrategySummary>[] = [
-  { key: "name", header: "Name", render: (r) => (r.is_live ? `★ ${r.name}` : r.name), sortValue: (r) => r.name },
+// The non-interactive columns; the live-star column is built in the component
+// because it needs the selection mutation + pending state.
+const STATIC_COLUMNS: Column<StrategySummary>[] = [
+  { key: "name", header: "Name", sortValue: (r) => r.name },
   { key: "starting_weight_source", header: "Source" },
   { key: "cov_method", header: "Cov Method" },
   {
@@ -44,19 +53,85 @@ const COLUMNS: Column<StrategySummary>[] = [
 
 export function StrategiesPage() {
   const query = useStrategies();
+  const setLive = useSetLiveStrategy();
+  const reset = useResetLiveStrategy();
+  const mutating = setLive.isPending || reset.isPending;
+
+  // Star column: filled ★ marks the live book; clicking an empty ☆ makes that row live.
+  const liveColumn: Column<StrategySummary> = {
+    key: "is_live",
+    header: "Live",
+    sortValue: (r) => (r.is_live ? 0 : 1), // live first when sorted
+    render: (r) => (
+      <button
+        type="button"
+        onClick={() => {
+          if (!r.is_live) setLive.mutate(r.name);
+        }}
+        disabled={mutating || r.is_live}
+        title={r.is_live ? "Current live book" : `Make “${r.name}” the live book`}
+        aria-label={r.is_live ? `${r.name} is the live book` : `Set ${r.name} as the live book`}
+        style={{
+          border: "none",
+          background: "none",
+          padding: "0 0.2rem",
+          fontSize: "1.05rem",
+          lineHeight: 1,
+          color: r.is_live ? "var(--star-live)" : "var(--star-empty)",
+          cursor: r.is_live ? "default" : mutating ? "wait" : "pointer",
+        }}
+      >
+        {r.is_live ? "★" : "☆"}
+      </button>
+    ),
+  };
+
+  const columns = [liveColumn, ...STATIC_COLUMNS];
+  const mutationError = setLive.error ?? reset.error;
 
   return (
     <div>
       <h2 style={{ marginTop: 0 }}>Strategies</h2>
       <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>
-        The strategy registry — what each scenario name means.
+        The strategy registry.
+        <br />
+        Click the ☆ of a row to choose that strategy for live run trades.
         {query.data ? (
           <>
-            {" "}
-            Live book: <strong>★ {query.data.live_strategy}</strong>.
+            <br />
+            Live book: <strong>★ {query.data.live_strategy}</strong>
+            {query.data.is_overridden ? (
+              <>
+                {" "}
+                <span style={{ color: "var(--text-subtle)" }}>
+                  (overridden from default <code>{query.data.default_strategy}</code>)
+                </span>{" "}
+                <button
+                  type="button"
+                  onClick={() => reset.mutate()}
+                  disabled={mutating}
+                  style={{
+                    border: "1px solid var(--border-strong)",
+                    background: "var(--surface)",
+                    color: "var(--control-emphasis-text)",
+                    borderRadius: 6,
+                    padding: "0.1rem 0.5rem",
+                    fontSize: "0.8rem",
+                    cursor: mutating ? "wait" : "pointer",
+                  }}
+                >
+                  Reset to default
+                </button>
+              </>
+            ) : null}
+            .
           </>
         ) : null}
       </p>
+
+      {mutationError ? (
+        <Muted tone="error">{errorMessage(mutationError)}</Muted>
+      ) : null}
 
       <BacktestRunner />
 
@@ -65,7 +140,7 @@ export function StrategiesPage() {
       ) : query.isError ? (
         <Muted tone="error">{errorMessage(query.error)}</Muted>
       ) : (
-        <DataTable columns={COLUMNS} rows={query.data?.strategies ?? []} />
+        <DataTable columns={columns} rows={query.data?.strategies ?? []} />
       )}
     </div>
   );

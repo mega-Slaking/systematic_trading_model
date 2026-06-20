@@ -702,6 +702,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/strategies/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Select the live strategy
+         * @description Make `request.name` the live book (override); unknown name -> 422.
+         */
+        post: operations["set_live_api_v1_strategies_live_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/strategies/live/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset the live strategy to default
+         * @description Clear the override, reverting the live run to the LIVE_STRATEGY constant.
+         */
+        post: operations["reset_live_api_v1_strategies_live_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/jobs/backtest": {
         parameters: {
             query?: never;
@@ -1519,6 +1559,14 @@ export interface components {
             value: number | null;
         };
         /**
+         * SetLiveStrategyRequest
+         * @description Body of ``POST /strategies/live``: the registry name to make live.
+         */
+        SetLiveStrategyRequest: {
+            /** Name */
+            name: string;
+        };
+        /**
          * SignalOutcomeDistributionResponse
          * @description Per-state forward-return distributions at one horizon for the box plot (Phase 9).
          *
@@ -1634,6 +1682,10 @@ export interface components {
         StrategiesResponse: {
             /** Live Strategy */
             live_strategy: string;
+            /** Default Strategy */
+            default_strategy: string;
+            /** Is Overridden */
+            is_overridden: boolean;
             /** Strategies */
             strategies: components["schemas"]["StrategySummary"][];
         };
@@ -3195,6 +3247,59 @@ export interface operations {
         };
     };
     strategies_api_v1_strategies_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrategiesResponse"];
+                };
+            };
+        };
+    };
+    set_live_api_v1_strategies_live_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetLiveStrategyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrategiesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_live_api_v1_strategies_live_reset_post: {
         parameters: {
             query?: never;
             header?: never;

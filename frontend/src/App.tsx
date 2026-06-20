@@ -6,9 +6,8 @@
  * disabled until their phases land. Everything sits behind the `HealthGate`.
  */
 
-import { useState } from "react";
-
 import { useHealth } from "./api/hooks";
+import { useUrlState } from "./hooks/useUrlState";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { HealthGate } from "./components/HealthGate";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -53,7 +52,8 @@ export default function App() {
 
 function Shell() {
   const { data } = useHealth();
-  const [active, setActive] = useState<Tab>("NAV Comparison");
+  // Active tab is URL-synced (refresh-safe + shareable); an unknown ?tab= falls back.
+  const [active, setActive] = useUrlState<Tab>("tab", "NAV Comparison", { allowed: TABS });
 
   return (
     <div style={{ fontFamily: "var(--font-dashboard)", maxWidth: "min(2000px, 95vw)", margin: "0 auto", padding: "1.5rem 2rem" }}>
