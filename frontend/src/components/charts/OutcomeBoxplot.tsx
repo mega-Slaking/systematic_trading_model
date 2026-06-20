@@ -33,8 +33,10 @@ function stateColor(state: string): string {
       return "rgba(217,119,6,0.45)";
     case "Normalisation":
       return "rgba(37,99,235,0.45)";
-    default: // Calm
+    case "Calm":
       return "rgba(16,185,129,0.40)";
+    default: // Unknown
+      return "rgba(148,163,184,0.40)";
   }
 }
 

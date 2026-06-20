@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.19.0
+## Current Version: V 1.19.1
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -874,3 +874,18 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 - **Reuse / cleanup (no behaviour change)**: extracted the per-row feature orchestration into the pure `src/volatility/feature_frame.py` `build_ticker_feature_frame`; the API service's `_features_frame` now delegates to it (keeping its TTL-cached percentile), so the dashboard and the snapshot share one source of thresholds. The Phase 9 outcome/condition tables share one `_aggregate_group` (uniform gating, no synthetic-frame round-trip); the three outcome endpoints share `_forward_outcome_frame` / `_confirmed_state_frame`; the TLT/AGG ratio percentile is cached and shared with Phase 7.
 
 - **Tests**: **+volatility unit/lookahead tests** for outcomes, relative, stability, snapshot, combined conditions and the boxplot/condition tables (incl. truncation/no-future-leak and many-to-many-join guards), plus snapshot + outcome API tests. Volatility + API suites green (**245 passed**); repo-wide `lookahead`/`determinism` markers green (**58 passed**); `npm run build` clean (boxplots code-split, shared `BaseBoxplot`).
+
+  ## V 1.19.1
+
+- **Volatility Features dashboard — readability polish (`frontend/src/pages/VolatilityPage.tsx`; no behaviour change)**:
+  - Reworked the volatility-state + risk-estimate-stability cards into a single uniform "SnapCard" grid (matching the Macro "Latest readings" tiles), folding the standalone stability card's two fields into it.
+  - Converted long explanatory paragraphs to hover `InfoTooltip`s (the Metaluna-Medium-styled panel) on the Cross-asset risk, Historical signal outcomes, Combined-condition signals, and the outcomes disclaimer/sampling-gates headers; standardised every info button to the shared 17px style.
+  - Spaced the two Cross-asset risk tables into a 2-column grid to use the available width.
+
+- **Strategy signal snapshot panel removed from the UI (`VolatilityPage.tsx`)**:
+  - The passive snapshot section added more confusion than value, so its render + state/hook are commented out (kept for easy restore); the `/snapshot` API and `src/volatility/snapshot.py` are untouched.
+
+- **High-contrast regime shading + chart curve colours (`VolatilityPage.tsx`, `MacroPage.tsx`, `OutcomeBoxplot.tsx`, `charts/PlotlyLineChart.tsx`, `charts/BaseBoxplot.tsx`; theme-only)**:
+  - High-contrast mode now uses vivid, maximally-distinct neon fills for the annualised-volatility chart's confirmed-state shading and the Macro Regime Timeline bands (blue avoided — the contrast theme's axes are already electric blue); other modes keep the original subtle palette.
+  - Calm vs Unknown are now visually distinct in both the state shading and the forward-return boxplot.
+  - Primary chart curve / box colour is cyan (`#06b6d4`) in dark + high-contrast modes and the original Plotly blue (`#1f77b4`) in light mode, across the Tearsheet, Volatility, ETFs-vs-Macro line charts and the Returns Analysis distribution boxplot; the rest of the palette and all other chart styling are unchanged.
