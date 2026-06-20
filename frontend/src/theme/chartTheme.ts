@@ -24,7 +24,17 @@ export interface ChartColors {
   hoverBorder: string;
   modebar: string;
   modebarActive: string;
+  /** Plotly trace colourway: primary series colour first, then the shared tail. */
+  colorway: string[];
 }
+
+// Plotly's default palette (D3 category10) minus its leading blue. Only the
+// PRIMARY series colour is themed (cyan reads better on the dark/contrast
+// canvases, the original Plotly blue on light); every other trace keeps its
+// constant identity colour, so multi-series charts don't shift between modes.
+const DATA_PALETTE_TAIL = [
+  "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+];
 
 const PALETTES: Record<ThemeMode, ChartColors> = {
   light: {
@@ -36,6 +46,7 @@ const PALETTES: Record<ThemeMode, ChartColors> = {
     hoverBorder: "#d1d5db",
     modebar: "#888888",
     modebarActive: "#1f77b4",
+    colorway: ["#1f77b4", ...DATA_PALETTE_TAIL],
   },
   dark: {
     font: "#e6e6e6",
@@ -46,6 +57,7 @@ const PALETTES: Record<ThemeMode, ChartColors> = {
     hoverBorder: "#3d3d3d",
     modebar: "#9a9a9a",
     modebarActive: "#4ea3e0",
+    colorway: ["#06b6d4", ...DATA_PALETTE_TAIL],
   },
   contrast: {
     font: "#00b3ff",
@@ -56,6 +68,7 @@ const PALETTES: Record<ThemeMode, ChartColors> = {
     hoverBorder: "#00b3ff",
     modebar: "#00b3ff",
     modebarActive: "#33c4ff",
+    colorway: ["#06b6d4", ...DATA_PALETTE_TAIL],
   },
 };
 

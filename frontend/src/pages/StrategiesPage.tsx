@@ -21,7 +21,6 @@ import {
 import type { StrategySummary } from "../api/types";
 import { DataTable, type Column } from "../components/tables/DataTable";
 import { formatPercent } from "../lib/format";
-import { useTheme } from "../theme/ThemeContext";
 
 // The non-interactive columns; the live-star column is built in the component
 // because it needs the selection mutation + pending state.
@@ -56,16 +55,7 @@ export function StrategiesPage() {
   const query = useStrategies();
   const setLive = useSetLiveStrategy();
   const reset = useResetLiveStrategy();
-  const { mode } = useTheme();
   const mutating = setLive.isPending || reset.isPending;
-
-  // Empty-star (☆) glyph colour per theme: white on dark, electric blue on high
-  // contrast, the muted token on light. The live ★ stays gold across all modes.
-  const emptyStarColor =
-    mode === "dark" ? "#ffffff" : mode === "contrast" ? "#00b3ff" : "var(--text-subtle)";
-  // "Reset to default" button text: white on dark, electric blue on contrast, default on light.
-  const resetTextColor =
-    mode === "dark" ? "#ffffff" : mode === "contrast" ? "#00b3ff" : "var(--text)";
 
   // Star column: filled ★ marks the live book; clicking an empty ☆ makes that row live.
   const liveColumn: Column<StrategySummary> = {
@@ -87,7 +77,7 @@ export function StrategiesPage() {
           padding: "0 0.2rem",
           fontSize: "1.05rem",
           lineHeight: 1,
-          color: r.is_live ? "#f5b301" : emptyStarColor,
+          color: r.is_live ? "var(--star-live)" : "var(--star-empty)",
           cursor: r.is_live ? "default" : mutating ? "wait" : "pointer",
         }}
       >
@@ -123,7 +113,7 @@ export function StrategiesPage() {
                   style={{
                     border: "1px solid var(--border-strong)",
                     background: "var(--surface)",
-                    color: resetTextColor,
+                    color: "var(--control-emphasis-text)",
                     borderRadius: 6,
                     padding: "0.1rem 0.5rem",
                     fontSize: "0.8rem",

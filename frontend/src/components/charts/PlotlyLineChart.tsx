@@ -10,13 +10,8 @@ import type { Data, Layout } from "plotly.js";
 
 import type { NamedSeries } from "../../api/types";
 import { plotlyAxisTheme, plotlyBaseLayout, useChartColors } from "../../theme/chartTheme";
-import { useTheme } from "../../theme/ThemeContext";
 import { ChartHeader } from "./ChartHeader";
 import { Plot } from "./plotlyComponent";
-
-// Default Plotly palette tail (D3 category10 minus its leading blue), shared by both
-// colourways below so only the primary curve's colour differs between modes.
-const PALETTE_TAIL = ["#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"];
 
 interface PlotlyLineChartProps {
   series: readonly NamedSeries[];
@@ -47,11 +42,8 @@ export default function PlotlyLineChart({
   markers,
 }: PlotlyLineChartProps) {
   const c = useChartColors();
-  const { mode } = useTheme();
   const axis = plotlyAxisTheme(c);
   const secondary = new Set(secondaryNames ?? []);
-  // Primary curve is cyan on the dark/contrast canvases, the original Plotly blue on light.
-  const primaryColor = mode === "light" ? "#1f77b4" : "#06b6d4";
 
   const data: Data[] = series.map((s) => {
     const onY2 = secondary.has(s.name);
@@ -73,10 +65,9 @@ export default function PlotlyLineChart({
 
   const layout: Partial<Layout> = {
     ...plotlyBaseLayout(c),
-    // Primary curve colour is mode-dependent (cyan on dark/contrast, original blue on
-    // light); the rest of the default palette follows so multi-series charts keep their
-    // differentiation.
-    colorway: [primaryColor, ...PALETTE_TAIL],
+    // Themed trace colourway (cyan primary on dark/contrast, original blue on light;
+    // shared tail keeps multi-series differentiation). Defined in chartTheme.
+    colorway: c.colorway,
     autosize: true,
     height,
     margin: { t: 28, r: secondary.size > 0 ? 60 : 16, b: 40, l: 64 },

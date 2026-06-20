@@ -45,7 +45,8 @@ import type {
 } from "../api/types";
 import { DataTable, type Column } from "../components/tables/DataTable";
 import { formatPercent, formatRatio } from "../lib/format";
-import { useTheme, type ThemeMode } from "../theme/ThemeContext";
+import { useTheme } from "../theme/ThemeContext";
+import { volStateBandColor } from "../theme/regimeColors";
 
 const PlotlyLineChart = lazy(() => import("../components/charts/PlotlyLineChart"));
 const OutcomeBoxplot = lazy(() => import("../components/charts/OutcomeBoxplot"));
@@ -213,7 +214,7 @@ export function VolatilityPage() {
 
     const bands = showShading
       ? data.state_ranges
-          .map((r) => ({ start: r.start, end: r.end, color: stateBandColor(r.state, mode) }))
+          .map((r) => ({ start: r.start, end: r.end, color: volStateBandColor(r.state, mode) }))
           .filter((b): b is { start: string; end: string; color: string } => b.color !== null)
       : undefined;
     const markers = showMarkers ? data.transitions.map((t) => ({ date: t.date })) : undefined;
@@ -812,7 +813,7 @@ function StateLegend() {
     <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center", marginTop: "0.6rem", fontSize: "0.78rem", color: "var(--text-subtle)" }}>
       <span style={{ fontWeight: 600 }}>Confirmed state:</span>
       {states.map((s) => {
-        const fill = stateBandColor(s, mode);
+        const fill = volStateBandColor(s, mode);
         return (
           <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
             <span style={{
@@ -827,48 +828,6 @@ function StateLegend() {
       <span style={{ fontStyle: "italic" }}>Calm is unshaded (baseline). Markers = regime change.</span>
     </div>
   );
-}
-
-/**
- * Faint shading fill per notable state; Calm returns null (unshaded) to keep the
- * chart's baseline clean. High-contrast mode swaps the subtle palette for vivid,
- * maximally-distinct neon fills so the regimes read clearly on a black canvas.
- */
-function stateBandColor(state: string, mode: ThemeMode): string | null {
-  if (mode === "contrast") {
-    switch (state) {
-      case "Shock":
-        return "rgba(255,40,40,0.55)"; // neon red
-      case "Stress Expansion":
-        return "rgba(255,16,160,0.50)"; // hot pink
-      case "Persistent Stress":
-        return "rgba(255,145,0,0.52)"; // neon orange
-      case "Early Expansion":
-        return "rgba(240,240,20,0.45)"; // neon yellow
-      case "Normalisation":
-        return "rgba(180,90,255,0.48)"; // neon purple (clear of the electric-blue axis)
-      case "Unknown":
-        return "rgba(57,255,20,0.42)"; // neon green
-      default: // Calm
-        return null;
-    }
-  }
-  switch (state) {
-    case "Shock":
-      return "rgba(220,38,38,0.20)";
-    case "Stress Expansion":
-      return "rgba(220,38,38,0.11)";
-    case "Persistent Stress":
-      return "rgba(234,88,12,0.11)";
-    case "Early Expansion":
-      return "rgba(217,119,6,0.09)";
-    case "Normalisation":
-      return "rgba(37,99,235,0.09)";
-    case "Unknown":
-      return "rgba(148,163,184,0.12)";
-    default: // Calm
-      return null;
-  }
 }
 
 /** Data-meaning colours for diagnostic states (constant across themes, like the chart bands). */

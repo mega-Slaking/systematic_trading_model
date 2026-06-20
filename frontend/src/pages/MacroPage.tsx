@@ -22,6 +22,7 @@ import type { CategoricalSeries, MacroSnapshotCard, NamedSeries } from "../api/t
 import { InfoTooltip } from "../components/InfoTooltip";
 import { DataTable, type Column } from "../components/tables/DataTable";
 import { useTheme } from "../theme/ThemeContext";
+import { INVERSION_BAND, regimeRgbMap } from "../theme/regimeColors";
 
 const PlotlyLineChart = lazy(() => import("../components/charts/PlotlyLineChart"));
 const ForwardReturnScatter = lazy(() => import("../components/charts/ForwardReturnScatter"));
@@ -426,36 +427,8 @@ const explorerSelect: React.CSSProperties = {
 // --------------------------------------------------------------------------- //
 // Macro regime timeline (ETF line + regime background shading)
 // --------------------------------------------------------------------------- //
-const INVERSION_BAND = "rgba(214, 39, 40, 0.10)";
-
-// Base RGB per regime label; bands use low alpha, legend swatches higher. These
-// are constant data-meaning colours (not theme chrome).
-const MACRO_REGIME_RGB: Record<string, string> = {
-  "Stable Growth": "120, 120, 120",
-  "Inflationary Tightening": "214, 39, 40",
-  "Disinflationary Slowdown": "31, 119, 180",
-  "Stagflation Risk": "148, 0, 33",
-  "Easing Transition": "44, 160, 44",
-};
-const ENGINE_REGIME_RGB: Record<string, string> = {
-  "No duration support": "120, 120, 120",
-  "Supports duration": "44, 160, 44",
-};
-
-// High-contrast mode swaps in vivid, maximally-distinct neon hues so the regimes
-// read clearly behind the ETF line on a black canvas. Blue is avoided — the
-// contrast theme's axes/font are already electric blue.
-const MACRO_REGIME_RGB_CONTRAST: Record<string, string> = {
-  "Stable Growth": "240, 240, 20",        // neon yellow
-  "Inflationary Tightening": "255, 40, 40", // neon red
-  "Disinflationary Slowdown": "180, 90, 255", // neon purple
-  "Stagflation Risk": "255, 16, 160",     // hot pink
-  "Easing Transition": "57, 255, 20",     // neon green
-};
-const ENGINE_REGIME_RGB_CONTRAST: Record<string, string> = {
-  "No duration support": "255, 145, 0",   // neon orange
-  "Supports duration": "57, 255, 20",     // neon green
-};
+// Regime/inversion shading palettes live in theme/regimeColors.ts (shared, and
+// including the high-contrast neon variants).
 
 type RegimeOverlay = "dashboard" | "engine";
 
@@ -505,15 +478,13 @@ function RegimeTimeline({
   const engineAvailable = Boolean(query.data.engine_regime);
   const useEngine = overlay === "engine" && engineAvailable;
   const series = useEngine ? query.data.engine_regime : query.data.regime;
-  const rgbMap = useEngine
-    ? (contrast ? ENGINE_REGIME_RGB_CONTRAST : ENGINE_REGIME_RGB)
-    : (contrast ? MACRO_REGIME_RGB_CONTRAST : MACRO_REGIME_RGB);
+  const rgbMap = regimeRgbMap(useEngine, mode);
   // Vivid neon fills need a touch more opacity to read on the black contrast canvas.
   const bands = regimeBands(series, (label) => rgbMap[label], contrast ? 0.4 : 0.16);
   const etf = etfFor(ticker);
 
   const legendEntries: [string, string][] = useEngine
-    ? Object.keys(ENGINE_REGIME_RGB).map((label) => [
+    ? Object.keys(rgbMap).map((label) => [
         label,
         label === "Supports duration"
           ? "Engine's macro signal favours duration"

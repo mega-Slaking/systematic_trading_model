@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.20.0
+## Current Version: V 1.20.1
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -898,3 +898,10 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - API: `GET /strategies` now also returns `default_strategy` + `is_overridden`; new `POST /strategies/live` (unknown name → 422) and `POST /strategies/live/reset`. React adds `useSetLiveStrategy` / `useResetLiveStrategy` (cache-seeding mutations); the ☆ glyph and Reset button text follow the theme (white on dark, electric blue on high-contrast).
 
 - **Tests**: `api/tests/test_strategies.py` covers set/reset round-trip, unknown-name 422, and a parametrized malformed-override fallback, isolated via a monkeypatched `_OVERRIDE_PATH` temp file so the real `data/live_strategy.json` is never touched. Full suite green (root **441 passed / 5 skipped**; `api/tests` **182 passed**). Note: CI's `pytest -q` (`testpaths = tests`) does not collect `api/tests`, so these run locally via `python -m pytest api/tests`.
+
+  ## V 1.20.1
+
+- **Frontend UX/maintainability spec + Phase 1 theme-token consolidation (`docs/frontend_ux_improvements_spec.md`; no behaviour change)**:
+  - Added `docs/frontend_ux_improvements_spec.md` — a UX review scoped into six small, independently-shippable phases (token consolidation, shared stat primitive, tab/selection persistence, Volatility page hierarchy, affordances/a11y, dead-code/loading polish).
+  - **Phase 1 (this release):** relocated hardcoded chart/regime/star colours into the theme layer with **byte-identical rendered values in every mode** (pure refactor). `theme/chartTheme.ts` now defines a per-mode trace `colorway` (cyan primary on dark/contrast, Plotly blue on light) consumed by `PlotlyLineChart` + `BaseBoxplot`; new CSS tokens `--star-live` / `--star-empty` / `--control-emphasis-text` in `index.css` replace the per-mode ternaries in `StrategiesPage.tsx`; and a new `theme/regimeColors.ts` is the single home for the volatility confirmed-state shading (`volStateBandColor`), the forward-return boxplot fills (`volStateBoxColor`), and the macro regime maps (`regimeRgbMap` + `INVERSION_BAND`) — removing the duplicated palettes from `VolatilityPage.tsx` and `MacroPage.tsx`.
+  - Deferred (out of Phase 1 scope): the diagnostic-state **badge** pill colours and the Recharts ETF-prices palette (`SeriesLineChart`) — both pre-existing and constant across modes. `npm run build` clean.
