@@ -94,7 +94,7 @@ function Shell() {
         })}
       </nav>
 
-      <main>
+      <main style={{ paddingBottom: "6rem" }}>
         <ErrorBoundary key={active}>
           {active === "NAV Comparison" ? (
             <NavComparisonPage />
