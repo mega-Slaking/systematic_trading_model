@@ -14,6 +14,7 @@ import { lazy, Suspense, useState, type ReactNode } from "react";
 
 import { ApiError } from "../api/client";
 import { InfoTooltip } from "../components/InfoTooltip";
+import { ChartSkeleton, TableSkeleton } from "../components/Skeleton";
 import { StatCard, StatGrid } from "../components/StatCard";
 import { useUrlState } from "../hooks/useUrlState";
 import {
@@ -78,6 +79,17 @@ const CHART_LABELS: Record<View, string> = {
 
 const VIEW_KEYS = Object.keys(CHART_LABELS) as View[];
 
+// Progressive disclosure: the chart + state card stay always-visible; the
+// analytical tables below are grouped into one-at-a-time sub-sections.
+type Section = "estimators" | "crossAsset" | "outcomes" | "raw";
+const SECTIONS: { key: Section; label: string }[] = [
+  { key: "estimators", label: "Estimators & State" },
+  { key: "crossAsset", label: "Cross-asset" },
+  { key: "outcomes", label: "Historical outcomes" },
+  { key: "raw", label: "Latest values" },
+];
+const SECTION_KEYS = SECTIONS.map((s) => s.key);
+
 /** Format a decimal annualised-vol spread as percentage points, e.g. 0.0124 -> "1.24 pp". */
 function formatPP(value: number | null | undefined, digits = 2): string {
   if (value == null || !Number.isFinite(value)) return "—";
@@ -120,6 +132,7 @@ export function VolatilityPage() {
   const [view, setView] = useUrlState<View>("volView", "volatility", { allowed: VIEW_KEYS });
   const [windowKey, setWindowKey] = useUrlState<string>("volWindow", "5Y", { allowed: WINDOWS });
   const [refEstimator, setRefEstimator] = useUrlState<string>("volEstimator", "rolling_20");
+  const [section, setSection] = useUrlState<Section>("volSection", "estimators", { allowed: SECTION_KEYS });
   const activeEstimator = available.includes(refEstimator)
     ? refEstimator
     : available.includes("rolling_20")
@@ -208,7 +221,7 @@ export function VolatilityPage() {
   }
 
   function renderChart() {
-    if (chart.isLoading) return <Muted>Loading chart…</Muted>;
+    if (chart.isLoading) return <ChartSkeleton height={460} />;
     if (chart.isError) return <Muted tone="error">{errorMessage(chart.error)}</Muted>;
     const data = chart.data;
     if (!data || data.series.length === 0) return <Muted>Insufficient history for this view.</Muted>;
@@ -230,7 +243,7 @@ export function VolatilityPage() {
 
     return (
       <>
-        <Suspense fallback={<Muted>Loading chart…</Muted>}>
+        <Suspense fallback={<ChartSkeleton height={460} />}>
           <PlotlyLineChart
             series={series}
             yLabel={CHART_LABELS[view]}
@@ -336,33 +349,49 @@ export function VolatilityPage() {
         stabilityLoading={stability.isLoading}
       />
 
-      <h3 style={{ marginBottom: "0.25rem" }}>Estimator comparison</h3>
+      {/* --- progressive disclosure: one analytical section at a time below the chart+card --- */}
+      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", margin: "1.5rem 0 1rem", borderBottom: "1px solid var(--border)", paddingBottom: "0.6rem" }}>
+        {SECTIONS.map((s) => (
+          <SectionTab key={s.key} active={section === s.key} onClick={() => setSection(s.key)}>
+            {s.label}
+          </SectionTab>
+        ))}
+      </div>
+
+      {section === "estimators" && (<>
+      <h3 style={{ marginTop: 0, marginBottom: "0.25rem" }}>Estimator comparison</h3>
       <p style={{ color: "var(--text-subtle)", fontSize: "0.8rem", marginTop: 0, marginBottom: "0.5rem" }}>
         Each estimator's latest reading vs the cross-estimator median ({windowKey} percentile).
       </p>
       {agreement.isLoading ? (
-        <Muted>Loading…</Muted>
+        <TableSkeleton rows={5} />
       ) : agreement.isError ? (
         <Muted tone="error">{errorMessage(agreement.error)}</Muted>
       ) : (
         <DataTable columns={ESTIMATOR_COLUMNS} rows={agreement.data?.rows ?? []} />
       )}
 
-      <h3 style={{ marginBottom: "0.25rem", marginTop: "1.5rem" }}>Volatility states</h3>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "1.5rem", marginBottom: "0.25rem" }}>
+        <h3 style={{ margin: 0 }}>Volatility states</h3>
+        <MethodTag method={VOL_METHODS[activeEstimator] ?? activeEstimator} />
+      </div>
       <p style={{ color: "var(--text-subtle)", fontSize: "0.8rem", marginTop: 0, marginBottom: "0.5rem" }}>
         Confirmed diagnostic state per asset (persistence-debounced; {windowKey} percentile,{" "}
         {VOL_METHODS[activeEstimator] ?? activeEstimator}). Diagnostic only — not a trading signal.
       </p>
       {stateTable.isLoading ? (
-        <Muted>Loading…</Muted>
+        <TableSkeleton rows={5} />
       ) : stateTable.isError ? (
         <Muted tone="error">{errorMessage(stateTable.error)}</Muted>
       ) : (
         <DataTable columns={STATE_COLUMNS} rows={stateTable.data?.rows ?? []} />
       )}
+      </>)}
 
-      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "1.5rem", marginBottom: "0.5rem" }}>
+      {section === "crossAsset" && (<>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: 0, marginBottom: "0.5rem" }}>
         <h3 style={{ margin: 0 }}>Cross-asset risk</h3>
+        <MethodTag method={VOL_METHODS[activeEstimator] ?? activeEstimator} />
         <InfoTooltip label="About cross-asset risk">
           Relative volatility between assets and each ratio's own history. Monitor only. Ratios like TLT/SHY trend with the duration differential, so a high percentile is a single-path, trend-laden reading — not a tradable risk signal. The ranking is by raw current volatility (TLT ≈ always outranks SHY by duration); the percentile and confirmed state carry the real relative context.
         </InfoTooltip>
@@ -416,7 +445,9 @@ export function VolatilityPage() {
           )}
         </div>
       )}
+      </>)}
 
+      {section === "outcomes" && (
       <OutcomesSection
         ticker={activeTicker}
         estimator={activeEstimator}
@@ -442,6 +473,7 @@ export function VolatilityPage() {
         end={outcomeEnd}
         setEnd={setOutcomeEnd}
       />
+      )}
 
       {/* Strategy signal snapshot section removed for now — added confusion without clear value.
           The SnapshotPanel component + snapshot hook/state below remain defined for easy restore.
@@ -457,7 +489,8 @@ export function VolatilityPage() {
       />
       */}
 
-      <h3 style={{ marginBottom: "0.5rem", marginTop: "1.5rem" }}>Latest values</h3>
+      {section === "raw" && (<>
+      <h3 style={{ marginBottom: "0.5rem", marginTop: 0 }}>Latest values</h3>
       {latest.isLoading ? (
         <Muted>Loading…</Muted>
       ) : latest.isError ? (
@@ -465,6 +498,7 @@ export function VolatilityPage() {
       ) : (
         <DataTable columns={LATEST_COLUMNS} rows={latest.data?.rows ?? []} />
       )}
+      </>)}
     </div>
   );
 }
@@ -622,6 +656,40 @@ function ViewTab({ active, onClick, children }: { active: boolean; onClick: () =
         padding: "0.35rem 0.7rem", fontSize: "0.85rem", cursor: "pointer", border: "none",
         background: active ? "var(--accent)" : "var(--surface)",
         color: active ? "var(--accent-contrast, #fff)" : "var(--text-muted)",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Small pill naming the reference estimator a section's numbers are computed from. */
+function MethodTag({ method }: { method: string }) {
+  return (
+    <span
+      title="Computed from the selected reference estimator"
+      style={{
+        padding: "0.1rem 0.5rem", borderRadius: 999, fontSize: "0.68rem", fontWeight: 600,
+        background: "var(--accent-bg)", color: "var(--accent)", whiteSpace: "nowrap", textTransform: "none",
+      }}
+    >
+      {method}
+    </span>
+  );
+}
+
+/** Page sub-section selector (one analytical group at a time below the chart + state card). */
+function SectionTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        padding: "0.4rem 0.85rem", borderRadius: 6, fontSize: "0.9rem", cursor: "pointer",
+        border: `1px solid ${active ? "var(--accent)" : "transparent"}`,
+        background: active ? "var(--accent-bg)" : "var(--surface-tab)",
+        color: active ? "var(--accent)" : "var(--text-tab)",
+        fontWeight: active ? 600 : 400,
       }}
     >
       {children}
@@ -1016,6 +1084,7 @@ function OutcomesSection({
     <section style={{ marginTop: "2rem" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.6rem" }}>
         <h3 style={{ margin: 0 }}>Historical signal outcomes</h3>
+        <MethodTag method={VOL_METHODS[estimator] ?? estimator} />
         <InfoTooltip label="About historical signal outcomes">
           What forward returns followed each confirmed diagnostic state for {ticker || "—"} ({VOL_METHODS[estimator] ?? estimator}). Forward returns are measured from unlagged prices strictly after the signal date; the state is the already-lagged, point-in-time reading. The independent observation count is the headline — non-overlapping windows by default.
         </InfoTooltip>

@@ -27,6 +27,8 @@ interface PlotlyLineChartProps {
   bands?: { start: string; end: string; color: string }[];
   // Vertical marker lines at specific dates (e.g. confirmed state transitions).
   markers?: { date: string; color?: string }[];
+  // Show a subtle "click a legend entry to toggle a series" hint (multi-series only).
+  legendHint?: boolean;
 }
 
 export default function PlotlyLineChart({
@@ -40,6 +42,7 @@ export default function PlotlyLineChart({
   referenceLines,
   bands,
   markers,
+  legendHint,
 }: PlotlyLineChartProps) {
   const c = useChartColors();
   const axis = plotlyAxisTheme(c);
@@ -122,6 +125,11 @@ export default function PlotlyLineChart({
         useResizeHandler
         config={{ responsive: true, displaylogo: false }}
       />
+      {legendHint && series.length > 1 ? (
+        <div style={{ fontSize: "0.72rem", color: "var(--text-faint)", marginTop: "0.25rem" }}>
+          Tip: click a legend entry to show or hide a series.
+        </div>
+      ) : null}
     </div>
   );
 }

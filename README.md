@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.21.0
+## Current Version: V 1.21.3
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -919,3 +919,27 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - Views are now refresh-safe, bookmarkable, and shareable. New `useUrlState` hook syncs a discrete selection to a URL query param via `history.replaceState` (no router dependency, no history-stack spam): reads once on mount, omits the default from the URL for clean links, and falls back to the default for unknown/garbage values (optional `allowed` validation). Namespaced keys coexist (each write edits only its own param).
   - Adopted for the **active tab** (`App.tsx` → `?tab=`, validated vs `TABS`), the **Volatility** page (`?volTicker` / `?volEstimator` / `?volWindow` / `?volView`), and the **ETFs-vs-Macro explorer** (`?macroEtf` / `?macroIndicator` / `?macroRange` / `?macroMode` / `?macroHorizon`). `activeTicker` now falls back when an out-of-range ticker arrives via the URL.
   - Pattern established for incremental adoption; other pages and the regime-timeline / conditional-returns selectors deferred. `tsc -b` + `npm run build` clean.
+
+  ## V 1.21.1
+
+- **Frontend UX Phase 4 — Volatility page information hierarchy (`frontend/src/pages/VolatilityPage.tsx`)**:
+  - Replaced the long single-scroll layout with progressive disclosure. The diagnostic chart + state/context card stay always-visible at the top (the centrepiece); the analytical tables below are now grouped behind an in-page sub-tab bar showing **one section at a time**: *Estimators & State* (estimator comparison + states table), *Cross-asset* (relative-vol tables + pair ratio chart), *Historical outcomes* (the outcomes table, boxplot + combined conditions), and *Latest values* (raw table).
+  - The active sub-section is URL-synced via the Phase 3 hook (`?volSection=`, validated, default *Estimators & State*), so it's refresh-safe and shareable. **Display-only:** nothing is removed (every table/chart is still reachable), all data hooks still run unconditionally so switching sections does not refetch or change any computed value. `tsc -b` + `npm run build` clean.
+
+  ## V 1.21.2
+
+- **Frontend UX Phase 5 — interaction affordances & accessibility (`frontend/src/App.tsx`, `index.css`, no behaviour change)**:
+  - **Tab nav a11y:** the header tabs are now a proper ARIA tablist — `role="tablist"`/`role="tab"` + `aria-selected`, roving `tabIndex`, and a keyboard model (←/→/↑/↓ move + activate with wrap, Home/End jump to first/last, focus follows); `<main>` is the labelled `role="tabpanel"`.
+  - **Visible focus:** a themed `:focus-visible` outline for buttons/tabs/selects/inputs/links (specificity-0 `:where()`), restoring a keyboard focus indicator on custom-styled controls.
+  - **Affordances:** the Strategies live-star gains an `.icon-button` hover background; a subtle opt-in `legendHint` on `PlotlyLineChart` ("click a legend entry to show/hide a series") is enabled on the Tearsheet Rolling Vol & Sharpe chart (the multi-series chart with no other toggle UI). `InfoTooltip` triggers were already focus-reachable. `tsc -b` + `npm run build` clean.
+
+  ## V 1.21.3
+
+- **Frontend UX Phase 6 — loading states & cleanup (`frontend/src/App.tsx`, `frontend/src/components/Skeleton.tsx`, `src/index.css`; no behaviour change)**:
+
+  - **Dead-code cleanup:** removed the now-unreachable disabled-tab plumbing from `App.tsx` — including `ENABLED_TABS`, disabled/not-allowed render branches, and the unused `ComingSoon` component — now that all seven tabs ship. The tab render switch now falls back directly to `StrategiesPage`, and the keyboard handler iterates over `TABS` directly.
+  - **Stale documentation cleanup:** updated the outdated “phases land later” docstring so the code comments match the current shipped navigation structure.
+  - **Loading skeletons:** added reusable `ChartSkeleton` and `TableSkeleton` components with a subtle `.skeleton` pulse animation, plus a `prefers-reduced-motion` opt-out for accessibility.
+  - **Volatility page loading states:** the main diagnostic chart now shows a `ChartSkeleton` during both query-loading and lazy-Suspense fallback states. Estimator-comparison and Volatility-states tables now show `TableSkeleton` placeholders while loading.
+  - **Tearsheet loading states:** page-load now uses a `TearsheetSkeleton` with a metric-strip placeholder and two chart placeholders; chart-level lazy fallbacks use `ChartSkeleton`.
+  *\- **Scope control:** smaller and secondary loading states remain as plain text intentionally, avoiding skeleton overuse while improving perceived responsiveness on the heaviest pages.
