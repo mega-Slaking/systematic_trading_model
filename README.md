@@ -170,6 +170,14 @@ Examples of configurable experiments include:
 
 The goal is to make strategy development empirical. Instead of relying on a single backtest result, the system can compare multiple strategy configurations under the same data, execution, cost, and portfolio assumptions.
 
+# Experimental Findings
+
+Running the strategy registry through the experimental backtesting framework produced a clear and somewhat counterintuitive result: **the risk-layer machinery — position-sizing method, asset-wise volatility scaling, and covariance-based portfolio volatility targeting — had negligible effect on realised capital gains.** The most profitable configurations of the strategy were those that *did not* apply covariance scaling or asset-wise volatility scaling, or that used low volatility-scaling powers. The cumulative return is driven overwhelmingly by the regime-conditional allocation across TLT/AGG/SHY, not by the volatility normalisation applied on top of it.
+
+This is consistent with Harvey et al. (2018) [^harvey2018], who studied the impact of volatility targeting across asset classes and found that while volatility targeting improved risk-adjusted returns (Sharpe ratio) for equities, it had **essentially no effect on the Sharpe ratio of government bonds**. Our findings extend the same intuition to this bond-rotation strategy: because the underlying duration exposures are already relatively well-behaved in volatility terms, the additional volatility- and covariance-based normalisation contributes little incremental performance and, in the most profitable variants, is best left off or heavily damped.
+
+[^harvey2018]: Harvey, C. R., Hoyle, E., Korgaonkar, R., Rattray, S., Sargaison, M., & van Hemert, O. (2018). *The Impact of Volatility Targeting*. SSRN Working Paper. <http://dx.doi.org/10.2139/ssrn.3175538>
+
 # Running the App
 
 ## Analytics dashboard (FastAPI + React)
@@ -221,57 +229,6 @@ A `pytest` suite lives under `tests/` (see `tests/TEST_PLAN.md` for the full blu
 It runs automatically in two places:
 - **CI** — GitHub Actions (`.github/workflows/tests.yml`) on every push to `main`/`dev` and on pull requests.
 - **Pre-commit** — a local hook runs the fast suite before each commit. Enable once with `pip install -r requirements-dev.txt` then `pre-commit install`.
-
-# Expected Timeline:
-### V 1.x.x - Measurement and Execution Realism
-#### V 1.2.0
-- Full Analytics Dashboard
-- NAV, returns, drawdowns, exposure history
-- Decision logs and regime annotations
-- Foundation for performance attribution
-#### V 1.3.0
-- Transaction cost modeling
-- Slippage assumptions
-- Explicit trade logs
-- Cash-aware accounting reflected in analytics
-#### V 1.4.0
-- Transition from single-asset switching to multi-position holding
-- Explicit tracking of cash and multiple assets
-- Portfolio marked-to-market by individual holdings
-- Rebalancing via position deltas rather than full liquidation
-### V 2.x.x - Exposure Control
-#### V 2.4.0
-- Partial allocation of capital (Long only)
-- Capital can be split across multiple bond ETFs
-- Weights-based decisions (instead of binary asset selection)
-- Cash treated as a first-class allocation
-- Exposure history and contribution analytics
-#### V 2.5.0
-- Position sizing logic
-- Separation of signal direction from exposure magnitude
-- Volatility-aware sizing
-- Conviction-based scaling
-- Maximum position caps
-#### V 2.6.0
-- Hard portfolio constraints (max drawdown, exposure caps, volatility limits)
-- Risk overrides and forced de-risking
-- Risk events annotated in analytics
-### V 3.x.x - Long-Short Capability
-#### V 3.6.0
-- Support for negative weights and short positions
-- Net vs gross exposure tracking
-- Margin-aware accounting
-- Short exposure limits and forced liquidation rules
-#### V 3.7.0
-- Borrow / financing cost modeling
-- Time-dependent short carry
-- Short-side performance attribution
-### V 4.x.x - Learning and Adaptation
-#### V 4.7.0
-- Feature engineering from price, macro, regime, and risk data
-- Walk-forward validated ML models
-- ML used as an allocator / confidence modulator, not a price predictor
-- ML outputs feed into sizing and allocation layers (never execution)
 
 # Additions:
 ## V 1.1.0
