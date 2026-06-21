@@ -11,6 +11,7 @@ import { ApiError } from "../api/client";
 import { useDailyRows, useScenarios, useTearsheet } from "../api/hooks";
 import type { TableModel, TearsheetMetricsModel } from "../api/types";
 import { MetricGrid, type Metric } from "../components/MetricGrid";
+import { ChartSkeleton, Skeleton } from "../components/Skeleton";
 import { DataTable, type Column } from "../components/tables/DataTable";
 import { formatCurrency, formatPercent, formatRatio } from "../lib/format";
 
@@ -133,14 +134,14 @@ export function TearsheetPage() {
       )}
 
       {tearsheet.isLoading ? (
-        <Muted>Loading tearsheet…</Muted>
+        <TearsheetSkeleton />
       ) : tearsheet.isError ? (
         <Muted tone="error">{errorMessage(tearsheet.error)}</Muted>
       ) : tearsheet.data && summary ? (
         <>
           <MetricGrid metrics={buildMetrics(summary)} />
 
-          <Suspense fallback={<Muted>Loading charts…</Muted>}>
+          <Suspense fallback={<ChartSkeleton height={320} />}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "1rem", marginTop: "1.5rem" }}>
               <ChartCard title="Equity Curve">
                 <PlotlyLineChart series={[tearsheet.data.equity_curve]} yLabel="NAV ($)" yTickFormat="$,.0f" height={320} />
@@ -208,6 +209,19 @@ function ChartCard({ title, children }: { title: string; children: ReactNode }) 
     <div style={{ border: "1px solid var(--border-soft)", borderRadius: 8, padding: "0.75rem" }}>
       <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{title}</div>
       {children}
+    </div>
+  );
+}
+
+/** Loading placeholder mirroring the tearsheet's metric grid + equity/drawdown charts. */
+function TearsheetSkeleton() {
+  return (
+    <div style={{ marginTop: "0.5rem" }}>
+      <Skeleton height={90} radius={8} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "1rem", marginTop: "1.5rem" }}>
+        <ChartSkeleton height={320} />
+        <ChartSkeleton height={320} />
+      </div>
     </div>
   );
 }

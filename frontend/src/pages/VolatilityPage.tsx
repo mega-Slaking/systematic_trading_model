@@ -14,6 +14,7 @@ import { lazy, Suspense, useState, type ReactNode } from "react";
 
 import { ApiError } from "../api/client";
 import { InfoTooltip } from "../components/InfoTooltip";
+import { ChartSkeleton, TableSkeleton } from "../components/Skeleton";
 import { StatCard, StatGrid } from "../components/StatCard";
 import { useUrlState } from "../hooks/useUrlState";
 import {
@@ -220,7 +221,7 @@ export function VolatilityPage() {
   }
 
   function renderChart() {
-    if (chart.isLoading) return <Muted>Loading chart…</Muted>;
+    if (chart.isLoading) return <ChartSkeleton height={460} />;
     if (chart.isError) return <Muted tone="error">{errorMessage(chart.error)}</Muted>;
     const data = chart.data;
     if (!data || data.series.length === 0) return <Muted>Insufficient history for this view.</Muted>;
@@ -242,7 +243,7 @@ export function VolatilityPage() {
 
     return (
       <>
-        <Suspense fallback={<Muted>Loading chart…</Muted>}>
+        <Suspense fallback={<ChartSkeleton height={460} />}>
           <PlotlyLineChart
             series={series}
             yLabel={CHART_LABELS[view]}
@@ -363,7 +364,7 @@ export function VolatilityPage() {
         Each estimator's latest reading vs the cross-estimator median ({windowKey} percentile).
       </p>
       {agreement.isLoading ? (
-        <Muted>Loading…</Muted>
+        <TableSkeleton rows={5} />
       ) : agreement.isError ? (
         <Muted tone="error">{errorMessage(agreement.error)}</Muted>
       ) : (
@@ -379,7 +380,7 @@ export function VolatilityPage() {
         {VOL_METHODS[activeEstimator] ?? activeEstimator}). Diagnostic only — not a trading signal.
       </p>
       {stateTable.isLoading ? (
-        <Muted>Loading…</Muted>
+        <TableSkeleton rows={5} />
       ) : stateTable.isError ? (
         <Muted tone="error">{errorMessage(stateTable.error)}</Muted>
       ) : (

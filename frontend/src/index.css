@@ -224,3 +224,17 @@ textarea {
   background: var(--surface-tab);
   border-radius: 4px;
 }
+
+/* Loading-skeleton placeholder (see components/Skeleton.tsx). */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.skeleton {
+  background: var(--surface-tab);
+  border: 1px solid var(--border-soft);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}

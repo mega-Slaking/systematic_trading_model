@@ -1,9 +1,7 @@
 /**
- * App shell (spec §7.2): header + tab nav, mirroring `streamlit/app.py`.
- *
- * Phases 1-2 wire the first three business views (NAV Comparison, Returns
- * Analysis, ETF Prices) behind the tab nav; the remaining tabs are present but
- * disabled until their phases land. Everything sits behind the `HealthGate`.
+ * App shell (spec §7.2): header + tab nav, mirroring `streamlit/app.py`. All
+ * seven business views are built; the tab nav is an ARIA tablist behind the
+ * `HealthGate`.
  */
 
 import type { KeyboardEvent } from "react";
@@ -36,17 +34,6 @@ type Tab = (typeof TABS)[number];
 /** Stable DOM id for a tab button, so the panel can label itself + arrow-nav can focus. */
 const tabId = (tab: Tab) => `tab-${tab.replace(/\s+/g, "-").toLowerCase()}`;
 
-// Tabs with a built page (all of them as of Phase 4).
-const ENABLED_TABS: ReadonlySet<Tab> = new Set<Tab>([
-  "NAV Comparison",
-  "Returns Analysis",
-  "Tearsheet",
-  "ETF Prices",
-  "Volatility Features",
-  "ETFs vs Macro",
-  "Strategies",
-]);
-
 export default function App() {
   return (
     <HealthGate>
@@ -60,17 +47,16 @@ function Shell() {
   // Active tab is URL-synced (refresh-safe + shareable); an unknown ?tab= falls back.
   const [active, setActive] = useUrlState<Tab>("tab", "NAV Comparison", { allowed: TABS });
 
-  const enabledTabs = TABS.filter((t) => ENABLED_TABS.has(t));
   // ARIA tablist keyboard model: arrows/Home/End move between tabs (wrapping) and
   // activate, moving focus to the newly-selected tab.
   function onTabKeyDown(e: KeyboardEvent<HTMLButtonElement>, tab: Tab) {
-    const i = enabledTabs.indexOf(tab);
+    const i = TABS.indexOf(tab);
     if (i < 0) return;
     let next: Tab | undefined;
-    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = enabledTabs[(i + 1) % enabledTabs.length];
-    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = enabledTabs[(i - 1 + enabledTabs.length) % enabledTabs.length];
-    else if (e.key === "Home") next = enabledTabs[0];
-    else if (e.key === "End") next = enabledTabs[enabledTabs.length - 1];
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = TABS[(i + 1) % TABS.length];
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = TABS[(i - 1 + TABS.length) % TABS.length];
+    else if (e.key === "Home") next = TABS[0];
+    else if (e.key === "End") next = TABS[TABS.length - 1];
     if (!next) return;
     e.preventDefault();
     setActive(next);
@@ -95,7 +81,6 @@ function Shell() {
         style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}
       >
         {TABS.map((tab) => {
-          const enabled = ENABLED_TABS.has(tab);
           const isActive = tab === active;
           return (
             <button
@@ -106,17 +91,15 @@ function Shell() {
               aria-selected={isActive}
               aria-controls="dashboard-tabpanel"
               tabIndex={isActive ? 0 : -1}
-              disabled={!enabled}
               onClick={() => setActive(tab)}
               onKeyDown={(e) => onTabKeyDown(e, tab)}
-              title={enabled ? undefined : "Coming in a later phase"}
               style={{
                 padding: "0.4rem 0.75rem",
                 borderRadius: 6,
                 border: isActive ? "1px solid var(--accent)" : "1px solid transparent",
                 background: isActive ? "var(--accent-bg)" : "var(--surface-tab)",
-                color: enabled ? (isActive ? "var(--accent)" : "var(--text-tab)") : "var(--text-disabled)",
-                cursor: enabled ? "pointer" : "not-allowed",
+                color: isActive ? "var(--accent)" : "var(--text-tab)",
+                cursor: "pointer",
                 fontSize: "0.9rem",
               }}
             >
@@ -145,22 +128,11 @@ function Shell() {
             <VolatilityPage />
           ) : active === "ETFs vs Macro" ? (
             <MacroPage />
-          ) : active === "Strategies" ? (
-            <StrategiesPage />
           ) : (
-            <ComingSoon tab={active} />
+            <StrategiesPage />
           )}
         </ErrorBoundary>
       </main>
     </div>
-  );
-}
-
-function ComingSoon({ tab }: { tab: Tab }) {
-  return (
-    <section style={{ border: "1px dashed var(--border-strong)", borderRadius: 8, padding: "2rem", color: "var(--text-3)", textAlign: "center" }}>
-      <strong>{tab}</strong>
-      <p style={{ margin: "0.5rem 0 0" }}>This view lands in a later phase.</p>
-    </section>
   );
 }
