@@ -159,6 +159,7 @@ export function TearsheetPage() {
                   y2Label="Sharpe"
                   y2TickFormat=".2f"
                   height={420}
+                  legendHint
                 />
               </ChartCard>
             )}

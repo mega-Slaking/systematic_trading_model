@@ -65,6 +65,7 @@ export function StrategiesPage() {
     render: (r) => (
       <button
         type="button"
+        className="icon-button"
         onClick={() => {
           if (!r.is_live) setLive.mutate(r.name);
         }}

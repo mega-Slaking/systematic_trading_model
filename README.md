@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.21.1
+## Current Version: V 1.21.2
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -925,3 +925,10 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
 - **Frontend UX Phase 4 — Volatility page information hierarchy (`frontend/src/pages/VolatilityPage.tsx`)**:
   - Replaced the long single-scroll layout with progressive disclosure. The diagnostic chart + state/context card stay always-visible at the top (the centrepiece); the analytical tables below are now grouped behind an in-page sub-tab bar showing **one section at a time**: *Estimators & State* (estimator comparison + states table), *Cross-asset* (relative-vol tables + pair ratio chart), *Historical outcomes* (the outcomes table, boxplot + combined conditions), and *Latest values* (raw table).
   - The active sub-section is URL-synced via the Phase 3 hook (`?volSection=`, validated, default *Estimators & State*), so it's refresh-safe and shareable. **Display-only:** nothing is removed (every table/chart is still reachable), all data hooks still run unconditionally so switching sections does not refetch or change any computed value. `tsc -b` + `npm run build` clean.
+
+  ## V 1.21.2
+
+- **Frontend UX Phase 5 — interaction affordances & accessibility (`frontend/src/App.tsx`, `index.css`, no behaviour change)**:
+  - **Tab nav a11y:** the header tabs are now a proper ARIA tablist — `role="tablist"`/`role="tab"` + `aria-selected`, roving `tabIndex`, and a keyboard model (←/→/↑/↓ move + activate with wrap, Home/End jump to first/last, focus follows); `<main>` is the labelled `role="tabpanel"`.
+  - **Visible focus:** a themed `:focus-visible` outline for buttons/tabs/selects/inputs/links (specificity-0 `:where()`), restoring a keyboard focus indicator on custom-styled controls.
+  - **Affordances:** the Strategies live-star gains an `.icon-button` hover background; a subtle opt-in `legendHint` on `PlotlyLineChart` ("click a legend entry to show/hide a series") is enabled on the Tearsheet Rolling Vol & Sharpe chart (the multi-series chart with no other toggle UI). `InfoTooltip` triggers were already focus-reachable. `tsc -b` + `npm run build` clean.

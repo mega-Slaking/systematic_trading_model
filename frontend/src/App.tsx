@@ -6,6 +6,8 @@
  * disabled until their phases land. Everything sits behind the `HealthGate`.
  */
 
+import type { KeyboardEvent } from "react";
+
 import { useHealth } from "./api/hooks";
 import { useUrlState } from "./hooks/useUrlState";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -31,6 +33,9 @@ const TABS = [
 
 type Tab = (typeof TABS)[number];
 
+/** Stable DOM id for a tab button, so the panel can label itself + arrow-nav can focus. */
+const tabId = (tab: Tab) => `tab-${tab.replace(/\s+/g, "-").toLowerCase()}`;
+
 // Tabs with a built page (all of them as of Phase 4).
 const ENABLED_TABS: ReadonlySet<Tab> = new Set<Tab>([
   "NAV Comparison",
@@ -55,6 +60,23 @@ function Shell() {
   // Active tab is URL-synced (refresh-safe + shareable); an unknown ?tab= falls back.
   const [active, setActive] = useUrlState<Tab>("tab", "NAV Comparison", { allowed: TABS });
 
+  const enabledTabs = TABS.filter((t) => ENABLED_TABS.has(t));
+  // ARIA tablist keyboard model: arrows/Home/End move between tabs (wrapping) and
+  // activate, moving focus to the newly-selected tab.
+  function onTabKeyDown(e: KeyboardEvent<HTMLButtonElement>, tab: Tab) {
+    const i = enabledTabs.indexOf(tab);
+    if (i < 0) return;
+    let next: Tab | undefined;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = enabledTabs[(i + 1) % enabledTabs.length];
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = enabledTabs[(i - 1 + enabledTabs.length) % enabledTabs.length];
+    else if (e.key === "Home") next = enabledTabs[0];
+    else if (e.key === "End") next = enabledTabs[enabledTabs.length - 1];
+    if (!next) return;
+    e.preventDefault();
+    setActive(next);
+    document.getElementById(tabId(next))?.focus();
+  }
+
   return (
     <div style={{ fontFamily: "var(--font-dashboard)", maxWidth: "min(2000px, 95vw)", margin: "0 auto", padding: "1.5rem 2rem" }}>
       <header style={{ borderBottom: "1px solid var(--border)", paddingBottom: "0.75rem", marginBottom: "1rem", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem" }}>
@@ -67,16 +89,26 @@ function Shell() {
         <ThemeToggle />
       </header>
 
-      <nav style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
+      <nav
+        role="tablist"
+        aria-label="Dashboard views"
+        style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}
+      >
         {TABS.map((tab) => {
           const enabled = ENABLED_TABS.has(tab);
           const isActive = tab === active;
           return (
             <button
               key={tab}
+              id={tabId(tab)}
               type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-controls="dashboard-tabpanel"
+              tabIndex={isActive ? 0 : -1}
               disabled={!enabled}
               onClick={() => setActive(tab)}
+              onKeyDown={(e) => onTabKeyDown(e, tab)}
               title={enabled ? undefined : "Coming in a later phase"}
               style={{
                 padding: "0.4rem 0.75rem",
@@ -94,7 +126,12 @@ function Shell() {
         })}
       </nav>
 
-      <main style={{ paddingBottom: "6rem" }}>
+      <main
+        id="dashboard-tabpanel"
+        role="tabpanel"
+        aria-labelledby={tabId(active)}
+        style={{ paddingBottom: "6rem" }}
+      >
         <ErrorBoundary key={active}>
           {active === "NAV Comparison" ? (
             <NavComparisonPage />
