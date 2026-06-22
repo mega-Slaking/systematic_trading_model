@@ -1,5 +1,5 @@
 # Project Overview
-## Current Version: V 1.21.3
+## Current Version: V 1.21.4
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
 This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
@@ -900,3 +900,9 @@ valuation: marks portfolio to market at mid prices, accounting: aggregates daily
   - **Volatility page loading states:** the main diagnostic chart now shows a `ChartSkeleton` during both query-loading and lazy-Suspense fallback states. Estimator-comparison and Volatility-states tables now show `TableSkeleton` placeholders while loading.
   - **Tearsheet loading states:** page-load now uses a `TearsheetSkeleton` with a metric-strip placeholder and two chart placeholders; chart-level lazy fallbacks use `ChartSkeleton`.
   *\- **Scope control:** smaller and secondary loading states remain as plain text intentionally, avoiding skeleton overuse while improving perceived responsiveness on the heaviest pages.
+
+  ## V 1.21.4
+
+- **Bugfix — backtest job orphaned on tab switch (`frontend/src/pages/StrategiesPage.tsx`, `frontend/src/api/hooks.ts`)**:
+  - Previously, clicking **Run backtest** then leaving the Strategies tab unmounted `BacktestRunner`, dropping its local `jobId`; on return the progress bar + **Cancel** button were gone even though the run continued server-side (holding the SQLite write lock until it finished, blocking reads with "database is locked"). The in-flight job could no longer be cancelled from the UI.
+  - Added a `useJobs()` hook over the existing `GET /jobs` registry; `BacktestRunner` now re-attaches on mount to any `queued`/`running` job, restoring its progress + Cancel. Only active jobs are re-adopted (a finished job won't resurface a stale "done" banner). No backend change.

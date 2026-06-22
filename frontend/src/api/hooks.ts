@@ -635,6 +635,16 @@ export function useTriggerBacktest() {
   });
 }
 
+/** All backtest jobs the API process has seen — used to re-attach to an in-flight
+ *  job after a remount (e.g. tab switch) so its progress + Cancel aren't orphaned. */
+export function useJobs() {
+  return useQuery<JobStatus[]>({
+    queryKey: ["jobs"],
+    queryFn: () => apiGet<JobStatus[]>("/jobs"),
+    staleTime: 0,
+  });
+}
+
 /** Poll a backtest job (endpoint 14); auto-refetches while queued/running. */
 export function useJob(jobId: string | undefined) {
   return useQuery<JobStatus>({
