@@ -13,6 +13,7 @@ import { ApiError } from "../api/client";
 import {
   useCancelBacktest,
   useJob,
+  useJobs,
   useResetLiveStrategy,
   useSetLiveStrategy,
   useStrategies,
@@ -151,8 +152,18 @@ function BacktestRunner() {
   const queryClient = useQueryClient();
   const trigger = useTriggerBacktest();
   const cancel = useCancelBacktest();
+  const jobs = useJobs();
   const [jobId, setJobId] = useState<string | undefined>(undefined);
   const job = useJob(jobId);
+
+  // Re-attach to an in-flight job after a remount (e.g. switching tabs and back),
+  // so its progress bar + Cancel button reappear instead of being silently
+  // orphaned while the backtest keeps running server-side.
+  useEffect(() => {
+    if (jobId) return;
+    const inflight = jobs.data?.find((j) => j.status === "queued" || j.status === "running");
+    if (inflight) setJobId(inflight.job_id);
+  }, [jobs.data, jobId]);
 
   const data = job.data;
   const status = data?.status;
