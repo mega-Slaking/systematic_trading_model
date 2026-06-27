@@ -1,234 +1,241 @@
-# Project Overview
+# Systematic Trading Research Platform
+
 ## Current Version: V 1.21.4
 ![tests](https://github.com/mega-Slaking/systematic_trading_model/actions/workflows/tests.yml/badge.svg)
 
-This project implements a systematic, rule-based trading strategy designed to tilt a portfolio between three U.S. Treasury–focused bond ETFs:
-
-TLT: Long-duration Treasuries
-
-AGG: Broad U.S. bond market
-
-SHY: Short-duration “cash-like” Treasuries
-
-The strategy uses a hybrid decision framework that combines:
-
-- Price-based trend and momentum signals, which provide faster reaction to changing market conditions
-- Macro-based direction and acceleration filters, which act as a slower-moving regime validation layer
-- Volatility and covariance-aware position sizing, which adjusts exposure based on estimated asset and portfolio risk
-
-The system is designed to participate in bond rallies when price and macro conditions are supportive, reduce duration exposure during tightening or unstable macro regimes, and rotate toward lower-risk bond exposure when conviction is weaker.
-
-Rather than relying on explicit rate forecasts or discretionary assumptions about future policy decisions, the engine uses observable market and macro states to make systematic allocation decisions.
-
-
-# Goal of the Strategy
-
-The core goal of the strategy is to allocate across bond exposures based on the prevailing monetary and macro regime.
-
-The engine aims to rotate toward assets that are better suited to the current environment, while reducing duration exposure when macro instability or inflation risk outweighs the expected reward.
-
-In simplified terms:
-
-- When disinflation and weakening growth conditions are supportive of duration, the strategy can increase exposure to longer-duration bonds such as TLT.
-- When macro conditions are stable and non-accelerating, the strategy can favour a broader intermediate bond allocation such as AGG.
-- When inflation pressure, policy uncertainty, or macro instability rises, the strategy can reduce duration exposure and rotate toward lower-duration assets such as SHY.
-
-The strategy is designed to be:
-
-- Simple enough to understand
-- Systematic enough to reduce emotional decision-making
-- Flexible enough to evolve through new signals, sizing methods, and scenario testing
-- Grounded in economic reasoning rather than hindsight-fitted rules
-
-# Core Assumptions
-
-The strategy is built on the following economically motivated assumptions:
-
-| Economic Condition | Policy / Market Interpretation | Preferred Duration Exposure |
-|---|---|---|
-| Inflation falling | Easing expectations may increase | Longer duration can benefit |
-| Growth weakening | Defensive demand for bonds may rise | Longer duration can benefit |
-| Growth stable and inflation non-accelerating | Policy environment may remain balanced | Broad bond exposure can be appropriate |
-| Inflation accelerating | Tightening expectations may increase | Duration exposure should be reduced |
-| High macro uncertainty | Risk control becomes more important | Lower-duration exposure may be preferred |
-
-Bonds do not move only because yields have changed. They move because expectations about inflation, growth, policy, and risk have changed.
-
-Macro data is slower-moving, while price data reacts faster:
-
-- Price signals help with timing
-- Macro signals help with validation
-- Volatility and covariance estimates help with risk sizing
-
-# Strategy Logic
-
-At a high level, the strategy converts market and macro conditions into a systematic allocation decision across TLT, AGG, and SHY.
-
-The engine does not rely on a single rule, moving-average crossover, or static macro lookup table. Instead, it uses a modular decision pipeline that separates signal generation, regime interpretation, conviction scoring, risk-aware sizing, and portfolio constraints.
-
-## Signal Inputs
-
-The strategy currently uses two main categories of signals:
-
-### Price Signals
-
-Price signals provide the faster-moving view of the market.
-
-They are used to identify whether each asset is currently behaving favourably from a trend or momentum perspective. These signals help determine timing and whether the market is confirming the macro view.
-
-Examples include:
-
-- Recent return behaviour
-- Trend / momentum direction
-- Asset-level price confirmation
-- Missing-price and data-quality checks
-
-### Macro Signals
-
-Macro signals provide the slower-moving economic context.
-
-They are used to identify whether the broader environment is supportive or hostile for duration exposure.
-
-The macro layer focuses on:
-
-- Inflation direction
-- Growth direction
-- Macro acceleration or deceleration
-- Labour-market strength or weakness
-- Regime stability or instability
-
-The purpose of the macro layer is not to forecast policy directly. Instead, it acts as a validation layer for deciding whether duration exposure is economically justified.
-
-# Decision Framework
-
-The strategy uses a decision framework rather than a fixed allocation table.
-
-Each run produces a `Decision` object that carries the state of the strategy through the pipeline. This object is progressively enriched with:
-
-- Price state
-- Macro state
-- Regime classification
-- Conviction score
-- Base allocation
-- Volatility estimates
-- Covariance estimates
-- Sized weights
-- Final constrained weights
-- Rebalance instructions
-- Trace/debug metadata
-
-This makes the system easier to test, inspect, and extend.
-
-## Allocation Intuition
-
-The simplified economic logic is:
-
-| Environment | Strategy Interpretation | Allocation Bias |
-|---|---|---|
-| Disinflation + weakening growth | Conditions may support duration | Increase long-duration exposure, typically TLT |
-| Stable growth + non-accelerating inflation | Balanced bond environment | Favour broad bond exposure, typically AGG |
-| Re-accelerating inflation or tightening pressure | Duration risk is less attractive | Reduce TLT exposure |
-| High uncertainty or weak conviction | Risk control becomes more important | Rotate toward lower-duration exposure, typically SHY |
-
-
-These are not hard-coded forecasts. They are economic priors that guide how the system interprets observable price and macro data.
-
-The final allocation is then adjusted by the risk layer.
-
-# Experimental Architecture
-
-The strategy is designed to support controlled experimentation.
-
-Different scenario configurations can be tested by changing the relevant config objects rather than rewriting the strategy logic.
-
-Examples of configurable experiments include:
-
-- Volatility estimation method
-  - Rolling standard deviation
-  - EWMA volatility
-  - GARCH volatility
-
-- Volatility scaling behaviour
-  - Scaling on/off
-  - Different volatility lookback windows
-  - Different volatility scaling powers
-
-- Covariance modelling
-  - Sample covariance
-  - EWMA covariance
-  - Portfolio volatility targeting
-
-- Allocation profiles
-  - Current base allocation logic
-  - Legacy conviction-driven allocation logic
-  - Future strategy variants
-
-- Conviction profiles
-  - Conviction disabled
-  - Conviction-driven sizing
-  - Future macro/price confidence models
-
-The goal is to make strategy development empirical. Instead of relying on a single backtest result, the system can compare multiple strategy configurations under the same data, execution, cost, and portfolio assumptions.
-
-# Experimental Findings
-
-Running the strategy registry through the experimental backtesting framework produced a clear and somewhat counterintuitive result: **the risk-layer machinery — position-sizing method, asset-wise volatility scaling, and covariance-based portfolio volatility targeting — had negligible effect on realised capital gains.** The most profitable configurations of the strategy were those that *did not* apply covariance scaling or asset-wise volatility scaling, or that used low volatility-scaling powers. The cumulative return is driven overwhelmingly by the regime-conditional allocation across TLT/AGG/SHY, not by the volatility normalisation applied on top of it.
-
-This is consistent with Harvey et al. (2018) [^harvey2018], who studied the impact of volatility targeting across asset classes and found that while volatility targeting improved risk-adjusted returns (Sharpe ratio) for equities, it had **essentially no effect on the Sharpe ratio of government bonds**. Our findings extend the same intuition to this bond-rotation strategy: because the underlying duration exposures are already relatively well-behaved in volatility terms, the additional volatility- and covariance-based normalisation contributes little incremental performance and, in the most profitable variants, is best left off or heavily damped.
-
-[^harvey2018]: Harvey, C. R., Hoyle, E., Korgaonkar, R., Rattray, S., Sargaison, M., & van Hemert, O. (2018). *The Impact of Volatility Targeting*. SSRN Working Paper. <http://dx.doi.org/10.2139/ssrn.3175538>
-
-# Running the App
-
-## Analytics dashboard (FastAPI + React)
-
-The dashboard is a **React single-page app served data by a FastAPI service** (see
-`docs/fastapi_react_migration_spec.md`). It reads the persisted results in
-`data/database.db` and reuses the existing Python compute behind a read-only REST
-API. Run two processes from the repo root:
-
-- **API**: `uvicorn api.main:app --reload --port 8000` — serves `/api/v1`, plus
-  `/docs` (Swagger UI) and `/openapi.json`.
-- **SPA**: `npm --prefix frontend run dev` — Vite dev server on
-  `http://localhost:5173`, which proxies `/api` → `:8000`.
-
-Then open **http://localhost:5173**. One-time dependency setup:
-`pip install -r requirements.txt` (API) and `npm --prefix frontend install` (SPA).
-The seven tabs cover NAV comparison, returns, the tearsheet, ETF prices,
-volatility features, ETFs vs macro, and the strategy registry.
-
-## Running a backtest
-
-- From the shell: `python run_backtest.py` — runs the whole strategy registry and
-  persists the results to `data/database.db`.
-- Or from the dashboard: the **Strategies** tab has a "Run backtest" button (the
-  same engine, behind the `/api/v1/jobs` endpoints).
-
-## Legacy Streamlit dashboard (retired in V1.15.0)
-
-The original Streamlit dashboard under `streamlit/` is **retired but not deleted**
-— it is kept as a reference / rollback and still runs against the same
-`data/database.db`:
-
-```
-streamlit run streamlit/app.py
+A modular **Python / FastAPI / React** platform for systematic strategy research:
+signal generation, regime classification, risk-aware portfolio construction,
+execution-cost-aware backtesting, and an interactive analytics dashboard. The
+engine is strategy-agnostic — strategies are declared as config in a registry and
+run through one shared pipeline. A regime-conditional **TLT / AGG / SHY
+bond-rotation strategy** ships as the reference implementation.
+
+---
+
+## Demo
+
+![Dashboard demo](docs/demo.gif)
+
+The React dashboard covers **backtesting** (launch and monitor runs from the UI),
+**volatility diagnostics**, **portfolio analytics**, **tearsheets**, **ETF and
+macro views**, and **strategy-registry analysis**.
+
+| | |
+|---|---|
+| ![NAV comparison](docs/screenshots/01-nav-comparison.png) | ![Returns analysis](docs/screenshots/02-returns-analysis.png) |
+| **NAV comparison** — scenario NAV curves vs. buy-&-hold benchmarks. | **Returns analysis** — daily-return distribution and worst-day attribution. |
+| ![Tearsheet](docs/screenshots/03-tearsheet.png) | ![Volatility features](docs/screenshots/04-volatility-features.png) |
+| **Tearsheet** — equity curve, drawdown, rolling volatility/Sharpe. | **Volatility diagnostics** — rolling/EWMA/GARCH estimates with regime shading. |
+| ![ETFs vs macro](docs/screenshots/05-etfs-vs-macro.png) | ![Strategy registry](docs/screenshots/06-strategies.png) |
+| **ETFs vs macro** — latest macro readings and the ETF-vs-indicator dual-axis explorer. | **Strategy registry** — 18 presets; launch a backtest run from the UI. |
+
+---
+
+## Engineering Highlights
+
+- **Modular research pipeline** — a single strongly-typed `Decision` flows through
+  composable stages (signals → regime → allocation → risk → sizing → constraints),
+  each independently testable.
+- **Strategy registry & controlled experimentation** — strategies are declared as
+  `StrategyConfig` entries and run through the same engine, data, and cost model,
+  so performance differences are attributable to the config, not the harness.
+- **Portfolio construction & execution simulation** — target weights are turned
+  into auditable SELL → BUY trade sequences, with NAV marked from post-trade cash
+  and holdings.
+- **Volatility estimation** — rolling standard deviation, EWMA, and GARCH(1,1),
+  exposed both as a point-in-time sizing input and as a lookahead-safe feature
+  surface.
+- **Covariance estimation** — sample and EWMA covariance, with portfolio
+  volatility targeting and a precompute-once returns view cached across scenarios.
+- **Transaction cost & slippage modelling** — explicit per-trade fee and slippage
+  costs tracked across the full backtest horizon.
+- **FastAPI backend** — read-only REST API (`/api/v1`) over the persisted results,
+  with Swagger UI at `/docs`; backtests run as cancellable subprocess jobs.
+- **React / Vite frontend** — typed single-page app (React Query data layer,
+  Plotly charts, light/dark/high-contrast theming).
+- **SQLite persistence** — ETF prices, macro series, volatility features, and
+  backtest results in `data/database.db`.
+- **pytest test suite** — 446 tests covering signals, risk models, execution,
+  accounting, and the API serialization boundary.
+- **CI & pre-commit** — GitHub Actions on every push/PR, plus a local pre-commit
+  hook running the fast suite.
+- **Optional C++/pybind11 covariance acceleration** — the heaviest covariance
+  computation has a compiled path exposed to Python via `pybind11`.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    DATA["Data sources<br/>ETF prices · macro series"] --> SIG["Signal engine<br/>price + macro"]
+    SIG --> REG["Regime classification<br/>+ base allocation"]
+    REG --> RISK["Risk model<br/>volatility · covariance"]
+    RISK --> PC["Portfolio construction<br/>sizing · constraints · execution"]
+    PC --> BT["Backtest engine<br/>valuation · costs · NAV"]
+    BT --> STORE[("Results store<br/>SQLite")]
+    STORE --> API["FastAPI<br/>/api/v1"]
+    API --> UI["React dashboard"]
 ```
 
-It is now **frozen**: new analytics (e.g. the Strategies tab and the
-backtest-from-UI trigger) land only in the FastAPI + React stack, so Streamlit
-will drift behind over time. The React app reached parity with all six Streamlit
-views in V1.13.0.
+Detailed diagrams live in [docs/architecture/](docs/architecture/):
 
-# Testing
+- [System overview](docs/architecture/system-overview.md) — data → strategy engine → portfolio construction → backtest → analytics → frontend.
+- [Backend module map](docs/architecture/backend-module-map.md) — data, signals, regimes, covariance, volatility, constraints, execution, and tearsheets.
+- [Frontend / data flow](docs/architecture/frontend-data-flow.md) — API → hooks → pages/components → charts/tables.
 
-A `pytest` suite lives under `tests/` (see `tests/TEST_PLAN.md` for the full blueprint and coverage map).
+---
 
-- Run everything: `python -m pytest`
-- Fast loop (skips the slow GARCH fit and backtest e2e): `python -m pytest -m "not slow"`
+## Project Scale
 
-It runs automatically in two places:
-- **CI** — GitHub Actions (`.github/workflows/tests.yml`) on every push to `main`/`dev` and on pull requests.
-- **Pre-commit** — a local hook runs the fast suite before each commit. Enable once with `pip install -r requirements-dev.txt` then `pre-commit install`.
+| Metric | Value |
+|---|---|
+| Tests (`pytest`) | 446 |
+| Strategy presets in the registry | 18 |
+| Dashboard tabs | 7 |
+| ETF price history (ingested) | ~24 years (2002–2026, ~6,000 trading days) |
+| C++ covariance speedup vs. Python | **TODO:** benchmark and record |
+
+> Counts reflect the current `main`/`dev` state and will drift; treat them as
+> indicative. The C++ speedup has not yet been formally measured.
+
+---
+
+## Reference Strategy
+
+The reference strategy rotates a portfolio across three U.S. Treasury bond ETFs —
+**TLT** (long-duration), **AGG** (broad market), and **SHY** (short-duration,
+cash-like) — using **price momentum**, **macro regime filters**, and
+**volatility-aware sizing**. It tilts toward duration when disinflation and
+weakening growth are supportive, favours broad exposure in stable regimes, and
+rotates defensive when inflation or macro instability rises — all from observable
+market and macro state rather than explicit rate forecasts.
+
+Full methodology — universe, assumptions, signal inputs, the `Decision`
+framework, allocation intuition, and the experimental architecture — is in
+**[docs/methodology.md](docs/methodology.md)**.
+
+---
+
+## Experimental Findings
+
+Running the strategy registry through the backtesting framework produced a clear,
+somewhat counterintuitive result: **the risk-layer machinery — position-sizing
+method, asset-wise volatility scaling, and covariance-based portfolio volatility
+targeting — had negligible effect on realised capital gains** for this
+bond-rotation strategy. Returns are driven overwhelmingly by the
+regime-conditional allocation across TLT/AGG/SHY, not by the volatility
+normalisation layered on top. This is consistent with Harvey et al. (2018) on the
+impact of volatility targeting, who found essentially no Sharpe-ratio benefit for
+government bonds. See [docs/methodology.md](docs/methodology.md#experimental-findings)
+for the full discussion and reference.
+
+---
+
+## Running the App
+
+The dashboard is a **React single-page app served by a FastAPI service**. It reads
+persisted results from `data/database.db` and reuses the existing Python compute
+behind a read-only REST API. Run the two processes from the repo root.
+
+### 1. Install dependencies
+
+```bash
+pip install -r requirements.txt          # API + engine
+npm --prefix frontend install            # SPA
+```
+
+### 2. Run the API
+
+```bash
+uvicorn api.main:app --reload --port 8000
+# serves /api/v1, plus /docs (Swagger UI) and /openapi.json
+```
+
+### 3. Run the frontend
+
+```bash
+npm --prefix frontend run dev            # Vite dev server on :5173 (proxies /api -> :8000)
+```
+
+Then open **http://localhost:5173**.
+
+### 4. Run a backtest
+
+```bash
+python run_backtest.py                   # runs the whole strategy registry -> data/database.db
+```
+
+Or trigger it from the dashboard's **Strategies** tab ("Run backtest" — the same
+engine, behind the `/api/v1/jobs` endpoints, with live progress and cancel).
+
+### 5. Run the tests
+
+```bash
+python -m pytest                         # everything
+python -m pytest -m "not slow"           # fast loop (skips GARCH fit + backtest e2e)
+```
+
+> **Legacy Streamlit dashboard (retired in V1.15.0):** the original dashboard
+> under `streamlit/` is kept as a reference/rollback and still runs
+> (`streamlit run streamlit/app.py`) against the same DB, but is frozen — new
+> analytics land only in the FastAPI + React stack.
+
+---
+
+## Testing & CI
+
+- **pytest** — 446 tests under `tests/` (see `tests/TEST_PLAN.md` for the coverage
+  map). Slow tests (GARCH fits, backtest e2e) are marked `slow`; skip them with
+  `-m "not slow"`.
+- **GitHub Actions** — `.github/workflows/tests.yml` runs the suite on every push
+  to `main`/`dev` and on pull requests.
+- **pre-commit** — a local hook runs the fast suite before each commit. Enable
+  once with `pip install -r requirements-dev.txt` then `pre-commit install`.
+
+---
+
+## Repository Structure
+
+```
+.
+├── api/                 # FastAPI service: routers, services, serialization, schemas
+├── frontend/            # React + Vite SPA (pages, hooks, charts, tables)
+├── src/                 # Research engine
+│   ├── api_fetch/       #   ETF + macro data ingestion
+│   ├── signals_price/   #   price trend / momentum signals
+│   ├── signals_macro/   #   macro regime signals
+│   ├── decision/        #   regime, conviction, sizing, constraints pipeline
+│   ├── strategy/        #   StrategyConfig + the strategy registry
+│   ├── volatility/      #   rolling / EWMA / GARCH estimation + feature surface
+│   ├── covariance/      #   sample / EWMA covariance + returns view
+│   ├── execution/       #   rebalance + trade generation
+│   ├── backtest/        #   backtest engine + portfolio
+│   ├── accounting/      #   valuation, metrics, tearsheets
+│   ├── engine/          #   per-date orchestration
+│   └── storage/         #   SQLite read/write
+├── tests/               # pytest suite (+ TEST_PLAN.md)
+├── docs/                # methodology, architecture diagrams, design specs
+│   └── architecture/    #   Mermaid system / backend / frontend diagrams
+├── data/                # SQLite database (data/database.db)
+├── streamlit/           # retired legacy dashboard (frozen)
+└── .github/workflows/   # CI (tests.yml)
+```
+
+---
+
+## Roadmap / Future Work
+
+- **Live data integration** — wire the ingestion layer to live ETF/macro feeds for
+  daily decisioning beyond backtests.
+- **Broader asset-class support** — generalise the universe beyond Treasury ETFs.
+- **Improved strategy abstraction** — unify the backtest and live config paths
+  behind one selectable `StrategyConfig` registry (see
+  `docs/strategy_config_design_spec.md`).
+- **Production deployment** — single-process static serving of the SPA from
+  FastAPI, containerisation, and a deployable build.
+- **Expanded performance benchmarking** — formal C++ vs. Python covariance
+  benchmarks and broader strategy performance baselines.
 
 # Additions:
 ## V 1.1.0
