@@ -49,6 +49,9 @@ output/
 !/docs/screenshots/
 !/docs/screenshots/*.png
 
+# Benchmark artifacts: logs, isolated DB copies, generated summaries.
+benchmarks/results/
+
 # Large media: keep video out of git (exceeds GitHub's 100 MB file limit).
 # The full demo video can stay locally but is never committed; the README
 # uses docs/demo.gif + docs/screenshots/ instead.

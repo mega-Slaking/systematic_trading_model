@@ -7,6 +7,7 @@ from src.covariance.models import (
     CovarianceEstimate,
 )
 from src.covariance.returns_view import CovarianceReturnsView
+from src.utils.timing import accumulate
 
 try:
     import fast_covariance_cpp # type: ignore[import-not-found]
@@ -14,6 +15,7 @@ except ImportError:
     fast_covariance_cpp = None
 
 
+@accumulate("cov.estimate")  # total covariance time (cache lookups + kernel misses)
 def estimate_covariance_from_returns_view(
     *,
     returns_view: CovarianceReturnsView,
@@ -135,6 +137,7 @@ def _empty_estimate_for_date(
     )
 
 
+@accumulate("cov.sample_kernel")  # runs only on cache miss: the C++/pandas branch
 def _estimate_sample_cov_from_returns_view(
     *,
     returns_view: CovarianceReturnsView,
@@ -209,6 +212,7 @@ def _estimate_sample_cov_from_returns_view(
     )
 
 
+@accumulate("cov.ewma_kernel")  # runs only on cache miss: the C++/pandas branch
 def _estimate_ewma_cov_from_returns_view(
     *,
     returns_view: CovarianceReturnsView,
