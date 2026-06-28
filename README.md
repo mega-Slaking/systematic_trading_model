@@ -94,10 +94,15 @@ Detailed diagrams live in [docs/architecture/](docs/architecture/):
 | Strategy presets in the registry | 18 |
 | Dashboard tabs | 7 |
 | ETF price history (ingested) | ~24 years (2002–2026, ~6,000 trading days) |
-| C++ covariance speedup vs. Python | **TODO:** benchmark and record |
+| C++ covariance speedup vs. Python | **~230–410× kernel** · 1.4–5.2× end-to-end |
 
 > Counts reflect the current `main`/`dev` state and will drift; treat them as
-> indicative. The C++ speedup has not yet been formally measured.
+> indicative. The C++ speedup is measured by
+> [`benchmarks/benchmark_cpp.py`](benchmarks/) (compiled kernel vs. the pandas
+> fallback): the covariance kernel is **~230–410× faster per computation**, while
+> the end-to-end backtest speedup ranges **1.4–5.2×** and shrinks as the strategy
+> count grows — covariance is cached across strategies, so it is a smaller share
+> of total runtime on larger runs.
 
 ---
 
